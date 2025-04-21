@@ -39,8 +39,8 @@ const Navbar = () => {
   };
 
   const categories = [
-    { name: "All Products", path: "/products" },
-    { name: "Sofa Beds", path: "/products?category=sofa-beds" },
+    { name: "Sofas", path: "/products?category=sofas" },
+    { name: "Beds", path: "/products?category=beds" },
     { name: "Tables", path: "/products?category=tables" },
     { name: "Chairs", path: "/products?category=chairs" },
     { name: "Wardrobes", path: "/products?category=wardrobes" },
@@ -117,7 +117,16 @@ const Navbar = () => {
               )}
             </div>
 
-            {/* All Products link removed - now in Categories dropdown */}
+            <Link
+              to="/products"
+              className={`font-medium ${
+                isActive("/products")
+                  ? "text-primary"
+                  : "text-gray-700 hover:text-primary"
+              } transition-colors duration-300`}
+            >
+              All Products
+            </Link>
 
             <Link
               to="/about"
@@ -342,7 +351,15 @@ const Navbar = () => {
                 </div>
               )}
 
-              {/* All Products link removed - now in Categories dropdown */}
+              <Link
+                to="/products"
+                className={`font-medium ${
+                  isActive("/products") ? "text-primary" : "text-gray-700"
+                } hover:text-primary transition-colors duration-300`}
+                onClick={() => setIsOpen(false)}
+              >
+                All Products
+              </Link>
 
               <Link
                 to="/about"

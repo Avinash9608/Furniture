@@ -2,72 +2,146 @@ import axios from "axios";
 
 // Create axios instance with base URL
 const api = axios.create({
-  baseURL: "/api",
+  baseURL: "http://localhost:5000/api",
+  timeout: 10000,
+  withCredentials: false, // Must be false to work with wildcard CORS
   headers: {
-    "Content-Type": "application/json",
+    Accept: "application/json",
   },
 });
 
-// Add request interceptor to add auth token
-api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem("token");
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
+// Log the actual baseURL being used
+console.log("API baseURL:", api.defaults.baseURL);
 
-// Add response interceptor to handle errors
-api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    // Handle 401 Unauthorized errors
-    if (error.response && error.response.status === 401) {
-      // Only clear tokens if we're not on the admin login page
-      if (window.location.pathname !== "/admin/login") {
-        console.log(
-          "401 error detected, but not clearing tokens for admin pages"
-        );
-        // Don't redirect or clear tokens for admin pages
-        if (!window.location.pathname.startsWith("/admin/")) {
-          localStorage.removeItem("token");
-          localStorage.removeItem("user");
-          window.location.href = "/admin/login";
-        }
-      }
-    }
-    return Promise.reject(error);
-  }
-);
+// This request interceptor has been moved below
 
-// Auth API
-export const authAPI = {
-  login: (credentials) => api.post("/auth/login", credentials),
-  register: (userData) => api.post("/auth/register", userData),
-  getProfile: () => api.get("/auth/me"),
-  logout: () => api.get("/auth/logout"),
-};
+// Helper function to get cookies (used for future cookie-based auth)
+// function getCookie(name) {
+//   const value = `; ${document.cookie}`;
+//   const parts = value.split(`; ${name}=`);
+//   if (parts.length === 2) return parts.pop().split(";").shift();
+// }
 
-// Products API
-export const productsAPI = {
-  getAll: (params) => api.get("/products", { params }),
+// This response interceptor has been moved below
+
+// This helper function has been replaced with inline code in the response interceptor
+
+// Products API with better error handling
+const productsAPI = {
+  getAll: (params = {}) => api.get("/products", { params }),
   getById: (id) => api.get(`/products/${id}`),
-  create: (productData) => {
-    // Check if productData is FormData (for file uploads)
-    const isFormData = productData instanceof FormData;
-    return api.post("/products", productData, {
-      headers: isFormData ? { "Content-Type": "multipart/form-data" } : {},
+  create: (productData, headers) => {
+    console.log("Creating product with data:", productData);
+    const formData = new FormData();
+
+    // Handle different types of product data
+    if (productData instanceof FormData) {
+      // If already FormData, use as is
+      // Check if custom headers were provided
+      if (headers) {
+        console.log("Using custom headers for product creation:", headers);
+        return api.post("/products", productData, { headers });
+      }
+      return api.post("/products", productData);
+    }
+
+    // Convert object to FormData
+    Object.entries(productData).forEach(([key, value]) => {
+      if (key === "images") {
+        // Handle images array (could be FileList, File[], or array of objects with file property)
+        if (value instanceof FileList) {
+          if (value.length === 0) {
+            // Use default image if no files provided
+            console.log("No images provided, using default image");
+            formData.append("defaultImage", "true");
+          } else {
+            Array.from(value).forEach((file) =>
+              formData.append("images", file)
+            );
+          }
+        } else if (Array.isArray(value)) {
+          if (value.length === 0) {
+            // Use default image if empty array
+            console.log("Empty images array, using default image");
+            formData.append("defaultImage", "true");
+          } else {
+            let hasValidImages = false;
+            value.forEach((item) => {
+              if (item instanceof File) {
+                formData.append("images", item);
+                hasValidImages = true;
+              } else if (item.file instanceof File) {
+                formData.append("images", item.file);
+                hasValidImages = true;
+              }
+            });
+
+            if (!hasValidImages) {
+              console.log("No valid images found, using default image");
+              formData.append("defaultImage", "true");
+            }
+          }
+        }
+      } else if (
+        key === "dimensions" ||
+        key === "specifications" ||
+        typeof value === "object"
+      ) {
+        // Handle objects by stringifying them
+        formData.append(key, JSON.stringify(value));
+      } else if (value !== undefined && value !== null) {
+        // Handle primitive values
+        formData.append(key, value);
+      }
     });
+
+    console.log("Sending product data to server...");
+    // Check if custom headers were provided
+    if (headers) {
+      console.log("Using custom headers for product creation:", headers);
+      return api.post("/products", formData, { headers });
+    }
+    return api.post("/products", formData);
   },
   update: (id, productData) => {
-    // Check if productData is FormData (for file uploads)
-    const isFormData = productData instanceof FormData;
-    return api.put(`/products/${id}`, productData, {
-      headers: isFormData ? { "Content-Type": "multipart/form-data" } : {},
+    console.log("Updating product with ID:", id);
+    const formData = new FormData();
+
+    // Handle different types of product data
+    if (productData instanceof FormData) {
+      // If already FormData, use as is
+      return api.put(`/products/${id}`, productData);
+    }
+
+    // Convert object to FormData
+    Object.entries(productData).forEach(([key, value]) => {
+      if (key === "images") {
+        // Handle images array (could be FileList, File[], or array of objects with file property)
+        if (value instanceof FileList) {
+          Array.from(value).forEach((file) => formData.append("images", file));
+        } else if (Array.isArray(value)) {
+          value.forEach((item) => {
+            if (item instanceof File) {
+              formData.append("images", item);
+            } else if (item.file instanceof File) {
+              formData.append("images", item.file);
+            }
+          });
+        }
+      } else if (
+        key === "dimensions" ||
+        key === "specifications" ||
+        typeof value === "object"
+      ) {
+        // Handle objects by stringifying them
+        formData.append(key, JSON.stringify(value));
+      } else if (value !== undefined && value !== null) {
+        // Handle primitive values
+        formData.append(key, value);
+      }
     });
+
+    return api.put(`/products/${id}`, formData);
   },
   delete: (id) => api.delete(`/products/${id}`),
   createReview: (id, reviewData) =>
@@ -77,6 +151,162 @@ export const productsAPI = {
   search: (query) => api.get(`/products/search?q=${query}`),
   getStats: () => api.get("/products/stats"),
 };
+
+// Add request interceptor to always set the Authorization header
+api.interceptors.request.use(
+  (config) => {
+    console.log("Request interceptor - config:", {
+      url: config.url,
+      method: config.method,
+      headers: config.headers,
+      hasAuthHeader: !!config.headers.Authorization,
+    });
+
+    // Check if Authorization header is already set (from custom headers)
+    if (config.headers.Authorization) {
+      console.log(
+        "Authorization header already set:",
+        config.headers.Authorization
+      );
+      return config;
+    }
+
+    // Always check for token in localStorage (prioritize adminToken for admin routes)
+    const token =
+      localStorage.getItem("adminToken") || localStorage.getItem("token");
+    if (token) {
+      config.headers["Authorization"] = `Bearer ${token}`;
+      console.log(
+        "Using token from localStorage for request to:",
+        config.url,
+        token
+      );
+    } else {
+      // For development testing, use a hardcoded admin token
+      if (import.meta.env.DEV && config.url.includes("/admin")) {
+        console.log(
+          "🔑 DEV MODE: Using admin test credentials for:",
+          config.url
+        );
+        // This is just for development - in production, this would be a security risk
+        config.headers["Authorization"] = `Bearer admin-test-token`;
+      }
+    }
+
+    // Set appropriate content type header
+    if (config.data instanceof FormData) {
+      // Let the browser set the content type for FormData
+      delete config.headers["Content-Type"];
+      console.log("FormData detected, removing Content-Type header");
+
+      // Log FormData contents for debugging
+      if (config.data instanceof FormData) {
+        console.log("FormData entries in request interceptor:");
+        for (let pair of config.data.entries()) {
+          console.log(
+            pair[0] + ": " + (pair[1] instanceof File ? pair[1].name : pair[1])
+          );
+        }
+      }
+    } else {
+      // Set JSON content type for other requests
+      config.headers["Content-Type"] = "application/json";
+      console.log("Setting Content-Type: application/json");
+    }
+
+    // Don't include credentials to avoid CORS issues
+    config.withCredentials = false;
+
+    return config;
+  },
+  (error) => {
+    console.error("Request interceptor error:", error);
+    return Promise.reject(error);
+  }
+);
+
+// Add response interceptor to handle errors
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    console.log(
+      "API Error:",
+      error.message,
+      error.response?.status,
+      error.config?.url
+    );
+
+    // Check if we're on an admin page
+    const isAdminPage = window.location.pathname.startsWith("/admin/");
+    const isAdminLoginPage = window.location.pathname === "/admin/login";
+
+    // Handle 401 Unauthorized errors
+    if (error.response?.status === 401) {
+      console.log("401 Unauthorized error:", {
+        url: error.config?.url,
+        isAdminPage,
+        isAdminLoginPage,
+        token: localStorage.getItem("token"),
+        user: localStorage.getItem("user"),
+      });
+
+      if (isAdminPage && !isAdminLoginPage) {
+        console.log("401 on admin page, clearing admin token and redirecting");
+        // Force redirect to admin login
+        window.location.href = `/admin/login?redirect=${window.location.pathname}`;
+        return Promise.reject(error);
+      } else if (!isAdminPage && !isAdminLoginPage) {
+        console.log("401 on non-admin page, clearing tokens and redirecting");
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+        window.location.href = "/login";
+        return Promise.reject(error);
+      }
+    }
+
+    // Handle 403 Forbidden errors
+    if (error.response?.status === 403) {
+      console.log("403 Forbidden: User doesn't have permission");
+      if (isAdminPage) {
+        window.location.href = "/admin/login";
+        return Promise.reject(error);
+      }
+    }
+
+    // Handle 500 Server errors
+    if (error.response?.status >= 500) {
+      console.error(
+        "Server error:",
+        error.response?.data?.message || "Unknown server error"
+      );
+      // Don't redirect, just show the error to the user
+    }
+
+    // Handle network errors
+    if (error.message === "Network Error") {
+      console.error("Network error - server might be down");
+      // Don't redirect, just show the error to the user
+    }
+
+    return Promise.reject(error);
+  }
+);
+
+// Default image URLs for fallbacks
+export const DEFAULT_PRODUCT_IMAGE =
+  "https://via.placeholder.com/300x300?text=Product";
+export const DEFAULT_CATEGORY_IMAGE =
+  "https://via.placeholder.com/300x300?text=Category";
+
+// Auth API
+export const authAPI = {
+  login: (credentials) => api.post("/auth/login", credentials),
+  register: (userData) => api.post("/auth/register", userData),
+  getProfile: () => api.get("/auth/me"),
+  logout: () => api.get("/auth/logout"),
+};
+
+// Old Products API implementation (commented out)
 
 // Categories API
 export const categoriesAPI = {
@@ -157,11 +387,30 @@ export const categoriesAPI = {
 
 // Contact API
 export const contactAPI = {
-  create: (contactData) => api.post("/contact", contactData),
-  getAll: () => api.get("/contact"),
+  create: (contactData) => {
+    console.log("Creating contact message with data:", contactData);
+    return api.post("/contact", contactData);
+  },
+  getAll: async () => {
+    try {
+      console.log("Fetching all contact messages");
+      const response = await api.get("/contact");
+      console.log("Contact messages fetched successfully:", response.data);
+      return response;
+    } catch (error) {
+      console.error("Error fetching contact messages:", error);
+      throw error;
+    }
+  },
   getById: (id) => api.get(`/contact/${id}`),
-  update: (id, statusData) => api.put(`/contact/${id}`, statusData),
-  delete: (id) => api.delete(`/contact/${id}`),
+  update: (id, statusData) => {
+    console.log("Updating contact message status:", id, statusData);
+    return api.put(`/contact/${id}`, statusData);
+  },
+  delete: (id) => {
+    console.log("Deleting contact message:", id);
+    return api.delete(`/contact/${id}`);
+  },
 };
 
 // Orders API
@@ -202,4 +451,5 @@ export const usersAPI = {
   getStats: () => api.get("/users/stats"),
 };
 
+export { productsAPI };
 export default api;

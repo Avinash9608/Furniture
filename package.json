@@ -26,6 +26,7 @@
   "author": "Shyam Furnitures",
   "license": "MIT",
   "dependencies": {
-    "concurrently": "^8.0.1"
+    "concurrently": "^8.0.1",
+    "node-fetch": "^2.7.0"
   }
 }

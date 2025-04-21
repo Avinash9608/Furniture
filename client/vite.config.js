@@ -13,12 +13,14 @@ module.exports = defineConfig({
     hmr: {
       overlay: false, // Disables the error overlay
     },
-    port: 8081,
+    port: 5173,
     host: true,
     proxy: {
       "/api": {
         target: "http://localhost:5000",
         changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/api/, "/api"),
       },
     },
   },

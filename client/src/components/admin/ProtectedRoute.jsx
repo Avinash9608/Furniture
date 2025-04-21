@@ -14,9 +14,17 @@ const ProtectedRoute = ({ children }) => {
   }
 
   // For admin pages, check localStorage directly
+  const token = localStorage.getItem("token");
   const localUser = localStorage.getItem("user")
     ? JSON.parse(localStorage.getItem("user"))
     : null;
+
+  // Log authentication state for debugging
+  console.log("ProtectedRoute - Auth Check:", {
+    token,
+    localUser,
+    isAdminToken: token === "admin-token-fixed-value",
+  });
 
   // Set up a side effect to log authentication state
   useEffect(() => {
@@ -29,8 +37,12 @@ const ProtectedRoute = ({ children }) => {
     }
   }, [isAdminPage, location.pathname, localUser]);
 
-  // If we have an admin user in localStorage, render the protected component
-  if (localUser && localUser.role === "admin") {
+  // If we have an admin user in localStorage and the correct token, render the protected component
+  if (
+    localUser &&
+    localUser.role === "admin" &&
+    token === "admin-token-fixed-value"
+  ) {
     return children;
   }
 

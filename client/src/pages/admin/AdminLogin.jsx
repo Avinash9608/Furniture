@@ -48,16 +48,16 @@ const AdminLogin = () => {
         throw new Error("Invalid admin credentials");
       }
 
-      // Create admin user object
+      // Create admin user object with the same ID as in AuthContext
       const adminUser = {
-        _id: "admin-id",
+        _id: "admin-id-fixed",
         name: "Admin User",
         email: email,
         role: "admin",
       };
 
-      // Set directly in localStorage
-      localStorage.setItem("token", "admin-token");
+      // Set directly in localStorage with the same token as in AuthContext
+      localStorage.setItem("token", "admin-token-fixed-value");
       localStorage.setItem("user", JSON.stringify(adminUser));
 
       // Redirect to dashboard

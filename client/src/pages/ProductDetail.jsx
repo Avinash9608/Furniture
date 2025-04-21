@@ -1,20 +1,20 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { productsAPI } from '../utils/api';
-import { formatPrice } from '../utils/format';
-import { useCart } from '../context/CartContext';
-import { useAuth } from '../context/AuthContext';
-import Loading from '../components/Loading';
-import Alert from '../components/Alert';
-import Button from '../components/Button';
-import ProductCard from '../components/ProductCard';
+import React, { useState, useEffect } from "react";
+import { useParams, Link } from "react-router-dom";
+import { motion } from "framer-motion";
+import { productsAPI } from "../utils/api";
+import { formatPrice } from "../utils/format";
+import { useCart } from "../context/CartContext";
+import { useAuth } from "../context/AuthContext";
+import Loading from "../components/Loading";
+import Alert from "../components/Alert";
+import Button from "../components/Button";
+import ProductCard from "../components/ProductCard";
 
 const ProductDetail = () => {
   const { id } = useParams();
   const { addToCart } = useCart();
   const { isAuthenticated } = useAuth();
-  
+
   const [product, setProduct] = useState(null);
   const [relatedProducts, setRelatedProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -23,45 +23,45 @@ const ProductDetail = () => {
   const [selectedImage, setSelectedImage] = useState(0);
   const [reviewForm, setReviewForm] = useState({
     rating: 5,
-    comment: '',
+    comment: "",
   });
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [reviewError, setReviewError] = useState(null);
   const [reviewSuccess, setReviewSuccess] = useState(null);
-  
+
   // Fetch product details
   useEffect(() => {
     const fetchProductDetails = async () => {
       try {
         setLoading(true);
         setError(null);
-        
+
         const response = await productsAPI.getById(id);
         setProduct(response.data.data);
-        
+
         // Fetch related products from the same category
         const relatedResponse = await productsAPI.getAll({
           category: response.data.data.category._id,
           limit: 3,
         });
-        
+
         // Filter out the current product from related products
         const filteredRelated = relatedResponse.data.data.filter(
           (item) => item._id !== response.data.data._id
         );
-        
+
         setRelatedProducts(filteredRelated);
       } catch (error) {
-        console.error('Error fetching product details:', error);
-        setError('Failed to load product details. Please try again later.');
+        console.error("Error fetching product details:", error);
+        setError("Failed to load product details. Please try again later.");
       } finally {
         setLoading(false);
       }
     };
-    
+
     fetchProductDetails();
   }, [id]);
-  
+
   // Handle quantity change
   const handleQuantityChange = (value) => {
     const newQuantity = quantity + value;
@@ -69,7 +69,7 @@ const ProductDetail = () => {
       setQuantity(newQuantity);
     }
   };
-  
+
   // Handle add to cart
   const handleAddToCart = () => {
     if (product) {
@@ -77,7 +77,7 @@ const ProductDetail = () => {
       // Show success message or redirect to cart
     }
   };
-  
+
   // Handle review form change
   const handleReviewFormChange = (e) => {
     const { name, value } = e.target;
@@ -86,46 +86,47 @@ const ProductDetail = () => {
       [name]: value,
     });
   };
-  
+
   // Handle review submission
   const handleReviewSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!isAuthenticated) {
-      setReviewError('Please login to submit a review');
+      setReviewError("Please login to submit a review");
       return;
     }
-    
+
     if (!reviewForm.comment.trim()) {
-      setReviewError('Please enter a comment');
+      setReviewError("Please enter a comment");
       return;
     }
-    
+
     try {
       setReviewSubmitting(true);
       setReviewError(null);
-      
+
       await productsAPI.createReview(id, reviewForm);
-      
-      setReviewSuccess('Review submitted successfully!');
+
+      setReviewSuccess("Review submitted successfully!");
       setReviewForm({
         rating: 5,
-        comment: '',
+        comment: "",
       });
-      
+
       // Refresh product details to show the new review
       const response = await productsAPI.getById(id);
       setProduct(response.data.data);
     } catch (error) {
-      console.error('Error submitting review:', error);
+      console.error("Error submitting review:", error);
       setReviewError(
-        error.response?.data?.message || 'Failed to submit review. Please try again.'
+        error.response?.data?.message ||
+          "Failed to submit review. Please try again."
       );
     } finally {
       setReviewSubmitting(false);
     }
   };
-  
+
   if (loading) {
     return (
       <div className="container-custom py-16 flex justify-center">
@@ -133,7 +134,7 @@ const ProductDetail = () => {
       </div>
     );
   }
-  
+
   if (error) {
     return (
       <div className="container-custom py-16">
@@ -146,7 +147,7 @@ const ProductDetail = () => {
       </div>
     );
   }
-  
+
   if (!product) {
     return (
       <div className="container-custom py-16">
@@ -159,7 +160,7 @@ const ProductDetail = () => {
       </div>
     );
   }
-  
+
   return (
     <div className="bg-gray-50 py-8">
       <div className="container-custom">
@@ -182,7 +183,7 @@ const ProductDetail = () => {
           <span className="mx-2 text-gray-500">/</span>
           <span className="text-gray-900 font-medium">{product.name}</span>
         </nav>
-        
+
         {/* Product Details */}
         <div className="bg-white rounded-lg shadow-md overflow-hidden">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 p-6">
@@ -190,22 +191,33 @@ const ProductDetail = () => {
             <div>
               <div className="relative h-80 md:h-96 rounded-lg overflow-hidden mb-4">
                 <img
-                  src={product.images[selectedImage]}
+                  src={
+                    product.images && product.images.length > 0
+                      ? product.images[selectedImage]
+                      : `https://via.placeholder.com/800x600?text=${encodeURIComponent(
+                          product.name || "Product"
+                        )}`
+                  }
                   alt={product.name}
                   className="w-full h-full object-cover"
+                  onError={(e) => {
+                    e.target.onerror = null;
+                    e.target.src =
+                      "https://via.placeholder.com/800x600?text=Image+Not+Found";
+                  }}
                 />
               </div>
-              
+
               {/* Thumbnail Gallery */}
-              {product.images.length > 1 && (
+              {product.images && product.images.length > 1 && (
                 <div className="flex space-x-2 overflow-x-auto pb-2">
                   {product.images.map((image, index) => (
                     <div
                       key={index}
                       className={`w-20 h-20 rounded-md overflow-hidden cursor-pointer border-2 ${
                         selectedImage === index
-                          ? 'border-primary'
-                          : 'border-transparent'
+                          ? "border-primary"
+                          : "border-transparent"
                       }`}
                       onClick={() => setSelectedImage(index)}
                     >
@@ -213,19 +225,24 @@ const ProductDetail = () => {
                         src={image}
                         alt={`${product.name} - Image ${index + 1}`}
                         className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.target.onerror = null;
+                          e.target.src =
+                            "https://via.placeholder.com/100x100?text=Image+Not+Found";
+                        }}
                       />
                     </div>
                   ))}
                 </div>
               )}
             </div>
-            
+
             {/* Product Info */}
             <div>
               <h1 className="text-2xl md:text-3xl font-serif font-bold mb-2">
                 {product.name}
               </h1>
-              
+
               <div className="flex items-center mb-4">
                 {/* Rating Stars */}
                 <div className="flex">
@@ -234,8 +251,8 @@ const ProductDetail = () => {
                       key={index}
                       className={`w-5 h-5 ${
                         index < Math.round(product.ratings)
-                          ? 'text-yellow-400'
-                          : 'text-gray-300'
+                          ? "text-yellow-400"
+                          : "text-gray-300"
                       }`}
                       fill="currentColor"
                       viewBox="0 0 20 20"
@@ -245,12 +262,12 @@ const ProductDetail = () => {
                     </svg>
                   ))}
                 </div>
-                
+
                 <span className="text-gray-600 ml-2">
                   {product.ratings.toFixed(1)} ({product.numReviews} reviews)
                 </span>
               </div>
-              
+
               {/* Price */}
               <div className="mb-6">
                 {product.discountPrice ? (
@@ -263,7 +280,9 @@ const ProductDetail = () => {
                     </span>
                     <span className="ml-2 bg-red-100 text-red-800 text-xs font-medium px-2 py-0.5 rounded">
                       {Math.round(
-                        ((product.price - product.discountPrice) / product.price) * 100
+                        ((product.price - product.discountPrice) /
+                          product.price) *
+                          100
                       )}
                       % OFF
                     </span>
@@ -274,7 +293,7 @@ const ProductDetail = () => {
                   </span>
                 )}
               </div>
-              
+
               {/* Stock Status */}
               <div className="mb-6">
                 {product.stock > 0 ? (
@@ -287,14 +306,14 @@ const ProductDetail = () => {
                   </span>
                 )}
               </div>
-              
+
               {/* Short Description */}
               <div className="mb-6">
                 <p className="text-gray-700">
-                  {product.description.split('.')[0]}
+                  {product.description.split(".")[0]}
                 </p>
               </div>
-              
+
               {/* Quantity Selector */}
               {product.stock > 0 && (
                 <div className="mb-6">
@@ -351,7 +370,7 @@ const ProductDetail = () => {
                   </div>
                 </div>
               )}
-              
+
               {/* Add to Cart Button */}
               <div className="flex flex-wrap gap-4 mb-6">
                 <Button
@@ -375,7 +394,7 @@ const ProductDetail = () => {
                   </svg>
                   Add to Cart
                 </Button>
-                
+
                 <Button variant="outline" className="flex-grow sm:flex-grow-0">
                   <svg
                     className="w-5 h-5 mr-2"
@@ -394,7 +413,7 @@ const ProductDetail = () => {
                   Add to Wishlist
                 </Button>
               </div>
-              
+
               {/* Product Specifications */}
               <div className="border-t border-gray-200 pt-4">
                 <h3 className="text-lg font-medium mb-2">Specifications</h3>
@@ -415,8 +434,8 @@ const ProductDetail = () => {
                     <li className="flex">
                       <span className="font-medium w-24">Dimensions:</span>
                       <span className="text-gray-700">
-                        {product.dimensions.length} x {product.dimensions.width} x{' '}
-                        {product.dimensions.height} cm
+                        {product.dimensions.length} x {product.dimensions.width}{" "}
+                        x {product.dimensions.height} cm
                       </span>
                     </li>
                   )}
@@ -433,27 +452,29 @@ const ProductDetail = () => {
               </div>
             </div>
           </div>
-          
+
           {/* Product Description and Reviews Tabs */}
           <div className="border-t border-gray-200">
             <div className="p-6">
               <div className="mb-8">
-                <h2 className="text-xl font-serif font-bold mb-4">Description</h2>
+                <h2 className="text-xl font-serif font-bold mb-4">
+                  Description
+                </h2>
                 <div className="prose max-w-none text-gray-700">
                   <p>{product.description}</p>
                 </div>
               </div>
-              
+
               {/* Reviews Section */}
               <div>
                 <h2 className="text-xl font-serif font-bold mb-4">
                   Reviews ({product.reviews.length})
                 </h2>
-                
+
                 {/* Review Form */}
                 <div className="bg-gray-50 rounded-lg p-4 mb-6">
                   <h3 className="text-lg font-medium mb-2">Write a Review</h3>
-                  
+
                   {reviewSuccess && (
                     <Alert
                       type="success"
@@ -461,7 +482,7 @@ const ProductDetail = () => {
                       onClose={() => setReviewSuccess(null)}
                     />
                   )}
-                  
+
                   {reviewError && (
                     <Alert
                       type="error"
@@ -469,7 +490,7 @@ const ProductDetail = () => {
                       onClose={() => setReviewError(null)}
                     />
                   )}
-                  
+
                   {!isAuthenticated ? (
                     <div className="text-center py-4">
                       <p className="text-gray-700 mb-2">
@@ -503,8 +524,8 @@ const ProductDetail = () => {
                                 <svg
                                   className={`w-8 h-8 ${
                                     parseInt(reviewForm.rating) >= rating
-                                      ? 'text-yellow-400'
-                                      : 'text-gray-300'
+                                      ? "text-yellow-400"
+                                      : "text-gray-300"
                                   }`}
                                   fill="currentColor"
                                   viewBox="0 0 20 20"
@@ -518,7 +539,7 @@ const ProductDetail = () => {
                           ))}
                         </div>
                       </div>
-                      
+
                       <div className="mb-4">
                         <label
                           htmlFor="comment"
@@ -537,18 +558,18 @@ const ProductDetail = () => {
                           required
                         ></textarea>
                       </div>
-                      
+
                       <Button
                         type="submit"
                         disabled={reviewSubmitting}
                         className="w-full md:w-auto"
                       >
-                        {reviewSubmitting ? 'Submitting...' : 'Submit Review'}
+                        {reviewSubmitting ? "Submitting..." : "Submit Review"}
                       </Button>
                     </form>
                   )}
                 </div>
-                
+
                 {/* Reviews List */}
                 {product.reviews.length === 0 ? (
                   <div className="text-center py-8 text-gray-500">
@@ -568,15 +589,15 @@ const ProductDetail = () => {
                             {new Date(review.createdAt).toLocaleDateString()}
                           </div>
                         </div>
-                        
+
                         <div className="flex mb-2">
                           {[...Array(5)].map((_, index) => (
                             <svg
                               key={index}
                               className={`w-4 h-4 ${
                                 index < review.rating
-                                  ? 'text-yellow-400'
-                                  : 'text-gray-300'
+                                  ? "text-yellow-400"
+                                  : "text-gray-300"
                               }`}
                               fill="currentColor"
                               viewBox="0 0 20 20"
@@ -586,7 +607,7 @@ const ProductDetail = () => {
                             </svg>
                           ))}
                         </div>
-                        
+
                         <p className="text-gray-700">{review.comment}</p>
                       </div>
                     ))}
@@ -596,7 +617,7 @@ const ProductDetail = () => {
             </div>
           </div>
         </div>
-        
+
         {/* Related Products */}
         {relatedProducts.length > 0 && (
           <div className="mt-12">

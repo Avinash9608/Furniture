@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
+import axios from "axios";
 import { productsAPI, categoriesAPI } from "../../utils/api";
 import {
   createDefaultCategories,
@@ -95,11 +96,16 @@ const AddProduct = () => {
       Object.keys(productData).forEach((key) => {
         if (key === "images") {
           // Handle images
-          productData.images.forEach((image) => {
-            if (image.file) {
-              formData.append("images", image.file);
-            }
-          });
+          if (productData.images && productData.images.length > 0) {
+            productData.images.forEach((image) => {
+              if (image.file) {
+                formData.append("images", image.file);
+              }
+            });
+          } else {
+            // If no images, set a flag for the server
+            formData.append("defaultImage", "true");
+          }
         } else if (key === "dimensions") {
           // Handle dimensions object
           formData.append("dimensions", JSON.stringify(productData.dimensions));
@@ -109,20 +115,41 @@ const AddProduct = () => {
         }
       });
 
-      // Send request to create product
-      await productsAPI.create(formData);
+      // Log the FormData contents for debugging
+      console.log("FormData entries:");
+      for (let pair of formData.entries()) {
+        console.log(
+          pair[0] + ": " + (pair[1] instanceof File ? pair[1].name : pair[1])
+        );
+      }
 
-      // Redirect to products page
+      console.log("Submitting product data to API...");
+      console.log("Auth token in localStorage:", localStorage.getItem("token"));
+      console.log("User in localStorage:", localStorage.getItem("user"));
+
+      // Use direct axios call instead of the API client
+      console.log("Using direct axios call to create product");
+      const response = await axios.post(
+        "http://localhost:5000/api/products",
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        }
+      );
+      console.log("Product created successfully:", response);
+
       navigate("/admin/products", {
         state: {
           successMessage: "Product added successfully!",
         },
       });
     } catch (error) {
-      console.error("Error adding product:", error);
+      console.error("Error creating product:", error);
       setSubmitError(
         error.response?.data?.message ||
-          "Failed to add product. Please try again."
+          "An error occurred while creating the product. Please try again."
       );
 
       // Scroll to top to show error

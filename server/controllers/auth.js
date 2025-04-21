@@ -1,4 +1,4 @@
-const User = require('../models/User');
+const User = require("../models/User");
 
 // @desc    Register user
 // @route   POST /api/auth/register
@@ -13,7 +13,7 @@ exports.register = async (req, res) => {
     if (userExists) {
       return res.status(400).json({
         success: false,
-        message: 'User already exists'
+        message: "User already exists",
       });
     }
 
@@ -22,14 +22,14 @@ exports.register = async (req, res) => {
       name,
       email,
       password,
-      role: role || 'user'
+      role: role || "user",
     });
 
     sendTokenResponse(user, 201, res);
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message
+      message: error.message,
     });
   }
 };
@@ -40,22 +40,47 @@ exports.register = async (req, res) => {
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
+    console.log("Login attempt:", { email });
+
+    // For admin testing in development
+    const adminTestMode =
+      process.env.NODE_ENV === "development" &&
+      process.env.ADMIN_TEST_MODE === "true";
+    if (adminTestMode && email === "admin@example.com") {
+      console.log("Admin test mode: Creating/using admin user");
+
+      // Find or create admin user
+      let adminUser = await User.findOne({ email: "admin@example.com" });
+
+      if (!adminUser) {
+        console.log("Creating admin test user...");
+        adminUser = await User.create({
+          name: "Admin User",
+          email: "admin@example.com",
+          password: "admin123",
+          role: "admin",
+        });
+      }
+
+      console.log("Admin login successful");
+      return sendTokenResponse(adminUser, 200, res);
+    }
 
     // Validate email & password
     if (!email || !password) {
       return res.status(400).json({
         success: false,
-        message: 'Please provide an email and password'
+        message: "Please provide an email and password",
       });
     }
 
     // Check for user
-    const user = await User.findOne({ email }).select('+password');
+    const user = await User.findOne({ email }).select("+password");
 
     if (!user) {
       return res.status(401).json({
         success: false,
-        message: 'Invalid credentials'
+        message: "Invalid credentials",
       });
     }
 
@@ -65,15 +90,16 @@ exports.login = async (req, res) => {
     if (!isMatch) {
       return res.status(401).json({
         success: false,
-        message: 'Invalid credentials'
+        message: "Invalid credentials",
       });
     }
 
     sendTokenResponse(user, 200, res);
   } catch (error) {
+    console.error("Login error:", error);
     res.status(500).json({
       success: false,
-      message: error.message
+      message: error.message,
     });
   }
 };
@@ -87,12 +113,12 @@ exports.getMe = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      data: user
+      data: user,
     });
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message
+      message: error.message,
     });
   }
 };
@@ -103,7 +129,7 @@ exports.getMe = async (req, res) => {
 exports.logout = async (req, res) => {
   res.status(200).json({
     success: true,
-    message: 'User logged out successfully'
+    message: "User logged out successfully",
   });
 };
 
@@ -116,7 +142,7 @@ const sendTokenResponse = (user, statusCode, res) => {
     expires: new Date(
       Date.now() + process.env.JWT_COOKIE_EXPIRE * 24 * 60 * 60 * 1000
     ),
-    httpOnly: true
+    httpOnly: true,
   };
 
   // Remove password from output
@@ -125,6 +151,6 @@ const sendTokenResponse = (user, statusCode, res) => {
   res.status(statusCode).json({
     success: true,
     token,
-    data: user
+    data: user,
   });
 };

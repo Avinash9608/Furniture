@@ -1,25 +1,33 @@
-const express = require('express');
+const express = require("express");
 const {
   createContact,
   getContacts,
   getContact,
   updateContact,
-  deleteContact
-} = require('../controllers/contact');
+  deleteContact,
+} = require("../controllers/contact");
 
 const router = express.Router();
 
-const { protect, authorize } = require('../middleware/auth');
+const { protect, authorize } = require("../middleware/auth");
+
+// Check if we should bypass auth in development mode
+const bypassAuth =
+  process.env.NODE_ENV === "development" && process.env.BYPASS_AUTH === "true";
+console.log("Contact Routes - Bypass Auth:", bypassAuth);
+
+// Create middleware arrays based on environment
+const adminMiddleware = bypassAuth ? [] : [protect, authorize("admin")];
 
 router
-  .route('/')
+  .route("/")
   .post(createContact)
-  .get(protect, authorize('admin'), getContacts);
+  .get(...adminMiddleware, getContacts);
 
 router
-  .route('/:id')
-  .get(protect, authorize('admin'), getContact)
-  .put(protect, authorize('admin'), updateContact)
-  .delete(protect, authorize('admin'), deleteContact);
+  .route("/:id")
+  .get(...adminMiddleware, getContact)
+  .put(...adminMiddleware, updateContact)
+  .delete(...adminMiddleware, deleteContact);
 
 module.exports = router;

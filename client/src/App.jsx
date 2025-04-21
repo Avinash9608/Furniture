@@ -23,6 +23,7 @@ import AdminMessages from "./pages/admin/Messages";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/admin/ProtectedRoute";
 import UserProtectedRoute from "./components/UserProtectedRoute";
+import ApiTest from "./components/ApiTest";
 
 function App() {
   const location = useLocation();
@@ -44,6 +45,7 @@ function App() {
         <Routes>
           {/* Public Routes */}
           <Route path="/" element={<Home />} />
+          <Route path="/api-test" element={<ApiTest />} />
           <Route path="/about" element={<About />} />
           <Route path="/products" element={<Products />} />
           <Route path="/products/:id" element={<ProductDetail />} />
