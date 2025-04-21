@@ -1,29 +1,41 @@
-import React from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
-import Loading from '../Loading';
+import React, { useEffect } from "react";
+import { Navigate, useLocation } from "react-router-dom";
 
+// Simple protected route that checks localStorage and handles admin authentication
 const ProtectedRoute = ({ children }) => {
-  const { isAuthenticated, loading, user } = useAuth();
   const location = useLocation();
-  
-  // Show loading spinner while checking authentication
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loading size="large" />
-      </div>
-    );
+
+  // Check if we're on an admin page
+  const isAdminPage = location.pathname.startsWith("/admin");
+
+  // For non-admin pages, always render children
+  if (!isAdminPage) {
+    return children;
   }
-  
-  // Check if user is authenticated and is an admin
-  if (!isAuthenticated || user?.role !== 'admin') {
-    // Redirect to login page with the return url
-    return <Navigate to={`/admin/login?redirect=${location.pathname}`} replace />;
+
+  // For admin pages, check localStorage directly
+  const localUser = localStorage.getItem("user")
+    ? JSON.parse(localStorage.getItem("user"))
+    : null;
+
+  // Set up a side effect to log authentication state
+  useEffect(() => {
+    if (isAdminPage) {
+      console.log("ProtectedRoute - Admin page check:", {
+        path: location.pathname,
+        localUser: localUser ? "exists" : "none",
+        isAdmin: localUser?.role === "admin",
+      });
+    }
+  }, [isAdminPage, location.pathname, localUser]);
+
+  // If we have an admin user in localStorage, render the protected component
+  if (localUser && localUser.role === "admin") {
+    return children;
   }
-  
-  // If authenticated and admin, render the protected component
-  return children;
+
+  // Otherwise, redirect to admin login
+  return <Navigate to={`/admin/login?redirect=${location.pathname}`} replace />;
 };
 
 export default ProtectedRoute;

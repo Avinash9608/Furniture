@@ -1,7 +1,11 @@
 /**
+ * Validation utility functions for form validation
+ */
+
+/**
  * Validate email format
- * @param {string} email - Email to validate
- * @returns {boolean} Whether email is valid
+ * @param {string} email - The email to validate
+ * @returns {boolean} - True if email is valid, false otherwise
  */
 export const isValidEmail = (email) => {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -9,150 +13,233 @@ export const isValidEmail = (email) => {
 };
 
 /**
- * Validate phone number format (Indian)
- * @param {string} phone - Phone number to validate
- * @returns {boolean} Whether phone number is valid
+ * Validate phone number format (basic validation)
+ * @param {string} phone - The phone number to validate
+ * @returns {boolean} - True if phone is valid, false otherwise
  */
 export const isValidPhone = (phone) => {
+  // Basic validation for Indian phone numbers
   const phoneRegex = /^[6-9]\d{9}$/;
-  return phoneRegex.test(phone);
+  return phoneRegex.test(phone.replace(/\D/g, ""));
 };
 
 /**
  * Validate password strength
- * @param {string} password - Password to validate
- * @returns {object} Validation result with isValid and message
+ * @param {string} password - The password to validate
+ * @returns {boolean} - True if password is strong enough, false otherwise
  */
-export const validatePassword = (password) => {
-  if (!password) {
-    return { isValid: false, message: 'Password is required' };
-  }
-  
-  if (password.length < 6) {
-    return { isValid: false, message: 'Password must be at least 6 characters' };
-  }
-  
-  // Check for stronger password (optional)
-  const hasUpperCase = /[A-Z]/.test(password);
-  const hasLowerCase = /[a-z]/.test(password);
-  const hasNumbers = /\d/.test(password);
-  const hasSpecialChar = /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(password);
-  
-  if (!(hasUpperCase && hasLowerCase && hasNumbers)) {
-    return { 
-      isValid: false, 
-      message: 'Password should contain uppercase, lowercase letters and numbers' 
-    };
-  }
-  
-  if (!hasSpecialChar) {
-    return { 
-      isValid: false, 
-      message: 'Password should contain at least one special character' 
-    };
-  }
-  
-  return { isValid: true, message: 'Password is strong' };
+export const isStrongPassword = (password) => {
+  // At least 6 characters, with at least one number
+  return password.length >= 6 && /\d/.test(password);
 };
 
 /**
- * Validate required fields in a form
- * @param {object} formData - Form data to validate
- * @param {array} requiredFields - Array of required field names
- * @returns {object} Validation result with isValid and errors
+ * Validate login form
+ * @param {Object} formData - The form data to validate
+ * @returns {Object} - Validation result with isValid flag and errors object
  */
-export const validateRequiredFields = (formData, requiredFields) => {
+export const validateLoginForm = (formData) => {
   const errors = {};
-  let isValid = true;
-  
-  requiredFields.forEach(field => {
-    if (!formData[field] || formData[field].trim() === '') {
-      errors[field] = `${field.charAt(0).toUpperCase() + field.slice(1)} is required`;
-      isValid = false;
-    }
-  });
-  
-  return { isValid, errors };
-};
 
-/**
- * Validate product form data
- * @param {object} productData - Product data to validate
- * @returns {object} Validation result with isValid and errors
- */
-export const validateProductForm = (productData) => {
-  const errors = {};
-  
-  // Required fields
-  if (!productData.name || productData.name.trim() === '') {
-    errors.name = 'Product name is required';
+  if (!formData.email) {
+    errors.email = "Email is required";
+  } else if (!isValidEmail(formData.email)) {
+    errors.email = "Please enter a valid email address";
   }
-  
-  if (!productData.description || productData.description.trim() === '') {
-    errors.description = 'Description is required';
+
+  if (!formData.password) {
+    errors.password = "Password is required";
   }
-  
-  if (!productData.price || isNaN(productData.price) || productData.price <= 0) {
-    errors.price = 'Price must be a positive number';
-  }
-  
-  if (!productData.category) {
-    errors.category = 'Category is required';
-  }
-  
-  if (!productData.stock || isNaN(productData.stock) || productData.stock < 0) {
-    errors.stock = 'Stock must be a non-negative number';
-  }
-  
-  // Optional fields with validation
-  if (productData.discountPrice && (isNaN(productData.discountPrice) || productData.discountPrice < 0)) {
-    errors.discountPrice = 'Discount price must be a non-negative number';
-  }
-  
-  if (productData.discountPrice && productData.discountPrice >= productData.price) {
-    errors.discountPrice = 'Discount price must be less than regular price';
-  }
-  
-  return { 
+
+  return {
     isValid: Object.keys(errors).length === 0,
-    errors 
+    errors,
   };
 };
 
 /**
- * Validate contact form data
- * @param {object} contactData - Contact form data to validate
- * @returns {object} Validation result with isValid and errors
+ * Validate registration form
+ * @param {Object} formData - The form data to validate
+ * @returns {Object} - Validation result with isValid flag and errors object
  */
-export const validateContactForm = (contactData) => {
+export const validateRegisterForm = (formData) => {
   const errors = {};
-  
-  // Required fields
-  if (!contactData.name || contactData.name.trim() === '') {
-    errors.name = 'Name is required';
+
+  if (!formData.name) {
+    errors.name = "Name is required";
   }
-  
-  if (!contactData.email || contactData.email.trim() === '') {
-    errors.email = 'Email is required';
-  } else if (!isValidEmail(contactData.email)) {
-    errors.email = 'Please enter a valid email address';
+
+  if (!formData.email) {
+    errors.email = "Email is required";
+  } else if (!isValidEmail(formData.email)) {
+    errors.email = "Please enter a valid email address";
   }
-  
-  if (!contactData.subject || contactData.subject.trim() === '') {
-    errors.subject = 'Subject is required';
+
+  if (!formData.password) {
+    errors.password = "Password is required";
+  } else if (!isStrongPassword(formData.password)) {
+    errors.password =
+      "Password must be at least 6 characters with at least one number";
   }
-  
-  if (!contactData.message || contactData.message.trim() === '') {
-    errors.message = 'Message is required';
+
+  if (formData.password !== formData.confirmPassword) {
+    errors.confirmPassword = "Passwords do not match";
   }
-  
-  // Optional fields with validation
-  if (contactData.phone && !isValidPhone(contactData.phone)) {
-    errors.phone = 'Please enter a valid 10-digit phone number';
-  }
-  
-  return { 
+
+  return {
     isValid: Object.keys(errors).length === 0,
-    errors 
+    errors,
+  };
+};
+
+/**
+ * Validate contact form
+ * @param {Object} formData - The form data to validate
+ * @returns {Object} - Validation result with isValid flag and errors object
+ */
+export const validateContactForm = (formData) => {
+  const errors = {};
+
+  if (!formData.name) {
+    errors.name = "Name is required";
+  }
+
+  if (!formData.email) {
+    errors.email = "Email is required";
+  } else if (!isValidEmail(formData.email)) {
+    errors.email = "Please enter a valid email address";
+  }
+
+  if (formData.phone && !isValidPhone(formData.phone)) {
+    errors.phone = "Please enter a valid phone number";
+  }
+
+  if (!formData.subject) {
+    errors.subject = "Subject is required";
+  }
+
+  if (!formData.message) {
+    errors.message = "Message is required";
+  } else if (formData.message.length < 10) {
+    errors.message = "Message must be at least 10 characters";
+  }
+
+  return {
+    isValid: Object.keys(errors).length === 0,
+    errors,
+  };
+};
+
+/**
+ * Validate product form
+ * @param {Object} formData - The form data to validate
+ * @returns {Object} - Validation result with isValid flag and errors object
+ */
+export const validateProductForm = (formData) => {
+  const errors = {};
+
+  if (!formData.name) {
+    errors.name = "Product name is required";
+  }
+
+  if (!formData.description) {
+    errors.description = "Description is required";
+  }
+
+  if (!formData.price) {
+    errors.price = "Price is required";
+  } else if (isNaN(formData.price) || Number(formData.price) <= 0) {
+    errors.price = "Price must be a positive number";
+  }
+
+  if (
+    formData.discountPrice &&
+    (isNaN(formData.discountPrice) || Number(formData.discountPrice) <= 0)
+  ) {
+    errors.discountPrice = "Discount price must be a positive number";
+  }
+
+  if (
+    formData.discountPrice &&
+    Number(formData.discountPrice) >= Number(formData.price)
+  ) {
+    errors.discountPrice = "Discount price must be less than regular price";
+  }
+
+  if (!formData.category) {
+    errors.category = "Category is required";
+  }
+
+  if (!formData.stock) {
+    errors.stock = "Stock quantity is required";
+  } else if (isNaN(formData.stock) || Number(formData.stock) < 0) {
+    errors.stock = "Stock must be a non-negative number";
+  }
+
+  if (!formData.images || formData.images.length === 0) {
+    errors.images = "At least one product image is required";
+  }
+
+  return {
+    isValid: Object.keys(errors).length === 0,
+    errors,
+  };
+};
+
+/**
+ * Validate category form
+ * @param {Object} formData - The form data to validate
+ * @returns {Object} - Validation result with isValid flag and errors object
+ */
+export const validateCategoryForm = (formData) => {
+  const errors = {};
+
+  if (!formData.name) {
+    errors.name = "Category name is required";
+  }
+
+  return {
+    isValid: Object.keys(errors).length === 0,
+    errors,
+  };
+};
+
+/**
+ * Validate shipping address form
+ * @param {Object} formData - The form data to validate
+ * @returns {Object} - Validation result with isValid flag and errors object
+ */
+export const validateShippingForm = (formData) => {
+  const errors = {};
+
+  if (!formData.name) {
+    errors.name = "Full name is required";
+  }
+
+  if (!formData.address) {
+    errors.address = "Address is required";
+  }
+
+  if (!formData.city) {
+    errors.city = "City is required";
+  }
+
+  if (!formData.state) {
+    errors.state = "State is required";
+  }
+
+  if (!formData.postalCode) {
+    errors.postalCode = "Postal code is required";
+  }
+
+  if (!formData.phone) {
+    errors.phone = "Phone number is required";
+  } else if (!isValidPhone(formData.phone)) {
+    errors.phone = "Please enter a valid phone number";
+  }
+
+  return {
+    isValid: Object.keys(errors).length === 0,
+    errors,
   };
 };

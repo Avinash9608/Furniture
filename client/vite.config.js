@@ -13,7 +13,7 @@ module.exports = defineConfig({
     hmr: {
       overlay: false, // Disables the error overlay
     },
-    port: 8080,
+    port: 8081,
     host: true,
     proxy: {
       "/api": {
