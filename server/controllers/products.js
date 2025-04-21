@@ -190,9 +190,58 @@ exports.createProduct = async (req, res) => {
 
     // Create product data object
     const productData = {
-      ...req.body,
+      name: req.body.name,
+      description: req.body.description,
+      price: Number(req.body.price),
+      category: req.body.category,
+      stock: Number(req.body.stock) || 1,
       images,
     };
+
+    // Handle optional fields
+    if (req.body.discountPrice) {
+      productData.discountPrice = Number(req.body.discountPrice);
+    }
+
+    if (req.body.featured === "true") {
+      productData.featured = true;
+    }
+
+    if (req.body.material) {
+      productData.material = req.body.material;
+    }
+
+    if (req.body.color) {
+      productData.color = req.body.color;
+    }
+
+    // Handle dimensions object
+    if (req.body.dimensions) {
+      try {
+        // Check if dimensions is already a string that needs parsing
+        const dimensionsData =
+          typeof req.body.dimensions === "string"
+            ? JSON.parse(req.body.dimensions)
+            : req.body.dimensions;
+
+        productData.dimensions = {
+          length: dimensionsData.length
+            ? Number(dimensionsData.length)
+            : undefined,
+          width: dimensionsData.width
+            ? Number(dimensionsData.width)
+            : undefined,
+          height: dimensionsData.height
+            ? Number(dimensionsData.height)
+            : undefined,
+        };
+
+        console.log("Processed dimensions:", productData.dimensions);
+      } catch (dimError) {
+        console.error("Error processing dimensions:", dimError);
+        // Continue without dimensions if there's an error
+      }
+    }
 
     // Add creator info if available
     if (req.user && req.user.id) {
@@ -241,6 +290,52 @@ exports.updateProduct = async (req, res) => {
       });
     }
 
+    // Create update data object
+    const updateData = {};
+
+    // Handle basic fields
+    if (req.body.name) updateData.name = req.body.name;
+    if (req.body.description) updateData.description = req.body.description;
+    if (req.body.price) updateData.price = Number(req.body.price);
+    if (req.body.discountPrice)
+      updateData.discountPrice = Number(req.body.discountPrice);
+    if (req.body.category) updateData.category = req.body.category;
+    if (req.body.stock) updateData.stock = Number(req.body.stock);
+    if (req.body.material) updateData.material = req.body.material;
+    if (req.body.color) updateData.color = req.body.color;
+
+    // Handle boolean fields
+    if (req.body.featured === "true") updateData.featured = true;
+    if (req.body.featured === "false") updateData.featured = false;
+
+    // Handle dimensions object
+    if (req.body.dimensions) {
+      try {
+        // Check if dimensions is already a string that needs parsing
+        const dimensionsData =
+          typeof req.body.dimensions === "string"
+            ? JSON.parse(req.body.dimensions)
+            : req.body.dimensions;
+
+        updateData.dimensions = {
+          length: dimensionsData.length
+            ? Number(dimensionsData.length)
+            : undefined,
+          width: dimensionsData.width
+            ? Number(dimensionsData.width)
+            : undefined,
+          height: dimensionsData.height
+            ? Number(dimensionsData.height)
+            : undefined,
+        };
+
+        console.log("Processed dimensions for update:", updateData.dimensions);
+      } catch (dimError) {
+        console.error("Error processing dimensions for update:", dimError);
+        // Continue without dimensions if there's an error
+      }
+    }
+
     // Handle file uploads
     if (req.files && req.files.length > 0) {
       const images = [];
@@ -259,10 +354,12 @@ exports.updateProduct = async (req, res) => {
       req.files.forEach((file) => {
         images.push(`/uploads/${file.filename}`);
       });
-      req.body.images = images;
+      updateData.images = images;
     }
 
-    product = await Product.findByIdAndUpdate(req.params.id, req.body, {
+    console.log("Updating product with data:", updateData);
+
+    product = await Product.findByIdAndUpdate(req.params.id, updateData, {
       new: true,
       runValidators: true,
     });
@@ -272,9 +369,11 @@ exports.updateProduct = async (req, res) => {
       data: product,
     });
   } catch (error) {
+    console.error("Product update error:", error);
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: "Server error during product update",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
     });
   }
 };

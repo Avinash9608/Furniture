@@ -34,14 +34,10 @@ const Products = () => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        setError(null);
 
         // Fetch categories
         const categoriesResponse = await categoriesAPI.getAll();
-        const validCategories = (categoriesResponse.data.data || []).filter(
-          (cat) => cat && cat._id && cat.name && cat.slug
-        );
-        setCategories(validCategories);
+        setCategories(categoriesResponse.data.data);
 
         // Fetch products with filters
         await fetchProducts();
@@ -59,9 +55,7 @@ const Products = () => {
   // Fetch products based on current filters
   const fetchProducts = async () => {
     try {
-      setLoading(true);
-      setError(null);
-
+      console.log("Fetching products with filters:", filters);
       const params = {
         page: currentPage,
         limit: 12,
@@ -94,26 +88,26 @@ const Products = () => {
         params.search = filters.search;
       }
 
+      console.log("Sending API request with params:", params);
       const response = await productsAPI.getAll(params);
+      console.log("Products API response:", response.data);
 
       // Handle different API response formats
       const productsData = response.data.data || response.data;
       const totalCount = response.data.count || productsData.length;
 
       if (Array.isArray(productsData)) {
-        const validProducts = productsData.filter(
-          (product) => product && product._id
-        );
-        setProducts(validProducts);
+        console.log(`Successfully fetched ${productsData.length} products`);
+        setProducts(productsData);
         setTotalPages(Math.ceil(totalCount / 12));
 
         // Find the highest price for the price range filter
-        if (validProducts.length > 0) {
+        if (productsData.length > 0) {
           const highestPrice = Math.max(
-            ...validProducts.map((product) => product.price || 0)
+            ...productsData.map((product) => product.price)
           );
-          setMaxPrice(Math.max(highestPrice, 100000));
-          setPriceRange([0, Math.max(highestPrice, 100000)]);
+          setMaxPrice(highestPrice);
+          setPriceRange([0, highestPrice]);
         }
       } else {
         console.error("Unexpected API response format:", response.data);
@@ -123,9 +117,6 @@ const Products = () => {
     } catch (error) {
       console.error("Error fetching products:", error);
       setError(`Failed to load products: ${error.message || "Unknown error"}`);
-      setProducts([]);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -193,26 +184,6 @@ const Products = () => {
     setShowFilters(!showFilters);
   };
 
-  // Clear all filters
-  const clearFilters = () => {
-    setFilters({
-      category: "",
-      priceRange: [0, maxPrice],
-      sort: "newest",
-      search: "",
-    });
-    setPriceRange([0, maxPrice]);
-    setCurrentPage(1);
-
-    // Update URL
-    navigate({
-      pathname: location.pathname,
-      search: "",
-    });
-
-    fetchProducts();
-  };
-
   return (
     <div className="bg-gray-50 min-h-screen">
       <div className="container-custom py-8">
@@ -268,15 +239,7 @@ const Products = () => {
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.3 }}
           >
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold">Filters</h2>
-              <button
-                onClick={clearFilters}
-                className="text-sm text-primary hover:underline"
-              >
-                Clear All
-              </button>
-            </div>
+            <h2 className="text-xl font-bold mb-4">Filters</h2>
 
             {/* Search */}
             <div className="mb-6">
@@ -427,7 +390,19 @@ const Products = () => {
                 <p className="text-gray-600 mb-4">
                   We couldn't find any products matching your criteria.
                 </p>
-                <button onClick={clearFilters} className="btn-primary">
+                <button
+                  onClick={() => {
+                    setFilters({
+                      category: "",
+                      priceRange: [0, maxPrice],
+                      sort: "newest",
+                      search: "",
+                    });
+                    setPriceRange([0, maxPrice]);
+                    fetchProducts();
+                  }}
+                  className="btn-primary"
+                >
                   Clear Filters
                 </button>
               </div>

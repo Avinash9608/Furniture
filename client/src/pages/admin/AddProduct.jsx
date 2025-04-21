@@ -36,36 +36,44 @@ const AddProduct = () => {
         setLoading(true);
         setError(null);
 
-        const response = await categoriesAPI.getAll();
-        console.log("Categories API response:", response);
+        // Use default categories directly for now to ensure they're available
+        const defaultCats = [
+          {
+            _id: "sofa-beds-id",
+            name: "Sofa Beds",
+            description: "Convertible sofas that can be used as beds",
+          },
+          {
+            _id: "tables-id",
+            name: "Tables",
+            description: "Dining tables, coffee tables, side tables and more",
+          },
+          {
+            _id: "chairs-id",
+            name: "Chairs",
+            description: "Dining chairs, armchairs, recliners and more",
+          },
+          {
+            _id: "wardrobes-id",
+            name: "Wardrobes",
+            description: "Storage solutions for bedrooms",
+          },
+          {
+            _id: "beds-id",
+            name: "Beds",
+            description: "Single beds, double beds, king size beds and more",
+          },
+          {
+            _id: "cabinets-id",
+            name: "Cabinets",
+            description: "Storage solutions for living rooms and dining rooms",
+          },
+        ];
 
-        // Check if we have categories data and it's in the expected format
-        let fetchedCategories = [];
-        if (response.data && Array.isArray(response.data)) {
-          fetchedCategories = response.data;
-        } else if (
-          response.data &&
-          response.data.data &&
-          Array.isArray(response.data.data)
-        ) {
-          fetchedCategories = response.data.data;
-        } else {
-          console.error("Unexpected categories data format:", response.data);
-        }
-
-        // If no categories exist, create default ones
-        if (fetchedCategories.length === 0) {
-          console.log("No categories found, creating default categories...");
-          const createCategory = async (categoryData) => {
-            return await categoriesAPI.create(categoryData);
-          };
-
-          fetchedCategories = await createDefaultCategories(createCategory);
-        }
-
-        setCategories(fetchedCategories);
+        console.log("Using default categories:", defaultCats);
+        setCategories(defaultCats);
       } catch (error) {
-        console.error("Error fetching categories:", error);
+        console.error("Error setting categories:", error);
         setError("Failed to load categories. Please try again later.");
       } finally {
         setLoading(false);
