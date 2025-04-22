@@ -6,79 +6,99 @@ const fs = require("fs");
 // @desc    Get all products
 // @route   GET /api/products
 // @access  Public
-exports.getProducts = async (req, res) => {
+// exports.getProducts = async (req, res) => {
+//   try {
+//     // Copy req.query
+//     const reqQuery = { ...req.query };
+
+//     // Fields to exclude
+//     const removeFields = ["select", "sort", "page", "limit"];
+
+//     // Loop over removeFields and delete them from reqQuery
+//     removeFields.forEach((param) => delete reqQuery[param]);
+
+//     // Create query string
+//     let queryStr = JSON.stringify(reqQuery);
+
+//     // Create operators ($gt, $gte, etc)
+//     queryStr = queryStr.replace(
+//       /\\b(gt|gte|lt|lte|in)\\b/g,
+//       (match) => `$${match}`
+//     );
+
+//     // Finding resource
+//     let query = Product.find(JSON.parse(queryStr)).populate("category");
+
+//     // Select Fields
+//     if (req.query.select) {
+//       const fields = req.query.select.split(",").join(" ");
+//       query = query.select(fields);
+//     }
+
+//     // Sort
+//     if (req.query.sort) {
+//       const sortBy = req.query.sort.split(",").join(" ");
+//       query = query.sort(sortBy);
+//     } else {
+//       query = query.sort("-createdAt");
+//     }
+
+//     // Pagination
+//     const page = parseInt(req.query.page, 10) || 1;
+//     const limit = parseInt(req.query.limit, 10) || 10;
+//     const startIndex = (page - 1) * limit;
+//     const endIndex = page * limit;
+//     const total = await Product.countDocuments(JSON.parse(queryStr));
+
+//     query = query.skip(startIndex).limit(limit);
+
+//     // Executing query
+//     const products = await query;
+
+//     // Pagination result
+//     const pagination = {};
+
+//     if (endIndex < total) {
+//       pagination.next = {
+//         page: page + 1,
+//         limit,
+//       };
+//     }
+
+//     if (startIndex > 0) {
+//       pagination.prev = {
+//         page: page - 1,
+//         limit,
+//       };
+//     }
+
+//     res.status(200).json({
+//       success: true,
+//       count: products.length,
+//       pagination,
+//       data: products,
+//     });
+//   } catch (error) {
+//     res.status(500).json({
+//       success: false,
+//       message: error.message,
+//     });
+//   }
+// };
+exports.getProducts = async (_, res) => {
   try {
-    // Copy req.query
-    const reqQuery = { ...req.query };
+    // Always populate the category field to ensure category name is available
+    const query = Product.find().populate("category");
 
-    // Fields to exclude
-    const removeFields = ["select", "sort", "page", "limit"];
-
-    // Loop over removeFields and delete them from reqQuery
-    removeFields.forEach((param) => delete reqQuery[param]);
-
-    // Create query string
-    let queryStr = JSON.stringify(reqQuery);
-
-    // Create operators ($gt, $gte, etc)
-    queryStr = queryStr.replace(
-      /\\b(gt|gte|lt|lte|in)\\b/g,
-      (match) => `$${match}`
-    );
-
-    // Finding resource
-    let query = Product.find(JSON.parse(queryStr)).populate("category");
-
-    // Select Fields
-    if (req.query.select) {
-      const fields = req.query.select.split(",").join(" ");
-      query = query.select(fields);
-    }
-
-    // Sort
-    if (req.query.sort) {
-      const sortBy = req.query.sort.split(",").join(" ");
-      query = query.sort(sortBy);
-    } else {
-      query = query.sort("-createdAt");
-    }
-
-    // Pagination
-    const page = parseInt(req.query.page, 10) || 1;
-    const limit = parseInt(req.query.limit, 10) || 10;
-    const startIndex = (page - 1) * limit;
-    const endIndex = page * limit;
-    const total = await Product.countDocuments(JSON.parse(queryStr));
-
-    query = query.skip(startIndex).limit(limit);
-
-    // Executing query
     const products = await query;
-
-    // Pagination result
-    const pagination = {};
-
-    if (endIndex < total) {
-      pagination.next = {
-        page: page + 1,
-        limit,
-      };
-    }
-
-    if (startIndex > 0) {
-      pagination.prev = {
-        page: page - 1,
-        limit,
-      };
-    }
 
     res.status(200).json({
       success: true,
       count: products.length,
-      pagination,
       data: products,
     });
   } catch (error) {
+    console.error("Error fetching products:", error);
     res.status(500).json({
       success: false,
       message: error.message,
@@ -112,48 +132,6 @@ exports.getProduct = async (req, res) => {
   }
 };
 
-// @desc    Create new product
-// @route   POST /api/products
-// @access  Private
-// exports.createProduct = async (req, res) => {
-//   try {
-//     // Check if category exists
-//     const category = await Category.findById(req.body.category);
-//     if (!category) {
-//       return res.status(404).json({
-//         success: false,
-//         message: `Category not found with id of ${req.body.category}`,
-//       });
-//     }
-
-//     // Handle file uploads
-//     if (req.files && req.files.length > 0) {
-//       const images = [];
-//       req.files.forEach((file) => {
-//         // Use relative path for storage in database
-//         images.push(`/uploads/${file.filename}`);
-//       });
-//       req.body.images = images;
-//     } else {
-//       // If no images provided, use a default image
-//       req.body.images = ["/uploads/default-product.jpg"];
-//     }
-
-//     const product = await Product.create(req.body);
-
-//     res.status(201).json({
-//       success: true,
-//       data: product,
-//     });
-//   } catch (error) {
-//     res.status(500).json({
-//       success: false,
-//       message: error.message,
-//     });
-//   }
-// };
-// controllers/products.js - Updated createProduct function
-// productsController.js - Updated createProduct
 exports.createProduct = async (req, res) => {
   try {
     // Log the request for debugging
@@ -164,15 +142,28 @@ exports.createProduct = async (req, res) => {
     });
 
     // Verify required fields
-    if (!req.body.name || !req.body.price || !req.body.category) {
-      console.log("Missing required fields:", {
-        name: !req.body.name,
-        price: !req.body.price,
-        category: !req.body.category,
-      });
+    const requiredFields = [
+      "name",
+      "description",
+      "price",
+      "category",
+      "stock",
+    ];
+    const missingFields = [];
+
+    requiredFields.forEach((field) => {
+      if (req.body[field] === undefined || req.body[field] === "") {
+        missingFields.push(field);
+      }
+    });
+
+    if (missingFields.length > 0) {
+      console.log("Missing required fields:", missingFields);
       return res.status(400).json({
         success: false,
-        message: "Please provide name, price and category",
+        message: `Please provide the following required fields: ${missingFields.join(
+          ", "
+        )}`,
       });
     }
 
@@ -182,6 +173,7 @@ exports.createProduct = async (req, res) => {
     if (req.files && req.files.length > 0) {
       // If files were uploaded, use them
       images = req.files.map((file) => `/uploads/${file.filename}`);
+      console.log("Uploaded image paths:", images);
     } else if (req.body.defaultImage === "true") {
       // If defaultImage flag is set, use a placeholder URL
       console.log("Using placeholder for product image");
@@ -192,11 +184,15 @@ exports.createProduct = async (req, res) => {
     const productData = {
       name: req.body.name,
       description: req.body.description,
-      price: Number(req.body.price),
+      price: Number(req.body.price) || 0,
       category: req.body.category,
       stock: Number(req.body.stock) || 1,
-      images,
     };
+
+    // Only add images if we have any
+    if (images.length > 0) {
+      productData.images = images;
+    }
 
     // Handle optional fields
     if (req.body.discountPrice) {
@@ -219,24 +215,49 @@ exports.createProduct = async (req, res) => {
     if (req.body.dimensions) {
       try {
         // Check if dimensions is already a string that needs parsing
-        const dimensionsData =
-          typeof req.body.dimensions === "string"
-            ? JSON.parse(req.body.dimensions)
-            : req.body.dimensions;
+        let dimensionsData = {};
 
-        productData.dimensions = {
-          length: dimensionsData.length
-            ? Number(dimensionsData.length)
-            : undefined,
-          width: dimensionsData.width
-            ? Number(dimensionsData.width)
-            : undefined,
-          height: dimensionsData.height
-            ? Number(dimensionsData.height)
-            : undefined,
-        };
+        if (typeof req.body.dimensions === "string") {
+          try {
+            // Try to parse the JSON string
+            dimensionsData = JSON.parse(req.body.dimensions);
+            console.log("Successfully parsed dimensions JSON:", dimensionsData);
+          } catch (parseError) {
+            console.error(
+              "Error parsing dimensions JSON:",
+              parseError,
+              "Original value:",
+              req.body.dimensions
+            );
+            // Continue with empty dimensions object
+          }
+        } else if (typeof req.body.dimensions === "object") {
+          dimensionsData = req.body.dimensions;
+        }
 
-        console.log("Processed dimensions:", productData.dimensions);
+        // Convert dimension values to numbers if they exist
+        const dimensionsObj = {};
+
+        // Only add properties that have values
+        if (dimensionsData.length) {
+          dimensionsObj.length = Number(dimensionsData.length) || 0;
+        }
+
+        if (dimensionsData.width) {
+          dimensionsObj.width = Number(dimensionsData.width) || 0;
+        }
+
+        if (dimensionsData.height) {
+          dimensionsObj.height = Number(dimensionsData.height) || 0;
+        }
+
+        // Only add dimensions if we have at least one valid dimension
+        if (Object.keys(dimensionsObj).length > 0) {
+          productData.dimensions = dimensionsObj;
+          console.log("Processed dimensions:", productData.dimensions);
+        } else {
+          console.log("No valid dimensions found, skipping dimensions field");
+        }
       } catch (dimError) {
         console.error("Error processing dimensions:", dimError);
         // Continue without dimensions if there's an error
@@ -246,11 +267,50 @@ exports.createProduct = async (req, res) => {
     // Add creator info if available
     if (req.user && req.user.id) {
       productData.createdBy = req.user.id;
+    } else if (process.env.NODE_ENV === "development") {
+      // In development mode, try to find a default user
+      try {
+        const User = require("../models/User");
+        const defaultUser = await User.findOne({ email: "admin@example.com" });
+        if (defaultUser) {
+          productData.createdBy = defaultUser._id;
+          console.log(
+            "Using default user for product creation:",
+            defaultUser._id
+          );
+        }
+      } catch (userError) {
+        console.warn("Could not find default user:", userError.message);
+        // Continue without createdBy field
+      }
     }
 
     console.log("Attempting to create product with data:", productData);
 
     try {
+      // Validate the category exists
+      console.log("Checking if category exists:", productData.category);
+      let categoryExists;
+      try {
+        categoryExists = await Category.findById(productData.category);
+      } catch (categoryError) {
+        console.error("Error finding category:", categoryError.message);
+        // Continue without validation in development mode
+        if (process.env.NODE_ENV === "development") {
+          console.log("Development mode: Bypassing category validation");
+          categoryExists = true;
+        }
+      }
+
+      if (!categoryExists && process.env.NODE_ENV !== "development") {
+        console.error("Category not found:", productData.category);
+        return res.status(400).json({
+          success: false,
+          message: "The selected category does not exist",
+        });
+      }
+
+      // Create the product
       const product = await Product.create(productData);
       console.log("Product created successfully:", {
         id: product._id,
@@ -264,6 +324,26 @@ exports.createProduct = async (req, res) => {
       });
     } catch (dbError) {
       console.error("Database error creating product:", dbError);
+
+      // Handle specific MongoDB errors
+      if (dbError.name === "ValidationError") {
+        const validationErrors = Object.values(dbError.errors).map(
+          (err) => err.message
+        );
+        return res.status(400).json({
+          success: false,
+          message: "Validation error",
+          errors: validationErrors,
+        });
+      } else if (dbError.code === 11000) {
+        // Duplicate key error
+        return res.status(400).json({
+          success: false,
+          message: "A product with this name already exists",
+        });
+      }
+
+      // For other errors, throw to be caught by the outer catch block
       throw dbError;
     }
   } catch (error) {

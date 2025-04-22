@@ -124,6 +124,19 @@ const AdminProducts = () => {
             fetchedCategories = getMockCategories();
           }
 
+          // Filter out test categories and only keep the specific ones we want
+          const validCategoryNames = [
+            "Sofa Beds",
+            "Tables",
+            "Chairs",
+            "Wardrobes",
+          ];
+          fetchedCategories = fetchedCategories.filter((category) =>
+            validCategoryNames.includes(category.name)
+          );
+
+          console.log("Filtered categories for admin:", fetchedCategories);
+
           setCategories(fetchedCategories);
         } catch (apiError) {
           console.error("Error fetching categories from API:", apiError);
@@ -405,11 +418,13 @@ const AdminProducts = () => {
               onChange={(e) => setCategoryFilter(e.target.value)}
             >
               <option value="all">All Categories</option>
-              {categories.map((category) => (
-                <option key={category._id} value={category._id}>
-                  {category.name}
-                </option>
-              ))}
+              {categories &&
+                categories.length > 0 &&
+                categories.map((category) => (
+                  <option key={category._id} value={category._id}>
+                    {category.name}
+                  </option>
+                ))}
             </select>
           </div>
 
@@ -544,13 +559,38 @@ const AdminProducts = () => {
                     transition={{ duration: 0.3 }}
                     className="hover:bg-gray-50"
                   >
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    {/* <td className="px-6 py-4 whitespace-nowrap">
                       <div className="w-16 h-16 rounded-md overflow-hidden">
                         <img
                           src={product.images[0]}
                           alt={product.name}
                           className="w-full h-full object-cover"
                         />
+                      </div>
+                    </td> */}
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="w-16 h-16 rounded-md overflow-hidden">
+                        {product.images && product.images.length > 0 ? (
+                          <img
+                            src={`${
+                              import.meta.env.VITE_API_BASE_URL ||
+                              "http://localhost:5000"
+                            }${product.images[0]}`}
+                            alt={product.name}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              e.target.onerror = null;
+                              e.target.src =
+                                "https://via.placeholder.com/300x300?text=No+Image";
+                            }}
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                            <span className="text-xs text-gray-500">
+                              No Image
+                            </span>
+                          </div>
+                        )}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -563,8 +603,13 @@ const AdminProducts = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
-                        {product.category
+                        {product.category &&
+                        typeof product.category === "object" &&
+                        product.category.name
                           ? product.category.name
+                          : typeof product.category === "string"
+                          ? categories.find((c) => c._id === product.category)
+                              ?.name || "Uncategorized"
                           : "Uncategorized"}
                       </span>
                     </td>

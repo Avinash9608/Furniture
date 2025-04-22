@@ -1,25 +1,27 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
+import { formatPrice, calculateDiscountPercentage } from "../utils/format";
 
 const ProductCard = ({ product }) => {
   return (
-    <motion.div
-      whileHover={{ y: -5 }}
-      transition={{ duration: 0.3 }}
-      className="card group"
-    >
+    <motion.div whileHover={{ y: -5 }} className="card group">
       <div className="relative overflow-hidden h-64">
         <img
           src={
             product.images && product.images.length > 0
-              ? product.images[0]
+              ? product.images[0].startsWith("http")
+                ? product.images[0]
+                : `${
+                    import.meta.env.VITE_API_BASE_URL || "http://localhost:5000"
+                  }${product.images[0]}`
               : "https://via.placeholder.com/300x300?text=" +
                 encodeURIComponent(product.name || "Product")
           }
           alt={product.name}
           className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
           onError={(e) => {
+            console.log("Image load error:", e.target.src);
             e.target.onerror = null;
             e.target.src =
               "https://via.placeholder.com/300x300?text=Image+Not+Found";
@@ -43,14 +45,42 @@ const ProductCard = ({ product }) => {
         </div>
       </div>
       <div className="p-4">
-        <span className="text-sm text-gray-500">{product.category.name}</span>
+        <span className="text-sm text-gray-500">
+          {product.category &&
+          typeof product.category === "object" &&
+          product.category.name
+            ? product.category.name
+            : "Uncategorized"}
+        </span>
         <h3 className="text-lg font-medium mb-2">{product.name}</h3>
         <div className="flex justify-between items-center">
-          <span className="text-lg font-bold text-primary">
-            ₹{product.price.toLocaleString()}
-          </span>
+          <div>
+            {product.discountPrice && product.discountPrice < product.price ? (
+              <div className="flex flex-col">
+                <span className="text-lg font-bold text-primary">
+                  {formatPrice(product.discountPrice)}
+                </span>
+                <div className="flex items-center">
+                  <span className="text-sm text-gray-500 line-through mr-1">
+                    {formatPrice(product.price, false)}
+                  </span>
+                  <span className="text-xs text-red-600">
+                    {calculateDiscountPercentage(
+                      product.price,
+                      product.discountPrice
+                    )}
+                    % OFF
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <span className="text-lg font-bold text-primary">
+                {formatPrice(product.price)}
+              </span>
+            )}
+          </div>
           <Link
-            to={`/products/${product.id}`}
+            to={`/products/${product._id}`}
             className="text-sm font-medium text-gray-600 hover:text-primary transition-colors duration-300"
           >
             View Details

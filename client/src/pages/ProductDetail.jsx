@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
-import { motion } from "framer-motion";
 import { productsAPI } from "../utils/api";
-import { formatPrice } from "../utils/format";
+import { formatPrice, calculateDiscountPercentage } from "../utils/format";
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
 import Loading from "../components/Loading";
@@ -193,7 +192,12 @@ const ProductDetail = () => {
                 <img
                   src={
                     product.images && product.images.length > 0
-                      ? product.images[selectedImage]
+                      ? product.images[selectedImage].startsWith("http")
+                        ? product.images[selectedImage]
+                        : `${
+                            import.meta.env.VITE_API_BASE_URL ||
+                            "http://localhost:5000"
+                          }${product.images[selectedImage]}`
                       : `https://via.placeholder.com/800x600?text=${encodeURIComponent(
                           product.name || "Product"
                         )}`
@@ -201,6 +205,7 @@ const ProductDetail = () => {
                   alt={product.name}
                   className="w-full h-full object-cover"
                   onError={(e) => {
+                    console.log("Image load error:", e.target.src);
                     e.target.onerror = null;
                     e.target.src =
                       "https://via.placeholder.com/800x600?text=Image+Not+Found";
@@ -222,10 +227,18 @@ const ProductDetail = () => {
                       onClick={() => setSelectedImage(index)}
                     >
                       <img
-                        src={image}
+                        src={
+                          image.startsWith("http")
+                            ? image
+                            : `${
+                                import.meta.env.VITE_API_BASE_URL ||
+                                "http://localhost:5000"
+                              }${image}`
+                        }
                         alt={`${product.name} - Image ${index + 1}`}
                         className="w-full h-full object-cover"
                         onError={(e) => {
+                          console.log("Thumbnail load error:", e.target.src);
                           e.target.onerror = null;
                           e.target.src =
                             "https://via.placeholder.com/100x100?text=Image+Not+Found";
@@ -270,22 +283,24 @@ const ProductDetail = () => {
 
               {/* Price */}
               <div className="mb-6">
-                {product.discountPrice ? (
-                  <div className="flex items-center">
-                    <span className="text-3xl font-bold text-primary">
+                {product.discountPrice &&
+                product.discountPrice < product.price ? (
+                  <div className="flex flex-wrap items-center">
+                    <span className="text-3xl font-bold text-primary mr-3">
                       {formatPrice(product.discountPrice)}
                     </span>
-                    <span className="ml-2 text-lg text-gray-500 line-through">
-                      {formatPrice(product.price)}
-                    </span>
-                    <span className="ml-2 bg-red-100 text-red-800 text-xs font-medium px-2 py-0.5 rounded">
-                      {Math.round(
-                        ((product.price - product.discountPrice) /
-                          product.price) *
-                          100
-                      )}
-                      % OFF
-                    </span>
+                    <div>
+                      <span className="text-lg text-gray-500 line-through block">
+                        {formatPrice(product.price)}
+                      </span>
+                      <span className="bg-red-100 text-red-800 text-xs font-medium px-2 py-0.5 rounded inline-block mt-1">
+                        {calculateDiscountPercentage(
+                          product.price,
+                          product.discountPrice
+                        )}
+                        % OFF
+                      </span>
+                    </div>
                   </div>
                 ) : (
                   <span className="text-3xl font-bold text-primary">

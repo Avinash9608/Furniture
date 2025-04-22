@@ -18,9 +18,10 @@ const bypassAuth = true;
 console.log("Products Routes - Bypass Auth:", bypassAuth);
 
 // Create middleware arrays based on environment
-const adminMiddleware = [upload.array("images", 5)];
-
 const userMiddleware = bypassAuth ? [] : [protect];
+const adminMiddleware = bypassAuth
+  ? [upload.array("images", 5)]
+  : [protect, authorize("admin"), upload.array("images", 5)];
 
 // Define routes with conditional middleware
 router

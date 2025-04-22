@@ -37,7 +37,23 @@ const Products = () => {
 
         // Fetch categories
         const categoriesResponse = await categoriesAPI.getAll();
-        setCategories(categoriesResponse.data.data);
+
+        // Filter out test categories
+        const validCategoryNames = [
+          "Sofa Beds",
+          "Tables",
+          "Chairs",
+          "Wardrobes",
+        ];
+        const filteredCategories = categoriesResponse.data.data.filter(
+          (category) => validCategoryNames.includes(category.name)
+        );
+
+        console.log(
+          "Filtered categories for product page:",
+          filteredCategories
+        );
+        setCategories(filteredCategories);
 
         // Fetch products with filters
         await fetchProducts();
@@ -150,10 +166,7 @@ const Products = () => {
     fetchProducts();
   };
 
-  // Handle price range change
-  const handlePriceRangeChange = (event, newValue) => {
-    setPriceRange(newValue);
-  };
+  // This function is intentionally left as a placeholder for future slider implementation
 
   // Apply price range filter when user stops dragging
   const handlePriceRangeChangeCommitted = () => {

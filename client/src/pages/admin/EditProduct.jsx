@@ -72,6 +72,19 @@ const EditProduct = () => {
           fetchedCategories = await createDefaultCategories(createCategory);
         }
 
+        // Filter out test categories and only keep the specific ones we want
+        const validCategoryNames = [
+          "Sofa Beds",
+          "Tables",
+          "Chairs",
+          "Wardrobes",
+        ];
+        fetchedCategories = fetchedCategories.filter((category) =>
+          validCategoryNames.includes(category.name)
+        );
+
+        console.log("Filtered categories for edit product:", fetchedCategories);
+
         setCategories(fetchedCategories);
       } catch (error) {
         console.error("Error fetching data:", error);
@@ -124,14 +137,17 @@ const EditProduct = () => {
       });
 
       // Send request to update product
-      await productsAPI.update(id, formData);
+      const response = await productsAPI.update(id, formData);
+      console.log("Product updated successfully:", response);
 
-      // Redirect to products page
-      navigate("/admin/products", {
-        state: {
-          successMessage: "Product updated successfully!",
-        },
-      });
+      // Redirect to products page with a slight delay to ensure UI updates
+      setTimeout(() => {
+        navigate("/admin/products", {
+          state: {
+            successMessage: "Product updated successfully!",
+          },
+        });
+      }, 500);
     } catch (error) {
       console.error("Error updating product:", error);
       setSubmitError(

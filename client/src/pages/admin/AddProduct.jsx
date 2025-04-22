@@ -1,12 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import axios from "axios";
 import { productsAPI, categoriesAPI } from "../../utils/api";
-import {
-  createDefaultCategories,
-  saveLocalCategories,
-} from "../../utils/defaultData";
+import { saveLocalCategories } from "../../utils/defaultData";
 import AdminLayout from "../../components/admin/AdminLayout";
 import ProductForm from "../../components/admin/ProductForm";
 import CategoryForm from "../../components/admin/CategoryForm";
@@ -36,44 +32,51 @@ const AddProduct = () => {
         setLoading(true);
         setError(null);
 
-        // Use default categories directly for now to ensure they're available
-        const defaultCats = [
-          {
-            _id: "sofa-beds-id",
-            name: "Sofa Beds",
-            description: "Convertible sofas that can be used as beds",
-          },
-          {
-            _id: "tables-id",
-            name: "Tables",
-            description: "Dining tables, coffee tables, side tables and more",
-          },
-          {
-            _id: "chairs-id",
-            name: "Chairs",
-            description: "Dining chairs, armchairs, recliners and more",
-          },
-          {
-            _id: "wardrobes-id",
-            name: "Wardrobes",
-            description: "Storage solutions for bedrooms",
-          },
-          {
-            _id: "beds-id",
-            name: "Beds",
-            description: "Single beds, double beds, king size beds and more",
-          },
-          {
-            _id: "cabinets-id",
-            name: "Cabinets",
-            description: "Storage solutions for living rooms and dining rooms",
-          },
-        ];
+        // Fetch categories from the API
+        const response = await categoriesAPI.getAll();
+        console.log("Categories API response:", response);
 
-        console.log("Using default categories:", defaultCats);
-        setCategories(defaultCats);
+        if (response && response.data) {
+          let allCategories = [];
+
+          // Check if response.data.data is an array (API returns {success, count, data})
+          if (response.data.data && Array.isArray(response.data.data)) {
+            allCategories = response.data.data;
+          } else if (Array.isArray(response.data)) {
+            // If response.data is directly an array
+            allCategories = response.data;
+          } else {
+            console.error("Unexpected API response format:", response.data);
+            setError("Failed to load categories. Invalid data format.");
+            setLoading(false);
+            return;
+          }
+
+          // Filter to only include the required categories
+          const requiredCategoryNames = [
+            "Sofa Beds",
+            "Tables",
+            "Chairs",
+            "Wardrobes",
+          ];
+          const filteredCategories = allCategories.filter((category) =>
+            requiredCategoryNames.includes(category.name)
+          );
+
+          console.log("Filtered categories:", filteredCategories);
+
+          if (filteredCategories.length > 0) {
+            setCategories(filteredCategories);
+          } else {
+            console.warn("No matching categories found. Using all categories.");
+            setCategories(allCategories);
+          }
+        } else {
+          console.error("No data received from API");
+          setError("Failed to load categories. No data received.");
+        }
       } catch (error) {
-        console.error("Error setting categories:", error);
+        console.error("Error fetching categories:", error);
         setError("Failed to load categories. Please try again later.");
       } finally {
         setLoading(false);
@@ -135,24 +138,33 @@ const AddProduct = () => {
       console.log("Auth token in localStorage:", localStorage.getItem("token"));
       console.log("User in localStorage:", localStorage.getItem("user"));
 
-      // Use direct axios call instead of the API client
-      console.log("Using direct axios call to create product");
-      const response = await axios.post(
-        "http://localhost:5000/api/products",
-        formData,
-        {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-        }
-      );
+      // Use the API client instead of direct axios
+      console.log("Using API client to create product");
+
+      // Log the FormData contents for debugging
+      console.log("Final FormData entries before submission:");
+      for (let pair of formData.entries()) {
+        console.log(
+          pair[0] +
+            ": " +
+            (pair[1] instanceof File
+              ? pair[1].name + " (" + pair[1].type + ")"
+              : pair[1])
+        );
+      }
+
+      // Use the productsAPI client which handles headers correctly
+      const response = await productsAPI.create(formData);
       console.log("Product created successfully:", response);
 
-      navigate("/admin/products", {
-        state: {
-          successMessage: "Product added successfully!",
-        },
-      });
+      // Show success message with a slight delay to ensure UI updates
+      setTimeout(() => {
+        navigate("/admin/products", {
+          state: {
+            successMessage: "Product added successfully!",
+          },
+        });
+      }, 500);
     } catch (error) {
       console.error("Error creating product:", error);
       setSubmitError(

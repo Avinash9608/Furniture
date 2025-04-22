@@ -7,19 +7,24 @@ import About from "./pages/About";
 import Products from "./pages/Products";
 import ProductDetail from "./pages/ProductDetail";
 import Cart from "./pages/Cart";
+import Checkout from "./pages/Checkout";
 import Contact from "./pages/Contact";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Profile from "./pages/Profile";
 import Orders from "./pages/Orders";
+import MyOrders from "./pages/MyOrders";
+import MyPaymentRequests from "./pages/MyPaymentRequests";
 import AdminLogin from "./pages/admin/AdminLogin";
 import AdminDashboard from "./pages/admin/Dashboard";
 import AdminProducts from "./pages/admin/Products";
 import AdminAddProduct from "./pages/admin/AddProduct";
 import AdminEditProduct from "./pages/admin/EditProduct";
 import AdminCategories from "./pages/admin/Categories";
-import AdminOrders from "./pages/admin/Orders";
+import AdminOrders from "./pages/admin/AdminOrders";
 import AdminMessages from "./pages/admin/Messages";
+import AdminPaymentSettings from "./pages/admin/PaymentSettings";
+import AdminPaymentRequests from "./pages/admin/PaymentRequests";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/admin/ProtectedRoute";
 import UserProtectedRoute from "./components/UserProtectedRoute";
@@ -50,6 +55,14 @@ function App() {
           <Route path="/products" element={<Products />} />
           <Route path="/products/:id" element={<ProductDetail />} />
           <Route path="/cart" element={<Cart />} />
+          <Route
+            path="/checkout"
+            element={
+              <UserProtectedRoute>
+                <Checkout />
+              </UserProtectedRoute>
+            }
+          />
           <Route path="/contact" element={<Contact />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
@@ -67,7 +80,15 @@ function App() {
             path="/orders"
             element={
               <UserProtectedRoute>
-                <Orders />
+                <MyOrders />
+              </UserProtectedRoute>
+            }
+          />
+          <Route
+            path="/payment-requests"
+            element={
+              <UserProtectedRoute>
+                <MyPaymentRequests />
               </UserProtectedRoute>
             }
           />
@@ -127,6 +148,22 @@ function App() {
             element={
               <ProtectedRoute>
                 <AdminMessages />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/payment-settings"
+            element={
+              <ProtectedRoute>
+                <AdminPaymentSettings />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/payment-requests"
+            element={
+              <ProtectedRoute>
+                <AdminPaymentRequests />
               </ProtectedRoute>
             }
           />

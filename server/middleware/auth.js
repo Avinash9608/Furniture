@@ -121,12 +121,26 @@ exports.protect = async (req, res, next) => {
   }
 
   // Development bypass - remove in production
-  if (process.env.NODE_ENV === "development" && !token) {
+  if (process.env.NODE_ENV === "development") {
     console.warn("Development mode: Bypassing auth");
-    const adminUser = await User.findOne({ role: "admin" });
-    if (adminUser) {
+    try {
+      // Find an admin user or create one if it doesn't exist
+      let adminUser = await User.findOne({ role: "admin" });
+
+      if (!adminUser) {
+        console.log("Creating admin user for development...");
+        adminUser = await User.create({
+          name: "Admin User",
+          email: "admin@example.com",
+          password: "admin123",
+          role: "admin",
+        });
+      }
+
       req.user = adminUser;
       return next();
+    } catch (error) {
+      console.error("Error setting up admin user:", error);
     }
   }
 
@@ -164,11 +178,8 @@ exports.protect = async (req, res, next) => {
 exports.authorize = (...roles) => {
   return (req, res, next) => {
     // For development testing with admin user
-    const adminTestMode =
-      process.env.NODE_ENV === "development" &&
-      process.env.ADMIN_TEST_MODE === "true";
-    if (adminTestMode) {
-      console.log("🔑 ADMIN TEST MODE: Bypassing role check");
+    if (process.env.NODE_ENV === "development") {
+      console.log("🔑 Development mode: Bypassing role check");
       return next();
     }
 

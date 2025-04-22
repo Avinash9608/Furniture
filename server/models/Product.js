@@ -27,7 +27,8 @@ const ProductSchema = new mongoose.Schema({
     min: [0, "Discount price must be a positive number"],
   },
   category: {
-    type: String,
+    type: mongoose.Schema.ObjectId,
+    ref: "Category",
     required: true,
   },
   stock: {
@@ -112,12 +113,46 @@ const ProductSchema = new mongoose.Schema({
 });
 
 // Create slug from name before saving
-ProductSchema.pre("save", function (next) {
+ProductSchema.pre("save", async function (next) {
   if (!this.isModified("name")) {
     next();
     return;
   }
-  this.slug = this.name.toLowerCase().replace(/[^a-zA-Z0-9]/g, "-");
+
+  // Generate base slug from name
+  let baseSlug = this.name.toLowerCase().replace(/[^a-zA-Z0-9]/g, "-");
+
+  // Check if slug already exists
+  let slug = baseSlug;
+  let counter = 1;
+  let slugExists = true;
+
+  // Keep checking until we find a unique slug
+  while (slugExists) {
+    try {
+      // Check if a product with this slug already exists (excluding this document)
+      const existingProduct = await this.constructor.findOne({
+        slug: slug,
+        _id: { $ne: this._id }, // Exclude current document
+      });
+
+      if (!existingProduct) {
+        // Slug is unique
+        slugExists = false;
+      } else {
+        // Slug exists, try with counter
+        slug = `${baseSlug}-${counter}`;
+        counter++;
+      }
+    } catch (err) {
+      console.error("Error checking slug uniqueness:", err);
+      // In case of error, use timestamp to ensure uniqueness
+      slug = `${baseSlug}-${Date.now()}`;
+      slugExists = false;
+    }
+  }
+
+  this.slug = slug;
   next();
 });
 

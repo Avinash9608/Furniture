@@ -13,7 +13,7 @@ const Categories = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
-  
+
   // New category state
   const [showAddModal, setShowAddModal] = useState(false);
   const [newCategory, setNewCategory] = useState({
@@ -24,12 +24,12 @@ const Categories = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
-  
+
   // Edit category state
   const [showEditModal, setShowEditModal] = useState(false);
   const [editCategory, setEditCategory] = useState(null);
   const [editImagePreview, setEditImagePreview] = useState(null);
-  
+
   // Delete category state
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [categoryToDelete, setCategoryToDelete] = useState(null);
@@ -56,7 +56,10 @@ const Categories = () => {
             });
             productCounts[category._id] = productsResponse.data.count || 0;
           } catch (error) {
-            console.error(`Error fetching products for category ${category._id}:`, error);
+            console.error(
+              `Error fetching products for category ${category._id}:`,
+              error
+            );
             productCounts[category._id] = 0;
           }
         }
@@ -91,10 +94,62 @@ const Categories = () => {
   };
 
   // Handle add category
+  // const handleAddCategory = async (e) => {
+  //   e.preventDefault();
+
+  //   // Validate form
+  //   if (!newCategory.name) {
+  //     setSubmitError("Category name is required");
+  //     return;
+  //   }
+
+  //   try {
+  //     setIsSubmitting(true);
+  //     setSubmitError(null);
+
+  //     // Create FormData for image upload
+  //     const formData = new FormData();
+  //     formData.append("name", newCategory.name);
+  //     formData.append("description", newCategory.description);
+  //     if (newCategory.image) {
+  //       formData.append("image", newCategory.image);
+  //     }
+
+  //     // Send request to create category
+  //     const response = await categoriesAPI.create(formData);
+
+  //     // Add new category to state
+  //     setCategories([...categories, response.data.data]);
+  //     setCategoryProducts({
+  //       ...categoryProducts,
+  //       [response.data.data._id]: 0,
+  //     });
+
+  //     // Reset form and close modal
+  //     setNewCategory({ name: "", description: "", image: null });
+  //     setImagePreview(null);
+  //     setShowAddModal(false);
+
+  //     // Show success message
+  //     setSuccessMessage("Category added successfully!");
+
+  //     // Clear success message after 3 seconds
+  //     setTimeout(() => {
+  //       setSuccessMessage(null);
+  //     }, 3000);
+  //   } catch (error) {
+  //     console.error("Error adding category:", error);
+  //     setSubmitError(
+  //       error.response?.data?.message ||
+  //         "Failed to add category. Please try again."
+  //     );
+  //   } finally {
+  //     setIsSubmitting(false);
+  //   }
+  // };
   const handleAddCategory = async (e) => {
     e.preventDefault();
-    
-    // Validate form
+
     if (!newCategory.name) {
       setSubmitError("Category name is required");
       return;
@@ -104,36 +159,37 @@ const Categories = () => {
       setIsSubmitting(true);
       setSubmitError(null);
 
-      // Create FormData for image upload
       const formData = new FormData();
       formData.append("name", newCategory.name);
       formData.append("description", newCategory.description);
+
+      // Make sure the field name matches what your backend expects
       if (newCategory.image) {
         formData.append("image", newCategory.image);
       }
 
-      // Send request to create category
-      const response = await categoriesAPI.create(formData);
-      
-      // Add new category to state
+      // Add headers for FormData
+      const config = {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      };
+
+      const response = await categoriesAPI.create(formData, config);
+
       setCategories([...categories, response.data.data]);
       setCategoryProducts({
         ...categoryProducts,
         [response.data.data._id]: 0,
       });
 
-      // Reset form and close modal
+      // Reset form
       setNewCategory({ name: "", description: "", image: null });
       setImagePreview(null);
       setShowAddModal(false);
-      
-      // Show success message
       setSuccessMessage("Category added successfully!");
-      
-      // Clear success message after 3 seconds
-      setTimeout(() => {
-        setSuccessMessage(null);
-      }, 3000);
+
+      setTimeout(() => setSuccessMessage(null), 3000);
     } catch (error) {
       console.error("Error adding category:", error);
       setSubmitError(
@@ -159,7 +215,7 @@ const Categories = () => {
   // Handle edit category submit
   const handleEditCategory = async (e) => {
     e.preventDefault();
-    
+
     // Validate form
     if (!editCategory.name) {
       setSubmitError("Category name is required");
@@ -180,7 +236,7 @@ const Categories = () => {
 
       // Send request to update category
       const response = await categoriesAPI.update(editCategory._id, formData);
-      
+
       // Update category in state
       setCategories(
         categories.map((cat) =>
@@ -192,10 +248,10 @@ const Categories = () => {
       setEditCategory(null);
       setEditImagePreview(null);
       setShowEditModal(false);
-      
+
       // Show success message
       setSuccessMessage("Category updated successfully!");
-      
+
       // Clear success message after 3 seconds
       setTimeout(() => {
         setSuccessMessage(null);
@@ -239,14 +295,16 @@ const Categories = () => {
 
       // Send request to delete category
       await categoriesAPI.delete(categoryToDelete._id);
-      
+
       // Remove category from state
-      setCategories(categories.filter((cat) => cat._id !== categoryToDelete._id));
-      
+      setCategories(
+        categories.filter((cat) => cat._id !== categoryToDelete._id)
+      );
+
       // Close modal and show success message
       setShowDeleteModal(false);
       setSuccessMessage("Category deleted successfully!");
-      
+
       // Clear success message after 3 seconds
       setTimeout(() => {
         setSuccessMessage(null);
@@ -320,12 +378,32 @@ const Categories = () => {
                 transition={{ duration: 0.3 }}
                 className="bg-gray-50 rounded-lg overflow-hidden shadow-sm border border-gray-200"
               >
-                <div className="h-48 overflow-hidden">
+                {/* <div className="h-48 overflow-hidden">
                   <img
                     src={category.image}
                     alt={category.name}
                     className="w-full h-full object-cover"
                   />
+                </div> */}
+                <div className="h-48 overflow-hidden">
+                  {category.image ? (
+                    <img
+                      src={`${
+                        import.meta.env.VITE_API_BASE_URL ||
+                        "http://localhost:5000"
+                      }${category.image}`}
+                      alt={category.name}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.target.onerror = null;
+                        e.target.src = "/no-image.jpg";
+                      }}
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                      <span className="text-xs text-gray-500">No Image</span>
+                    </div>
+                  )}
                 </div>
                 <div className="p-4">
                   <div className="flex justify-between items-start">
@@ -401,11 +479,7 @@ const Categories = () => {
       >
         <form onSubmit={handleAddCategory} className="p-6">
           {submitError && (
-            <Alert
-              type="error"
-              message={submitError}
-              className="mb-4"
-            />
+            <Alert type="error" message={submitError} className="mb-4" />
           )}
 
           <div className="mb-4">
@@ -447,7 +521,7 @@ const Categories = () => {
             ></textarea>
           </div>
 
-          <div className="mb-4">
+          {/* <div className="mb-4">
             <label
               htmlFor="image"
               className="block text-sm font-medium text-gray-700 mb-1"
@@ -470,8 +544,33 @@ const Categories = () => {
                 />
               </div>
             )}
+          </div> */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Category Image
+            </label>
+            <input
+              type="file"
+              accept="image/*"
+              className="block w-full text-sm text-gray-500
+      file:mr-4 file:py-2 file:px-4
+      file:rounded-md file:border-0
+      file:text-sm file:font-semibold
+      file:bg-primary file:text-white
+      hover:file:bg-primary-dark"
+              onChange={handleImageChange}
+              required // If you want to make it required
+            />
+            {imagePreview && (
+              <div className="mt-2">
+                <img
+                  src={imagePreview}
+                  alt="Preview"
+                  className="h-32 w-32 object-cover rounded-md"
+                />
+              </div>
+            )}
           </div>
-
           <div className="flex justify-end space-x-4 mt-6">
             <button
               type="button"
@@ -511,11 +610,7 @@ const Categories = () => {
         {editCategory && (
           <form onSubmit={handleEditCategory} className="p-6">
             {submitError && (
-              <Alert
-                type="error"
-                message={submitError}
-                className="mb-4"
-              />
+              <Alert type="error" message={submitError} className="mb-4" />
             )}
 
             <div className="mb-4">
@@ -630,11 +725,7 @@ const Categories = () => {
           </p>
 
           {deleteError && (
-            <Alert
-              type="error"
-              message={deleteError}
-              className="mb-4"
-            />
+            <Alert type="error" message={deleteError} className="mb-4" />
           )}
 
           <div className="flex justify-end space-x-4">
@@ -648,7 +739,9 @@ const Categories = () => {
             <button
               onClick={handleDeleteConfirm}
               className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-              disabled={isDeleting || categoryProducts[categoryToDelete?._id] > 0}
+              disabled={
+                isDeleting || categoryProducts[categoryToDelete?._id] > 0
+              }
             >
               {isDeleting ? "Deleting..." : "Delete"}
             </button>

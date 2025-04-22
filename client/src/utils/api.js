@@ -424,6 +424,9 @@ export const ordersAPI = {
     api.put(`/orders/${id}/pay`, paymentResult),
   getStats: () => api.get("/orders/stats"),
   getRecent: (limit = 5) => api.get(`/orders/recent?limit=${limit}`),
+  getAllOrders: () => api.get("/orders"),
+  updateOrderStatus: (id, status) =>
+    api.patch(`/orders/${id}/status`, { status }),
 };
 
 // Dashboard API
@@ -449,6 +452,143 @@ export const usersAPI = {
   delete: (id) => api.delete(`/users/${id}`),
   updateRole: (id, roleData) => api.put(`/users/${id}/role`, roleData),
   getStats: () => api.get("/users/stats"),
+};
+
+// Payment Settings API
+export const paymentSettingsAPI = {
+  get: async () => {
+    try {
+      console.log("Fetching active payment settings");
+      const response = await api.get("/payment-settings");
+      console.log("Payment settings response:", response);
+      return response;
+    } catch (error) {
+      console.error("Error fetching payment settings:", error);
+      throw error;
+    }
+  },
+  getAll: async () => {
+    try {
+      console.log("Fetching all payment settings");
+      const response = await api.get("/payment-settings/all");
+      console.log("All payment settings response:", response);
+      return response;
+    } catch (error) {
+      console.error("Error fetching all payment settings:", error);
+      throw error;
+    }
+  },
+  create: async (data) => {
+    try {
+      console.log("Creating payment setting with data:", data);
+      const response = await api.post("/payment-settings", data);
+      console.log("Create payment setting response:", response);
+      return response;
+    } catch (error) {
+      console.error("Error creating payment setting:", error);
+      throw error;
+    }
+  },
+  update: async (id, data) => {
+    try {
+      console.log(`Updating payment setting ${id} with data:`, data);
+      const response = await api.put(`/payment-settings/${id}`, data);
+      console.log("Update payment setting response:", response);
+      return response;
+    } catch (error) {
+      console.error(`Error updating payment setting ${id}:`, error);
+      throw error;
+    }
+  },
+  delete: async (id) => {
+    try {
+      console.log(`Deleting payment setting ${id}`);
+      const response = await api.delete(`/payment-settings/${id}`);
+      console.log("Delete payment setting response:", response);
+      return response;
+    } catch (error) {
+      console.error(`Error deleting payment setting ${id}:`, error);
+      throw error;
+    }
+  },
+};
+
+// Payment Requests API
+export const paymentRequestsAPI = {
+  create: async (data) => {
+    try {
+      console.log("Creating payment request with data:", data);
+      const response = await api.post("/payment-requests", data);
+      console.log("Create payment request response:", response);
+      return response;
+    } catch (error) {
+      console.error("Error creating payment request:", error);
+      throw error;
+    }
+  },
+  getMine: async () => {
+    try {
+      console.log("Fetching my payment requests");
+      const response = await api.get("/payment-requests");
+      console.log("My payment requests response:", response);
+      return response;
+    } catch (error) {
+      console.error("Error fetching my payment requests:", error);
+      throw error;
+    }
+  },
+  getAll: async () => {
+    try {
+      console.log("Fetching all payment requests");
+      const response = await api.get("/payment-requests/all");
+      console.log("All payment requests response:", response);
+      return response;
+    } catch (error) {
+      console.error("Error fetching all payment requests:", error);
+      throw error;
+    }
+  },
+  getById: async (id) => {
+    try {
+      console.log(`Fetching payment request ${id}`);
+      const response = await api.get(`/payment-requests/${id}`);
+      console.log("Payment request response:", response);
+      return response;
+    } catch (error) {
+      console.error(`Error fetching payment request ${id}:`, error);
+      throw error;
+    }
+  },
+  updateStatus: async (id, data) => {
+    try {
+      console.log(`Updating payment request ${id} status to ${data.status}`);
+      const response = await api.put(`/payment-requests/${id}/status`, data);
+      console.log("Update payment request status response:", response);
+      return response;
+    } catch (error) {
+      console.error(`Error updating payment request ${id} status:`, error);
+      throw error;
+    }
+  },
+  uploadProof: async (id, formData) => {
+    try {
+      console.log(`Uploading proof for payment request ${id}`);
+      const response = await api.put(
+        `/payment-requests/${id}/proof`,
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        }
+      );
+      console.log("Upload payment proof response:", response);
+      return response;
+    } catch (error) {
+      console.error(`Error uploading proof for payment request ${id}:`, error);
+      throw error;
+    }
+  },
 };
 
 export { productsAPI };

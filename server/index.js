@@ -4,6 +4,9 @@ const cors = require("cors");
 const dotenv = require("dotenv");
 const path = require("path");
 
+// Ensure uploads directory exists
+require("./ensure-uploads");
+
 // Load environment variables
 dotenv.config();
 
@@ -11,6 +14,12 @@ dotenv.config();
 if (process.env.NODE_ENV === "development") {
   process.env.BYPASS_AUTH = "true";
   console.log("Forcing BYPASS_AUTH to true for development");
+}
+
+// Ensure BYPASS_AUTH is set correctly
+if (process.env.BYPASS_AUTH === undefined) {
+  process.env.BYPASS_AUTH = "true";
+  console.log("Setting BYPASS_AUTH to true as it was undefined");
 }
 
 // Set default environment variables if not set
@@ -37,6 +46,8 @@ const productRoutes = require("./routes/products");
 const categoryRoutes = require("./routes/categories");
 const contactRoutes = require("./routes/contact");
 const orderRoutes = require("./routes/orders");
+const paymentSettingsRoutes = require("./routes/paymentSettings");
+const paymentRequestsRoutes = require("./routes/paymentRequests");
 
 // Log bypass auth status for each route
 console.log(
@@ -89,6 +100,8 @@ app.use("/api/products", productRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/contact", contactRoutes);
 app.use("/api/orders", orderRoutes);
+app.use("/api/payment-settings", paymentSettingsRoutes);
+app.use("/api/payment-requests", paymentRequestsRoutes);
 
 // Root route
 app.get("/", (_req, res) => {

@@ -566,7 +566,6 @@
 // export default ProductForm;
 
 import React, { useState, useEffect } from "react";
-import { motion } from "framer-motion";
 import FileUpload from "../FileUpload";
 import Button from "../Button";
 import { validateProductForm } from "../../utils/validation";
@@ -584,6 +583,7 @@ const ProductForm = ({
     description: "",
     price: "",
     discountPrice: "",
+    discountPercentage: "",
     category: "",
     stock: "",
     featured: false,
@@ -604,11 +604,26 @@ const ProductForm = ({
   // Set initial data when it changes
   useEffect(() => {
     if (initialData && Object.keys(initialData).length > 0) {
+      // Calculate discount percentage if price and discountPrice are available
+      let discountPercentage = "";
+      if (
+        initialData.price &&
+        initialData.discountPrice &&
+        initialData.price > initialData.discountPrice
+      ) {
+        discountPercentage = Math.round(
+          ((initialData.price - initialData.discountPrice) /
+            initialData.price) *
+            100
+        );
+      }
+
       setFormData({
         name: initialData.name || "",
         description: initialData.description || "",
         price: initialData.price || "",
         discountPrice: initialData.discountPrice || "",
+        discountPercentage: discountPercentage,
         category: initialData.category?._id || initialData.category || "",
         stock: initialData.stock || "",
         featured: initialData.featured || false,
@@ -804,30 +819,106 @@ const ProductForm = ({
             )}
           </div>
 
-          {/* Discount Price */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Discount Price (₹)
-              <input
-                type="number"
-                name="discountPrice"
-                value={formData.discountPrice}
-                onChange={handleChange}
-                min="0"
-                step="0.01"
-                className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary ${
-                  errors.discountPrice && touched.discountPrice
-                    ? "border-red-500"
-                    : "border-gray-300"
-                }`}
-                placeholder="Enter discount price"
-              />
-            </label>
-            {errors.discountPrice && touched.discountPrice && (
-              <p className="mt-1 text-sm text-red-500">
-                {errors.discountPrice}
+          {/* Discount Section */}
+          <div className="col-span-2 grid grid-cols-2 gap-4">
+            {/* Discount Percentage */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Discount Percentage (%)
+                <input
+                  type="number"
+                  name="discountPercentage"
+                  value={formData.discountPercentage || ""}
+                  onChange={(e) => {
+                    const percentage = e.target.value
+                      ? Number(e.target.value)
+                      : "";
+                    const price = formData.price ? Number(formData.price) : 0;
+
+                    // Calculate discounted price based on percentage
+                    let discountPrice = "";
+                    if (percentage && price) {
+                      discountPrice = Math.round(
+                        price - (price * percentage) / 100
+                      );
+                    }
+
+                    setFormData((prev) => ({
+                      ...prev,
+                      discountPercentage: percentage,
+                      discountPrice: discountPrice,
+                    }));
+
+                    // Mark fields as touched
+                    setTouched((prev) => ({
+                      ...prev,
+                      discountPercentage: true,
+                      discountPrice: true,
+                    }));
+                  }}
+                  min="0"
+                  max="99"
+                  step="1"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
+                  placeholder="Enter discount percentage"
+                />
+              </label>
+              <p className="text-xs text-gray-500 mt-1">
+                Enter a percentage (e.g., 5 for 5% off)
               </p>
-            )}
+            </div>
+
+            {/* Discount Price (calculated) */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Discount Price (₹)
+                <input
+                  type="number"
+                  name="discountPrice"
+                  value={formData.discountPrice}
+                  onChange={(e) => {
+                    const discountPrice = e.target.value
+                      ? Number(e.target.value)
+                      : "";
+                    const price = formData.price ? Number(formData.price) : 0;
+
+                    // Calculate percentage based on discount price
+                    let percentage = "";
+                    if (discountPrice && price && discountPrice < price) {
+                      percentage = Math.round(
+                        ((price - discountPrice) / price) * 100
+                      );
+                    }
+
+                    setFormData((prev) => ({
+                      ...prev,
+                      discountPrice: discountPrice,
+                      discountPercentage: percentage,
+                    }));
+
+                    // Mark fields as touched
+                    setTouched((prev) => ({
+                      ...prev,
+                      discountPrice: true,
+                      discountPercentage: true,
+                    }));
+                  }}
+                  min="0"
+                  step="1"
+                  className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary ${
+                    errors.discountPrice && touched.discountPrice
+                      ? "border-red-500"
+                      : "border-gray-300"
+                  }`}
+                  placeholder="Enter discount price"
+                />
+              </label>
+              {errors.discountPrice && touched.discountPrice && (
+                <p className="mt-1 text-sm text-red-500">
+                  {errors.discountPrice}
+                </p>
+              )}
+            </div>
           </div>
 
           {/* Stock */}

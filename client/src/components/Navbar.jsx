@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useAuth } from "../context/AuthContext";
@@ -39,8 +39,7 @@ const Navbar = () => {
   };
 
   const categories = [
-    { name: "Sofas", path: "/products?category=sofas" },
-    { name: "Beds", path: "/products?category=beds" },
+    { name: "Sofa Beds", path: "/products?category=sofa-beds" },
     { name: "Tables", path: "/products?category=tables" },
     { name: "Chairs", path: "/products?category=chairs" },
     { name: "Wardrobes", path: "/products?category=wardrobes" },
@@ -70,13 +69,13 @@ const Navbar = () => {
               Home
             </Link>
 
-            {/* Categories Dropdown */}
+            {/* All Products Dropdown */}
             <div className="relative">
               <button
                 onClick={toggleDropdown}
                 className="font-medium text-gray-700 hover:text-primary flex items-center transition-colors duration-300"
               >
-                Categories
+                All Products
                 <svg
                   className={`ml-1 w-4 h-4 transition-transform duration-300 ${
                     dropdownOpen ? "rotate-180" : ""
@@ -103,6 +102,13 @@ const Navbar = () => {
                   transition={{ duration: 0.2 }}
                   className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-10"
                 >
+                  <Link
+                    to="/products"
+                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-primary"
+                    onClick={() => setDropdownOpen(false)}
+                  >
+                    All Products
+                  </Link>
                   {categories.map((category, index) => (
                     <Link
                       key={index}
@@ -116,17 +122,6 @@ const Navbar = () => {
                 </motion.div>
               )}
             </div>
-
-            <Link
-              to="/products"
-              className={`font-medium ${
-                isActive("/products")
-                  ? "text-primary"
-                  : "text-gray-700 hover:text-primary"
-              } transition-colors duration-300`}
-            >
-              All Products
-            </Link>
 
             <Link
               to="/about"
@@ -314,7 +309,7 @@ const Navbar = () => {
                 onClick={toggleDropdown}
                 className="font-medium text-gray-700 hover:text-primary flex items-center justify-between transition-colors duration-300"
               >
-                Categories
+                All Products
                 <svg
                   className={`ml-1 w-4 h-4 transition-transform duration-300 ${
                     dropdownOpen ? "rotate-180" : ""
@@ -335,6 +330,16 @@ const Navbar = () => {
 
               {dropdownOpen && (
                 <div className="pl-4 space-y-2">
+                  <Link
+                    to="/products"
+                    className="block text-sm text-gray-700 hover:text-primary"
+                    onClick={() => {
+                      setDropdownOpen(false);
+                      setIsOpen(false);
+                    }}
+                  >
+                    All Products
+                  </Link>
                   {categories.map((category, index) => (
                     <Link
                       key={index}
@@ -350,16 +355,6 @@ const Navbar = () => {
                   ))}
                 </div>
               )}
-
-              <Link
-                to="/products"
-                className={`font-medium ${
-                  isActive("/products") ? "text-primary" : "text-gray-700"
-                } hover:text-primary transition-colors duration-300`}
-                onClick={() => setIsOpen(false)}
-              >
-                All Products
-              </Link>
 
               <Link
                 to="/about"
