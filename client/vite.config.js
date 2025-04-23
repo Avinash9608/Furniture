@@ -4,7 +4,20 @@ const path = require("path");
 
 // https://vitejs.dev/config/
 module.exports = defineConfig(({ command, mode }) => ({
-  plugins: [react()],
+  plugins: [
+    react({
+      // Explicitly set the JSX runtime
+      jsxRuntime: "automatic",
+      // Force development mode in development, production mode in production
+      jsxImportSource: "react",
+      babel: {
+        // Add any babel options here if needed
+        plugins: [],
+        babelrc: false,
+        configFile: false,
+      },
+    }),
+  ],
   css: {
     postcss: {
       plugins: [require("tailwindcss"), require("autoprefixer")],
