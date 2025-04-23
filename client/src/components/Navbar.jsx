@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useAuth } from "../context/AuthContext";
@@ -9,7 +9,14 @@ import ThemeToggle from "./ThemeToggle";
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef(null);
+  const dropdownMenuRef = useRef(null);
+  const dropdownTimeoutRef = useRef(null);
+
   const [authDropdownOpen, setAuthDropdownOpen] = useState(false);
+  const authDropdownRef = useRef(null);
+  const authDropdownMenuRef = useRef(null);
+  const authDropdownTimeoutRef = useRef(null);
   const location = useLocation();
   const navigate = useNavigate();
   const { isAuthenticated, user, logout } = useAuth();
@@ -27,9 +34,47 @@ const Navbar = () => {
     setDropdownOpen(!dropdownOpen);
   };
 
-  const toggleAuthDropdown = () => {
-    setAuthDropdownOpen(!authDropdownOpen);
+  // Products dropdown hover handlers
+  const handleProductsMouseEnter = () => {
+    if (dropdownTimeoutRef.current) {
+      clearTimeout(dropdownTimeoutRef.current);
+      dropdownTimeoutRef.current = null;
+    }
+    setDropdownOpen(true);
   };
+
+  const handleProductsMouseLeave = () => {
+    dropdownTimeoutRef.current = setTimeout(() => {
+      setDropdownOpen(false);
+    }, 200);
+  };
+
+  // Auth dropdown hover handlers
+  const handleAuthMouseEnter = () => {
+    if (authDropdownTimeoutRef.current) {
+      clearTimeout(authDropdownTimeoutRef.current);
+      authDropdownTimeoutRef.current = null;
+    }
+    setAuthDropdownOpen(true);
+  };
+
+  const handleAuthMouseLeave = () => {
+    authDropdownTimeoutRef.current = setTimeout(() => {
+      setAuthDropdownOpen(false);
+    }, 200);
+  };
+
+  // Cleanup timeouts on unmount
+  useEffect(() => {
+    return () => {
+      if (dropdownTimeoutRef.current) {
+        clearTimeout(dropdownTimeoutRef.current);
+      }
+      if (authDropdownTimeoutRef.current) {
+        clearTimeout(authDropdownTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const handleLogout = async () => {
     try {
@@ -41,7 +86,8 @@ const Navbar = () => {
   };
 
   const categories = [
-    { name: "Sofa Beds", path: "/products?category=sofa-beds" },
+    { name: "Sofa", path: "/products?category=sofa" },
+    { name: "Beds", path: "/products?category=beds" },
     { name: "Tables", path: "/products?category=tables" },
     { name: "Chairs", path: "/products?category=chairs" },
     { name: "Wardrobes", path: "/products?category=wardrobes" },
@@ -72,11 +118,13 @@ const Navbar = () => {
             </Link>
 
             {/* All Products Dropdown */}
-            <div className="relative">
-              <button
-                onClick={toggleDropdown}
-                className="font-medium theme-text-primary hover:text-primary flex items-center transition-colors duration-300"
-              >
+            <div
+              className="relative hover-dropdown"
+              ref={dropdownRef}
+              onMouseEnter={handleProductsMouseEnter}
+              onMouseLeave={handleProductsMouseLeave}
+            >
+              <button className="font-medium theme-text-primary hover:text-primary flex items-center transition-colors duration-300">
                 All Products
                 <svg
                   className={`ml-1 w-4 h-4 transition-transform duration-300 ${
@@ -98,16 +146,18 @@ const Navbar = () => {
 
               {dropdownOpen && (
                 <motion.div
+                  ref={dropdownMenuRef}
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
                   transition={{ duration: 0.2 }}
                   className="absolute right-0 mt-2 w-48 theme-bg-primary rounded-md shadow-lg py-1 z-10"
+                  onMouseEnter={handleProductsMouseEnter}
+                  onMouseLeave={handleProductsMouseLeave}
                 >
                   <Link
                     to="/products"
                     className="block px-4 py-2 text-sm theme-text-primary hover:bg-gray-100 hover:text-primary"
-                    onClick={() => setDropdownOpen(false)}
                   >
                     All Products
                   </Link>
@@ -116,7 +166,6 @@ const Navbar = () => {
                       key={index}
                       to={category.path}
                       className="block px-4 py-2 text-sm theme-text-primary hover:bg-gray-100 hover:text-primary"
-                      onClick={() => setDropdownOpen(false)}
                     >
                       {category.name}
                     </Link>
@@ -148,11 +197,13 @@ const Navbar = () => {
             </Link>
 
             {/* Auth Dropdown */}
-            <div className="relative">
-              <button
-                onClick={toggleAuthDropdown}
-                className="font-medium theme-text-primary hover:text-primary flex items-center transition-colors duration-300"
-              >
+            <div
+              className="relative hover-dropdown"
+              ref={authDropdownRef}
+              onMouseEnter={handleAuthMouseEnter}
+              onMouseLeave={handleAuthMouseLeave}
+            >
+              <button className="font-medium theme-text-primary hover:text-primary flex items-center transition-colors duration-300">
                 {isAuthenticated ? (
                   <span>{user?.name || "Account"}</span>
                 ) : (
@@ -178,32 +229,32 @@ const Navbar = () => {
 
               {authDropdownOpen && (
                 <motion.div
+                  ref={authDropdownMenuRef}
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
                   transition={{ duration: 0.2 }}
                   className="absolute right-0 mt-2 w-48 theme-bg-primary rounded-md shadow-lg py-1 z-10"
+                  onMouseEnter={handleAuthMouseEnter}
+                  onMouseLeave={handleAuthMouseLeave}
                 >
                   {isAuthenticated ? (
                     <>
                       <Link
                         to="/profile"
                         className="block px-4 py-2 text-sm theme-text-primary hover:bg-gray-100 hover:text-primary"
-                        onClick={() => setAuthDropdownOpen(false)}
                       >
                         My Profile
                       </Link>
                       <Link
                         to="/orders"
                         className="block px-4 py-2 text-sm theme-text-primary hover:bg-gray-100 hover:text-primary"
-                        onClick={() => setAuthDropdownOpen(false)}
                       >
                         My Orders
                       </Link>
                       <button
                         onClick={() => {
                           handleLogout();
-                          setAuthDropdownOpen(false);
                         }}
                         className="block w-full text-left px-4 py-2 text-sm theme-text-primary hover:bg-gray-100 hover:text-primary"
                       >
@@ -215,14 +266,12 @@ const Navbar = () => {
                       <Link
                         to="/login"
                         className="block px-4 py-2 text-sm theme-text-primary hover:bg-gray-100 hover:text-primary"
-                        onClick={() => setAuthDropdownOpen(false)}
                       >
                         Login
                       </Link>
                       <Link
                         to="/register"
                         className="block px-4 py-2 text-sm theme-text-primary hover:bg-gray-100 hover:text-primary"
-                        onClick={() => setAuthDropdownOpen(false)}
                       >
                         Register
                       </Link>

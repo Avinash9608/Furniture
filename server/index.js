@@ -223,21 +223,59 @@ if (process.env.NODE_ENV === "production") {
 }
 
 // Database Connection
+// const connectDB = async () => {
+//   try {
+//     const mongoURI =
+//       process.env.MONGO_URI || "mongodb://localhost:27017/shyam_furnitures";
+//     await mongoose.connect(mongoURI, {
+//       useNewUrlParser: true,
+//       useUnifiedTopology: true,
+//     });
+//     console.log("MongoDB connected successfully");
+//   } catch (error) {
+//     console.error("MongoDB connection error:", error.message);
+//     process.exit(1);
+//   }
+// };
 const connectDB = async () => {
   try {
-    const mongoURI =
-      process.env.MONGO_URI || "mongodb://localhost:27017/shyam_furnitures";
-    await mongoose.connect(mongoURI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
+    const uri = process.env.MONGO_URI;
+    console.log("Connecting to MongoDB Atlas...");
+
+    // Log a redacted version of the URI for debugging
+    const redactedUri = uri.replace(
+      /\/\/([^:]+):([^@]+)@/,
+      (_, username) => `\/\/${username}:****@`
+    );
+    console.log("Using connection string:", redactedUri);
+
+    // Connect with options suitable for Atlas
+    await mongoose.connect(uri, {
+      serverSelectionTimeoutMS: 5000, // Timeout after 5s instead of 30s
+      socketTimeoutMS: 45000, // Close sockets after 45s of inactivity
+      retryWrites: true,
+      w: "majority",
+      maxPoolSize: 10,
     });
-    console.log("MongoDB connected successfully");
+
+    console.log("MongoDB Atlas connected successfully");
+    return true;
   } catch (error) {
-    console.error("MongoDB connection error:", error.message);
-    process.exit(1);
+    console.error("Connection failed:", error.message);
+    console.log("Please verify:");
+    console.log("- IP is whitelisted in Atlas (current IP must be allowed)");
+    console.log(
+      "- Connection string is correct (no spaces in username/password)"
+    );
+    console.log("- Database user exists and has correct permissions");
+
+    // Don't exit the process in development mode
+    if (process.env.NODE_ENV === "production") {
+      process.exit(1);
+    }
+    return false;
   }
 };
-
 connectDB();
 
 // Server Configuration

@@ -52,13 +52,49 @@ const AddProduct = () => {
             return;
           }
 
-          // Filter to only include the required categories
+          // Required categories that should be displayed
           const requiredCategoryNames = [
             "Sofa Beds",
             "Tables",
             "Chairs",
             "Wardrobes",
+            "Beds",
           ];
+
+          // Check if we have all required categories
+          const existingCategoryNames = allCategories.map((cat) => cat.name);
+          const missingCategories = requiredCategoryNames.filter(
+            (name) => !existingCategoryNames.includes(name)
+          );
+
+          if (missingCategories.length > 0) {
+            console.warn("Missing required categories:", missingCategories);
+
+            // Create missing categories
+            for (const categoryName of missingCategories) {
+              try {
+                console.log(`Creating missing category: ${categoryName}`);
+                const newCategory = await categoriesAPI.create({
+                  name: categoryName,
+                  description: `${categoryName} furniture items`,
+                });
+
+                if (newCategory && newCategory.data) {
+                  const categoryData =
+                    newCategory.data.data || newCategory.data;
+                  allCategories.push(categoryData);
+                  console.log(`Created category: ${categoryName}`);
+                }
+              } catch (err) {
+                console.error(
+                  `Failed to create category ${categoryName}:`,
+                  err
+                );
+              }
+            }
+          }
+
+          // Filter to only include the required categories
           const filteredCategories = allCategories.filter((category) =>
             requiredCategoryNames.includes(category.name)
           );

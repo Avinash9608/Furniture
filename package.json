@@ -10,6 +10,8 @@
     "dev": "concurrently \"npm run server\" \"npm run client\"",
     "data:import": "node server/utils/seeder",
     "data:destroy": "node server/utils/seeder -d",
+    "categories:seed": "node server/utils/seedCategories",
+    "categories:update-slugs": "node server/utils/updateCategorySlugs",
     "install-all": "npm install && cd client && npm install && cd ../server && npm install",
     "build": "cd client && npm install --include=dev && npm run build",
     "vercel-build": "npm install && cd client && npm install --include=dev && npm run build",
@@ -28,16 +30,16 @@
   "author": "Shyam Furnitures",
   "license": "MIT",
   "dependencies": {
-    "concurrently": "^8.0.1",
-    "express": "^4.21.2",
-    "node-fetch": "^2.7.0",
-    "path": "^0.12.7",
-    "mongoose": "^8.0.0",
-    "dotenv": "^16.0.0",
-    "cors": "^2.8.5",
     "bcryptjs": "^2.4.3",
-    "jsonwebtoken": "^9.0.0",
     "cloudinary": "^1.37.0",
-    "multer": "^1.4.5-lts.1"
+    "concurrently": "^8.0.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.5.0",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.0",
+    "mongoose": "^8.13.2",
+    "multer": "^1.4.5-lts.1",
+    "node-fetch": "^2.7.0",
+    "path": "^0.12.7"
   }
 }
