@@ -31,7 +31,30 @@ A full-featured, modern, dynamic eCommerce website for a furniture shop named "S
 - **Orders**: View and manage customer orders
 - **Contact Management**: View and manage customer messages
 
-## Getting Started
+## Deployment on Vercel
+
+This application is configured to be deployed on Vercel with both frontend and backend running from a single link.
+
+### Prerequisites for Deployment
+
+1. A MongoDB Atlas account and database
+2. A Vercel account
+
+### Deployment Steps
+
+1. Fork or clone this repository
+2. Create a MongoDB Atlas database
+3. Create a `.env` file based on `.env.example` with your MongoDB Atlas connection string
+4. Install the Vercel CLI: `npm install -g vercel`
+5. Login to Vercel: `vercel login`
+6. Deploy to Vercel: `vercel`
+7. Set up environment variables in the Vercel dashboard:
+   - MONGO_URI
+   - JWT_SECRET
+   - NODE_ENV=production
+   - BYPASS_AUTH=false
+
+## Getting Started (Local Development)
 
 ### Prerequisites
 

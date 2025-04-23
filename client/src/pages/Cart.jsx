@@ -95,16 +95,16 @@ const Cart = () => {
   };
 
   return (
-    <div className="bg-gray-50 py-8">
+    <div className="theme-bg-secondary py-8">
       <div className="container-custom">
         <h1 className="text-3xl font-serif font-bold mb-6">
           Your Shopping Cart
         </h1>
 
         {cartItems.length === 0 ? (
-          <div className="bg-white rounded-lg shadow-md p-8 text-center">
+          <div className="theme-bg-primary rounded-lg shadow-md p-8 text-center">
             <svg
-              className="w-16 h-16 text-gray-400 mx-auto mb-4"
+              className="w-16 h-16 theme-text-secondary mx-auto mb-4"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -117,8 +117,10 @@ const Cart = () => {
                 d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"
               ></path>
             </svg>
-            <h2 className="text-2xl font-bold mb-4">Your Cart is Empty</h2>
-            <p className="text-gray-600 mb-6">
+            <h2 className="text-2xl font-bold mb-4 theme-text-primary">
+              Your Cart is Empty
+            </h2>
+            <p className="theme-text-secondary mb-6">
               Looks like you haven't added any products to your cart yet.
             </p>
             <Link to="/products" className="btn-primary inline-block">
@@ -129,22 +131,22 @@ const Cart = () => {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Cart Items */}
             <div className="lg:col-span-2">
-              <div className="bg-white rounded-lg shadow-md overflow-hidden">
+              <div className="theme-bg-primary rounded-lg shadow-md overflow-hidden">
                 <div className="p-6">
                   <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-xl font-bold">
+                    <h2 className="text-xl font-bold theme-text-primary">
                       Cart Items ({totalItems})
                     </h2>
                     <button
                       onClick={() => clearCart()}
-                      className="text-red-600 hover:text-red-800 text-sm font-medium"
+                      className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 text-sm font-medium"
                     >
                       Clear Cart
                     </button>
                   </div>
 
                   {/* Cart Items List */}
-                  <div className="divide-y divide-gray-200">
+                  <div className="divide-y theme-divide">
                     {cartItems.map((item) => (
                       <motion.div
                         key={item._id}
@@ -177,7 +179,7 @@ const Cart = () => {
                         <div className="flex-grow sm:ml-4">
                           <div className="flex flex-col sm:flex-row sm:justify-between">
                             <div>
-                              <h3 className="text-lg font-medium">
+                              <h3 className="text-lg font-medium theme-text-primary">
                                 <Link
                                   to={`/products/${item._id}`}
                                   className="hover:text-primary"
@@ -185,14 +187,14 @@ const Cart = () => {
                                   {item.name}
                                 </Link>
                               </h3>
-                              <p className="text-gray-600 text-sm">
+                              <p className="theme-text-secondary text-sm">
                                 Price: {formatPrice(item.price)}
                               </p>
                             </div>
 
                             <div className="mt-2 sm:mt-0 flex items-center">
                               {/* Quantity Controls */}
-                              <div className="flex items-center border border-gray-300 rounded-md">
+                              <div className="flex items-center border theme-border rounded-md">
                                 <button
                                   onClick={() =>
                                     handleQuantityChange(
@@ -200,11 +202,11 @@ const Cart = () => {
                                       item.quantity - 1
                                     )
                                   }
-                                  className="px-2 py-1 text-gray-600 hover:bg-gray-100"
+                                  className="px-2 py-1 theme-text-secondary hover:theme-bg-secondary"
                                 >
                                   -
                                 </button>
-                                <span className="px-2 py-1 border-x border-gray-300">
+                                <span className="px-2 py-1 border-x theme-border theme-text-primary">
                                   {item.quantity}
                                 </span>
                                 <button
@@ -214,7 +216,7 @@ const Cart = () => {
                                       item.quantity + 1
                                     )
                                   }
-                                  className="px-2 py-1 text-gray-600 hover:bg-gray-100"
+                                  className="px-2 py-1 theme-text-secondary hover:theme-bg-secondary"
                                 >
                                   +
                                 </button>
@@ -223,7 +225,7 @@ const Cart = () => {
                               {/* Remove Button */}
                               <button
                                 onClick={() => handleRemoveItem(item._id)}
-                                className="ml-4 text-red-600 hover:text-red-800"
+                                className="ml-4 text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300"
                               >
                                 <svg
                                   className="w-5 h-5"
@@ -245,7 +247,7 @@ const Cart = () => {
 
                           {/* Subtotal */}
                           <div className="mt-2 text-right">
-                            <span className="font-medium">
+                            <span className="font-medium theme-text-primary">
                               Subtotal:{" "}
                               {formatPrice(item.price * item.quantity)}
                             </span>
@@ -284,40 +286,42 @@ const Cart = () => {
 
             {/* Order Summary */}
             <div>
-              <div className="bg-white rounded-lg shadow-md p-6">
-                <h2 className="text-xl font-bold mb-4">Order Summary</h2>
+              <div className="theme-bg-primary rounded-lg shadow-md p-6">
+                <h2 className="text-xl font-bold mb-4 theme-text-primary">
+                  Order Summary
+                </h2>
 
                 <div className="space-y-3 mb-6">
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Subtotal</span>
-                    <span className="font-medium">
+                    <span className="theme-text-secondary">Subtotal</span>
+                    <span className="font-medium theme-text-primary">
                       {formatPrice(totalPrice)}
                     </span>
                   </div>
 
                   {discount > 0 && (
-                    <div className="flex justify-between text-green-600">
+                    <div className="flex justify-between text-green-600 dark:text-green-400">
                       <span>Discount</span>
                       <span>-{formatPrice(discount)}</span>
                     </div>
                   )}
 
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Shipping</span>
-                    <span className="font-medium">
+                    <span className="theme-text-secondary">Shipping</span>
+                    <span className="font-medium theme-text-primary">
                       {shippingCost === 0 ? "Free" : formatPrice(shippingCost)}
                     </span>
                   </div>
 
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Tax (18% GST)</span>
-                    <span className="font-medium">
+                    <span className="theme-text-secondary">Tax (18% GST)</span>
+                    <span className="font-medium theme-text-primary">
                       {formatPrice(taxAmount)}
                     </span>
                   </div>
 
-                  <div className="border-t border-gray-200 pt-3 flex justify-between">
-                    <span className="font-bold">Total</span>
+                  <div className="border-t theme-border pt-3 flex justify-between">
+                    <span className="font-bold theme-text-primary">Total</span>
                     <span className="font-bold text-xl text-primary">
                       {formatPrice(finalTotal)}
                     </span>
@@ -326,7 +330,9 @@ const Cart = () => {
 
                 {/* Coupon Code */}
                 <div className="mb-6">
-                  <h3 className="font-medium mb-2">Apply Coupon</h3>
+                  <h3 className="font-medium mb-2 theme-text-primary">
+                    Apply Coupon
+                  </h3>
 
                   {couponError && (
                     <Alert
@@ -350,11 +356,11 @@ const Cart = () => {
                       placeholder="Enter coupon code"
                       value={couponCode}
                       onChange={(e) => setCouponCode(e.target.value)}
-                      className="flex-grow border border-gray-300 rounded-l-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-primary"
+                      className="flex-grow border theme-border theme-bg-primary theme-text-primary rounded-l-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-primary"
                     />
                     <button
                       type="submit"
-                      className="bg-gray-200 text-gray-800 hover:bg-gray-300 px-4 py-2 rounded-r-md transition-colors"
+                      className="theme-bg-secondary theme-text-primary hover:bg-gray-300 dark:hover:bg-gray-700 px-4 py-2 rounded-r-md transition-colors"
                     >
                       Apply
                     </button>
@@ -367,16 +373,16 @@ const Cart = () => {
                 </Button>
 
                 {/* Payment Methods */}
-                <div className="text-center text-sm text-gray-500">
+                <div className="text-center text-sm theme-text-secondary">
                   <p className="mb-2">We accept:</p>
                   <div className="flex justify-center space-x-2">
-                    <span className="bg-gray-100 rounded px-2 py-1">
+                    <span className="theme-bg-secondary rounded px-2 py-1 theme-text-primary border theme-border">
                       Credit Card
                     </span>
-                    <span className="bg-gray-100 rounded px-2 py-1">
+                    <span className="theme-bg-secondary rounded px-2 py-1 theme-text-primary border theme-border">
                       PayPal
                     </span>
-                    <span className="bg-gray-100 rounded px-2 py-1">
+                    <span className="theme-bg-secondary rounded px-2 py-1 theme-text-primary border theme-border">
                       Cash on Delivery
                     </span>
                   </div>
