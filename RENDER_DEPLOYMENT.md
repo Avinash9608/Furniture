@@ -15,15 +15,21 @@ This guide will help you deploy your Shyam Furnitures application to Render.com.
 2. Click on "New" and select "Web Service"
 3. Connect your GitHub repository or upload your code directly
 4. Configure your web service:
+
    - **Name**: shyam-furnitures
    - **Environment**: Node
    - **Build Command**:
+
    ```bash
-   npm install
-   cd client && npm install --include=dev
-   cd client && npm run build
-   cd ..
+   chmod +x render-build.sh && ./render-build.sh
    ```
+
+   Or use this single line command:
+
+   ```bash
+   npm install && cd server && npm install && cd .. && cd client && npm install --include=dev && npm run build && cd ..
+   ```
+
    - **Start Command**: `npm start`
 
 ### 2. Set Environment Variables
@@ -86,6 +92,16 @@ This error occurs when Vite is not properly installed in the production environm
 - Check that your `server.js` file is correctly binding to the PORT environment variable
 - Make sure your start command is correct: `npm start`
 - Verify that all required dependencies are installed
+
+### 6. "Cannot find module 'mongoose'" Error
+
+- This error occurs when the server dependencies are not properly installed
+- Make sure your build command includes installing the server dependencies:
+  ```bash
+  cd server && npm install && cd ..
+  ```
+- Verify that `mongoose` is listed in the dependencies section of your root `package.json` file
+- Try clearing the build cache in Render before redeploying
 
 ## Updating Your Application
 
