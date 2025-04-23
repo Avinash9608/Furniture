@@ -365,13 +365,13 @@ const AdminProducts = () => {
       </div>
 
       {/* Search and Filters */}
-      <div className="bg-white rounded-lg shadow-md p-4 mb-6">
+      <div className="theme-bg-primary rounded-lg shadow-md p-4 mb-6">
         <div className="flex flex-col md:flex-row gap-4">
           {/* Search Input */}
           <div className="flex-1">
             <label
               htmlFor="search"
-              className="block text-sm font-medium text-gray-700 mb-1"
+              className="block text-sm font-medium theme-text-primary mb-1"
             >
               Search Products
             </label>
@@ -395,7 +395,7 @@ const AdminProducts = () => {
               <input
                 type="text"
                 id="search"
-                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
+                className="block w-full pl-10 pr-3 py-2 border theme-border rounded-md shadow-sm theme-bg-primary theme-text-primary placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary"
                 placeholder="Search by name or description"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -407,13 +407,13 @@ const AdminProducts = () => {
           <div className="w-full md:w-64">
             <label
               htmlFor="category"
-              className="block text-sm font-medium text-gray-700 mb-1"
+              className="block text-sm font-medium theme-text-primary mb-1"
             >
               Category
             </label>
             <select
               id="category"
-              className="block w-full pl-3 pr-10 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
+              className="block w-full pl-3 pr-10 py-2 border theme-border rounded-md shadow-sm theme-bg-primary theme-text-primary focus:outline-none focus:ring-primary focus:border-primary"
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
             >
@@ -432,13 +432,13 @@ const AdminProducts = () => {
           <div className="w-full md:w-64">
             <label
               htmlFor="stock"
-              className="block text-sm font-medium text-gray-700 mb-1"
+              className="block text-sm font-medium theme-text-primary mb-1"
             >
               Stock Status
             </label>
             <select
               id="stock"
-              className="block w-full pl-3 pr-10 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
+              className="block w-full pl-3 pr-10 py-2 border theme-border rounded-md shadow-sm theme-bg-primary theme-text-primary focus:outline-none focus:ring-primary focus:border-primary"
               value={stockFilter}
               onChange={(e) => setStockFilter(e.target.value)}
             >
@@ -463,8 +463,8 @@ const AdminProducts = () => {
 
         {/* Filter Summary */}
         {(searchTerm || categoryFilter !== "all" || stockFilter !== "all") && (
-          <div className="mt-4 pt-4 border-t border-gray-200">
-            <div className="text-sm text-gray-500">
+          <div className="mt-4 pt-4 border-t theme-border">
+            <div className="text-sm theme-text-secondary">
               Showing {filteredProducts.length} of {products.length} products
               {searchTerm && <span> matching "{searchTerm}"</span>}
               {categoryFilter !== "all" && (
@@ -499,9 +499,9 @@ const AdminProducts = () => {
       ) : error ? (
         <Alert type="error" message={error} />
       ) : filteredProducts.length === 0 ? (
-        <div className="bg-white rounded-lg shadow-md p-8 text-center">
+        <div className="theme-bg-primary rounded-lg shadow-md p-8 text-center">
           <svg
-            className="w-16 h-16 text-gray-400 mx-auto mb-4"
+            className="w-16 h-16 theme-text-secondary mx-auto mb-4"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -514,8 +514,10 @@ const AdminProducts = () => {
               d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
             ></path>
           </svg>
-          <h3 className="text-xl font-bold mb-2">No Products Found</h3>
-          <p className="text-gray-600 mb-4">
+          <h3 className="text-xl font-bold mb-2 theme-text-primary">
+            No Products Found
+          </h3>
+          <p className="theme-text-secondary mb-4">
             {products.length === 0
               ? "You haven't added any products yet."
               : "No products match your current filters."}
@@ -525,39 +527,39 @@ const AdminProducts = () => {
           </Link>
         </div>
       ) : (
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
+        <div className="theme-bg-primary rounded-lg shadow-md overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+            <table className="min-w-full divide-y theme-divide">
+              <thead className="theme-bg-secondary">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium theme-text-secondary uppercase tracking-wider">
                     Image
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium theme-text-secondary uppercase tracking-wider">
                     Name
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium theme-text-secondary uppercase tracking-wider">
                     Category
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium theme-text-secondary uppercase tracking-wider">
                     Price
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium theme-text-secondary uppercase tracking-wider">
                     Stock
                   </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-right text-xs font-medium theme-text-secondary uppercase tracking-wider">
                     Actions
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="theme-bg-primary divide-y theme-divide">
                 {getCurrentProducts().map((product) => (
                   <motion.tr
                     key={product._id}
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ duration: 0.3 }}
-                    className="hover:bg-gray-50"
+                    className="hover:theme-bg-secondary transition-colors duration-150"
                   >
                     {/* <td className="px-6 py-4 whitespace-nowrap">
                       <div className="w-16 h-16 rounded-md overflow-hidden">
@@ -585,8 +587,8 @@ const AdminProducts = () => {
                             }}
                           />
                         ) : (
-                          <div className="w-full h-full bg-gray-200 flex items-center justify-center">
-                            <span className="text-xs text-gray-500">
+                          <div className="w-full h-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+                            <span className="text-xs theme-text-secondary">
                               No Image
                             </span>
                           </div>
@@ -594,15 +596,15 @@ const AdminProducts = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">
+                      <div className="text-sm font-medium theme-text-primary">
                         {product.name}
                       </div>
-                      <div className="text-sm text-gray-500">
+                      <div className="text-sm theme-text-secondary">
                         ID: {product._id.substring(product._id.length - 6)}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
+                      <span className="px-2 py-1 text-xs font-medium rounded-full theme-bg-secondary border theme-border">
                         {product.category &&
                         typeof product.category === "object" &&
                         product.category.name
@@ -614,23 +616,21 @@ const AdminProducts = () => {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
+                      <div className="text-sm theme-text-primary">
                         {formatPrice(product.price)}
                       </div>
                       {product.discountPrice && (
-                        <div className="text-xs text-gray-500 line-through">
+                        <div className="text-xs theme-text-secondary line-through">
                           {formatPrice(product.discountPrice)}
                         </div>
                       )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span
-                        className={`px-2 py-1 text-xs font-medium rounded-full ${
-                          product.stock > 10
-                            ? "bg-green-100 text-green-800"
-                            : product.stock > 0
-                            ? "bg-yellow-100 text-yellow-800"
-                            : "bg-red-100 text-red-800"
+                        className={`px-2 py-1 text-xs font-medium rounded-full theme-bg-secondary border theme-border ${
+                          product.stock === 0
+                            ? "text-red-600 dark:text-red-400"
+                            : ""
                         }`}
                       >
                         {product.stock > 0 ? product.stock : "Out of Stock"}
@@ -639,7 +639,7 @@ const AdminProducts = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <Link
                         to={`/admin/products/edit/${product._id}`}
-                        className="text-indigo-600 hover:text-indigo-900 mr-4"
+                        className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-900 dark:hover:text-indigo-300 mr-4"
                       >
                         Edit
                       </Link>
@@ -648,7 +648,7 @@ const AdminProducts = () => {
                           setDeleteProductId(product._id);
                           setShowDeleteModal(true);
                         }}
-                        className="text-red-600 hover:text-red-900"
+                        className="text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300"
                       >
                         Delete
                       </button>
@@ -661,9 +661,9 @@ const AdminProducts = () => {
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="px-6 py-4 border-t border-gray-200">
+            <div className="px-6 py-4 border-t theme-border">
               <div className="flex items-center justify-between">
-                <div className="text-sm text-gray-500">
+                <div className="text-sm theme-text-secondary">
                   Showing {(currentPage - 1) * productsPerPage + 1} to{" "}
                   {Math.min(
                     currentPage * productsPerPage,
@@ -758,9 +758,9 @@ const AdminProducts = () => {
         }
       >
         <div className="sm:flex sm:items-start">
-          <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
+          <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 dark:bg-red-900/30 sm:mx-0 sm:h-10 sm:w-10">
             <svg
-              className="h-6 w-6 text-red-600"
+              className="h-6 w-6 text-red-600 dark:text-red-400"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -775,7 +775,7 @@ const AdminProducts = () => {
             </svg>
           </div>
           <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
-            <p className="text-sm text-gray-500">
+            <p className="text-sm theme-text-secondary">
               Are you sure you want to delete this product? This action cannot
               be undone.
             </p>

@@ -3,6 +3,8 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
+// We don't need to import useTheme directly as it's used in the ThemeToggle component
+import ThemeToggle from "./ThemeToggle";
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -46,7 +48,7 @@ const Navbar = () => {
   ];
 
   return (
-    <nav className="bg-white shadow-md sticky top-0 z-50">
+    <nav className="theme-bg-primary shadow-md sticky top-0 z-50 border-b theme-border">
       <div className="container-custom py-4">
         <div className="flex justify-between items-center">
           {/* Logo */}
@@ -63,7 +65,7 @@ const Navbar = () => {
               className={`font-medium ${
                 isActive("/")
                   ? "text-primary"
-                  : "text-gray-700 hover:text-primary"
+                  : "theme-text-primary hover:text-primary"
               } transition-colors duration-300`}
             >
               Home
@@ -73,7 +75,7 @@ const Navbar = () => {
             <div className="relative">
               <button
                 onClick={toggleDropdown}
-                className="font-medium text-gray-700 hover:text-primary flex items-center transition-colors duration-300"
+                className="font-medium theme-text-primary hover:text-primary flex items-center transition-colors duration-300"
               >
                 All Products
                 <svg
@@ -100,11 +102,11 @@ const Navbar = () => {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
                   transition={{ duration: 0.2 }}
-                  className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-10"
+                  className="absolute right-0 mt-2 w-48 theme-bg-primary rounded-md shadow-lg py-1 z-10"
                 >
                   <Link
                     to="/products"
-                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-primary"
+                    className="block px-4 py-2 text-sm theme-text-primary hover:bg-gray-100 hover:text-primary"
                     onClick={() => setDropdownOpen(false)}
                   >
                     All Products
@@ -113,7 +115,7 @@ const Navbar = () => {
                     <Link
                       key={index}
                       to={category.path}
-                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-primary"
+                      className="block px-4 py-2 text-sm theme-text-primary hover:bg-gray-100 hover:text-primary"
                       onClick={() => setDropdownOpen(false)}
                     >
                       {category.name}
@@ -128,7 +130,7 @@ const Navbar = () => {
               className={`font-medium ${
                 isActive("/about")
                   ? "text-primary"
-                  : "text-gray-700 hover:text-primary"
+                  : "theme-text-primary hover:text-primary"
               } transition-colors duration-300`}
             >
               About
@@ -139,7 +141,7 @@ const Navbar = () => {
               className={`font-medium ${
                 isActive("/contact")
                   ? "text-primary"
-                  : "text-gray-700 hover:text-primary"
+                  : "theme-text-primary hover:text-primary"
               } transition-colors duration-300`}
             >
               Contact
@@ -149,7 +151,7 @@ const Navbar = () => {
             <div className="relative">
               <button
                 onClick={toggleAuthDropdown}
-                className="font-medium text-gray-700 hover:text-primary flex items-center transition-colors duration-300"
+                className="font-medium theme-text-primary hover:text-primary flex items-center transition-colors duration-300"
               >
                 {isAuthenticated ? (
                   <span>{user?.name || "Account"}</span>
@@ -180,20 +182,20 @@ const Navbar = () => {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
                   transition={{ duration: 0.2 }}
-                  className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-10"
+                  className="absolute right-0 mt-2 w-48 theme-bg-primary rounded-md shadow-lg py-1 z-10"
                 >
                   {isAuthenticated ? (
                     <>
                       <Link
                         to="/profile"
-                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-primary"
+                        className="block px-4 py-2 text-sm theme-text-primary hover:bg-gray-100 hover:text-primary"
                         onClick={() => setAuthDropdownOpen(false)}
                       >
                         My Profile
                       </Link>
                       <Link
                         to="/orders"
-                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-primary"
+                        className="block px-4 py-2 text-sm theme-text-primary hover:bg-gray-100 hover:text-primary"
                         onClick={() => setAuthDropdownOpen(false)}
                       >
                         My Orders
@@ -203,7 +205,7 @@ const Navbar = () => {
                           handleLogout();
                           setAuthDropdownOpen(false);
                         }}
-                        className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-primary"
+                        className="block w-full text-left px-4 py-2 text-sm theme-text-primary hover:bg-gray-100 hover:text-primary"
                       >
                         Logout
                       </button>
@@ -212,14 +214,14 @@ const Navbar = () => {
                     <>
                       <Link
                         to="/login"
-                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-primary"
+                        className="block px-4 py-2 text-sm theme-text-primary hover:bg-gray-100 hover:text-primary"
                         onClick={() => setAuthDropdownOpen(false)}
                       >
                         Login
                       </Link>
                       <Link
                         to="/register"
-                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-primary"
+                        className="block px-4 py-2 text-sm theme-text-primary hover:bg-gray-100 hover:text-primary"
                         onClick={() => setAuthDropdownOpen(false)}
                       >
                         Register
@@ -230,34 +232,40 @@ const Navbar = () => {
               )}
             </div>
 
-            <Link
-              to="/cart"
-              className="relative p-2 text-gray-700 hover:text-primary transition-colors duration-300"
-            >
-              <svg
-                className="w-6 h-6"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                xmlns="http://www.w3.org/2000/svg"
+            <div className="flex items-center space-x-4">
+              {/* Theme Toggle */}
+              <ThemeToggle />
+
+              {/* Cart Icon */}
+              <Link
+                to="/cart"
+                className="relative p-2 theme-text-primary hover:text-primary transition-colors duration-300"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"
-                ></path>
-              </svg>
-              <span className="absolute top-0 right-0 bg-primary text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
-                {totalItems || 0}
-              </span>
-            </Link>
+                <svg
+                  className="w-6 h-6"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"
+                  ></path>
+                </svg>
+                <span className="absolute top-0 right-0 bg-primary text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
+                  {totalItems || 0}
+                </span>
+              </Link>
+            </div>
           </div>
 
           {/* Mobile Menu Button */}
           <button
             onClick={toggleMenu}
-            className="md:hidden text-gray-700 focus:outline-none"
+            className="md:hidden theme-text-primary focus:outline-none"
           >
             <svg
               className="w-6 h-6"
@@ -298,7 +306,7 @@ const Navbar = () => {
               <Link
                 to="/"
                 className={`font-medium ${
-                  isActive("/") ? "text-primary" : "text-gray-700"
+                  isActive("/") ? "text-primary" : "theme-text-primary"
                 } hover:text-primary transition-colors duration-300`}
                 onClick={() => setIsOpen(false)}
               >
@@ -307,7 +315,7 @@ const Navbar = () => {
 
               <button
                 onClick={toggleDropdown}
-                className="font-medium text-gray-700 hover:text-primary flex items-center justify-between transition-colors duration-300"
+                className="font-medium theme-text-primary hover:text-primary flex items-center justify-between transition-colors duration-300"
               >
                 All Products
                 <svg
@@ -332,7 +340,7 @@ const Navbar = () => {
                 <div className="pl-4 space-y-2">
                   <Link
                     to="/products"
-                    className="block text-sm text-gray-700 hover:text-primary"
+                    className="block text-sm theme-text-primary hover:text-primary"
                     onClick={() => {
                       setDropdownOpen(false);
                       setIsOpen(false);
@@ -344,7 +352,7 @@ const Navbar = () => {
                     <Link
                       key={index}
                       to={category.path}
-                      className="block text-sm text-gray-700 hover:text-primary"
+                      className="block text-sm theme-text-primary hover:text-primary"
                       onClick={() => {
                         setDropdownOpen(false);
                         setIsOpen(false);
@@ -359,7 +367,7 @@ const Navbar = () => {
               <Link
                 to="/about"
                 className={`font-medium ${
-                  isActive("/about") ? "text-primary" : "text-gray-700"
+                  isActive("/about") ? "text-primary" : "theme-text-primary"
                 } hover:text-primary transition-colors duration-300`}
                 onClick={() => setIsOpen(false)}
               >
@@ -369,7 +377,7 @@ const Navbar = () => {
               <Link
                 to="/contact"
                 className={`font-medium ${
-                  isActive("/contact") ? "text-primary" : "text-gray-700"
+                  isActive("/contact") ? "text-primary" : "theme-text-primary"
                 } hover:text-primary transition-colors duration-300`}
                 onClick={() => setIsOpen(false)}
               >
@@ -381,14 +389,14 @@ const Navbar = () => {
                 <>
                   <Link
                     to="/profile"
-                    className="font-medium text-gray-700 hover:text-primary transition-colors duration-300"
+                    className="font-medium theme-text-primary hover:text-primary transition-colors duration-300"
                     onClick={() => setIsOpen(false)}
                   >
                     My Profile
                   </Link>
                   <Link
                     to="/orders"
-                    className="font-medium text-gray-700 hover:text-primary transition-colors duration-300"
+                    className="font-medium theme-text-primary hover:text-primary transition-colors duration-300"
                     onClick={() => setIsOpen(false)}
                   >
                     My Orders
@@ -398,7 +406,7 @@ const Navbar = () => {
                       handleLogout();
                       setIsOpen(false);
                     }}
-                    className="font-medium text-gray-700 hover:text-primary transition-colors duration-300 text-left"
+                    className="font-medium theme-text-primary hover:text-primary transition-colors duration-300 text-left"
                   >
                     Logout
                   </button>
@@ -407,14 +415,14 @@ const Navbar = () => {
                 <>
                   <Link
                     to="/login"
-                    className="font-medium text-gray-700 hover:text-primary transition-colors duration-300"
+                    className="font-medium theme-text-primary hover:text-primary transition-colors duration-300"
                     onClick={() => setIsOpen(false)}
                   >
                     Login
                   </Link>
                   <Link
                     to="/register"
-                    className="font-medium text-gray-700 hover:text-primary transition-colors duration-300"
+                    className="font-medium theme-text-primary hover:text-primary transition-colors duration-300"
                     onClick={() => setIsOpen(false)}
                   >
                     Register
@@ -424,7 +432,7 @@ const Navbar = () => {
 
               <Link
                 to="/cart"
-                className="font-medium text-gray-700 hover:text-primary transition-colors duration-300 flex items-center"
+                className="font-medium theme-text-primary hover:text-primary transition-colors duration-300 flex items-center"
                 onClick={() => setIsOpen(false)}
               >
                 <span>Cart</span>
@@ -446,6 +454,12 @@ const Navbar = () => {
                   {totalItems || 0}
                 </span>
               </Link>
+
+              {/* Mobile Theme Toggle */}
+              <div className="flex items-center justify-between mt-2">
+                <span className="font-medium theme-text-primary">Theme</span>
+                <ThemeToggle />
+              </div>
             </div>
           </motion.div>
         )}

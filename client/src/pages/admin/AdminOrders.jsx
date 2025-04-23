@@ -74,22 +74,22 @@ const AdminOrders = () => {
   const getStatusColor = (status) => {
     switch (status.toLowerCase()) {
       case "processing":
-        return "bg-yellow-100 text-yellow-800";
+        return "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 border border-yellow-200 dark:border-yellow-800";
       case "shipped":
-        return "bg-blue-100 text-blue-800";
+        return "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-800";
       case "delivered":
-        return "bg-green-100 text-green-800";
+        return "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 border border-green-200 dark:border-green-800";
       case "cancelled":
-        return "bg-red-100 text-red-800";
+        return "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border border-red-200 dark:border-red-800";
       default:
-        return "bg-gray-100 text-gray-800";
+        return "bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-600";
     }
   };
 
   const getPaymentStatusColor = (isPaid) => {
     return isPaid
-      ? "bg-green-100 text-green-800"
-      : "bg-yellow-100 text-yellow-800";
+      ? "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 border border-green-300 dark:border-green-800 font-semibold"
+      : "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 border border-yellow-300 dark:border-yellow-800 font-semibold";
   };
 
   // Ensure orders is always an array before filtering
@@ -146,20 +146,22 @@ const AdminOrders = () => {
   return (
     <AdminLayout title="Orders">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Manage Orders</h1>
-        <div className="text-sm text-gray-500">
+        <h1 className="text-2xl font-bold theme-text-primary">Manage Orders</h1>
+        <div className="text-sm theme-text-secondary">
           Total Orders:{" "}
-          <span className="font-medium">{ordersArray.length}</span>
+          <span className="font-medium theme-text-primary">
+            {ordersArray.length}
+          </span>
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+      <div className="theme-bg-primary rounded-lg shadow-md p-6 mb-6">
         <div className="flex flex-col md:flex-row justify-between mb-4">
           <div className="flex flex-col sm:flex-row gap-4 mb-4 md:mb-0">
             <div>
               <label
                 htmlFor="filter"
-                className="block text-sm font-medium text-gray-700 mb-1"
+                className="block text-sm font-medium theme-text-primary mb-1"
               >
                 Filter by Status
               </label>
@@ -167,7 +169,7 @@ const AdminOrders = () => {
                 id="filter"
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
-                className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm rounded-md"
+                className="block w-full pl-3 pr-10 py-2 text-base theme-border theme-bg-primary theme-text-primary focus:outline-none focus:ring-primary focus:border-primary sm:text-sm rounded-md"
               >
                 <option value="all">All Orders</option>
                 <option value="processing">Processing</option>
@@ -181,7 +183,7 @@ const AdminOrders = () => {
           <div className="w-full md:w-64">
             <label
               htmlFor="search"
-              className="block text-sm font-medium text-gray-700 mb-1"
+              className="block text-sm font-medium theme-text-primary mb-1"
             >
               Search Orders
             </label>
@@ -192,11 +194,11 @@ const AdminOrders = () => {
                 placeholder="Search by ID, name, email..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-primary focus:border-primary sm:text-sm"
+                className="block w-full pl-10 pr-3 py-2 border theme-border rounded-md leading-5 theme-bg-primary theme-text-primary placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:placeholder-gray-400 focus:ring-primary focus:border-primary sm:text-sm"
               />
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <svg
-                  className="h-5 w-5 text-gray-400"
+                  className="h-5 w-5 theme-text-secondary"
                   xmlns="http://www.w3.org/2000/svg"
                   viewBox="0 0 20 20"
                   fill="currentColor"
@@ -217,7 +219,7 @@ const AdminOrders = () => {
           <div className="text-center py-8">
             <svg
               xmlns="http://www.w3.org/2000/svg"
-              className="h-12 w-12 mx-auto text-gray-400"
+              className="h-12 w-12 mx-auto theme-text-secondary"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -229,10 +231,10 @@ const AdminOrders = () => {
                 d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
               />
             </svg>
-            <h3 className="mt-2 text-sm font-medium text-gray-900">
+            <h3 className="mt-2 text-sm font-medium theme-text-primary">
               No orders found
             </h3>
-            <p className="mt-1 text-sm text-gray-500">
+            <p className="mt-1 text-sm theme-text-secondary">
               {filter !== "all"
                 ? `No ${filter} orders found.`
                 : searchTerm
@@ -242,83 +244,94 @@ const AdminOrders = () => {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+            <table className="min-w-full divide-y theme-divide">
+              <thead className="theme-bg-secondary">
                 <tr>
                   <th
                     scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    className="px-6 py-3 text-left text-xs font-medium theme-text-secondary uppercase tracking-wider"
                   >
                     Order ID
                   </th>
                   <th
                     scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    className="px-6 py-3 text-left text-xs font-medium theme-text-secondary uppercase tracking-wider"
                   >
                     Customer
                   </th>
                   <th
                     scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    className="px-6 py-3 text-left text-xs font-medium theme-text-secondary uppercase tracking-wider"
                   >
                     Date
                   </th>
                   <th
                     scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    className="px-6 py-3 text-left text-xs font-medium theme-text-secondary uppercase tracking-wider"
                   >
                     Total
                   </th>
                   <th
                     scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    className="px-6 py-3 text-left text-xs font-medium theme-text-secondary uppercase tracking-wider"
                   >
                     Payment
                   </th>
                   <th
                     scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    className="px-6 py-3 text-left text-xs font-medium theme-text-secondary uppercase tracking-wider"
                   >
                     Status
                   </th>
                   <th
                     scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    className="px-6 py-3 text-left text-xs font-medium theme-text-secondary uppercase tracking-wider"
                   >
                     Actions
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="theme-bg-primary divide-y theme-divide">
                 {filteredOrders.map((order) => (
-                  <tr key={order._id}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <tr
+                    key={order._id}
+                    className="hover:theme-bg-secondary transition-colors duration-150"
+                  >
+                    <td className="px-6 py-4 whitespace-nowrap text-sm theme-text-secondary">
                       #{order._id.substring(0, 8)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">
+                      <div className="text-sm font-medium theme-text-primary">
                         {order.shippingAddress.name}
                       </div>
-                      <div className="text-sm text-gray-500">
+                      <div className="text-sm theme-text-secondary">
                         {order.shippingAddress.phone}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm theme-text-secondary">
                       {new Date(order.createdAt).toLocaleDateString()}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium theme-text-primary">
                       {formatPrice(order.totalPrice)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900 capitalize">
-                        {order.paymentMethod}
+                      <div className="text-sm theme-text-primary capitalize font-medium">
+                        <span
+                          className={`${
+                            order.paymentMethod === "upi"
+                              ? "text-indigo-600 dark:text-indigo-400 font-semibold"
+                              : ""
+                          }`}
+                        >
+                          {order.paymentMethod}
+                        </span>
                       </div>
                       <span
                         className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getPaymentStatusColor(
                           order.isPaid
                         )}`}
                       >
-                        {order.isPaid ? "Paid" : "Pending"}
+                        {order.isPaid ? "✓ Paid" : "⏱ Pending"}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -327,7 +340,8 @@ const AdminOrders = () => {
                           order.status
                         )}`}
                       >
-                        {order.status}
+                        {order.status.charAt(0).toUpperCase() +
+                          order.status.slice(1)}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
@@ -336,7 +350,7 @@ const AdminOrders = () => {
                         onChange={(e) =>
                           handleStatusChange(order._id, e.target.value)
                         }
-                        className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm rounded-md"
+                        className="block w-full pl-3 pr-10 py-2 text-base theme-border theme-bg-primary theme-text-primary focus:outline-none focus:ring-primary focus:border-primary sm:text-sm rounded-md"
                       >
                         <option value="processing">Processing</option>
                         <option value="shipped">Shipped</option>

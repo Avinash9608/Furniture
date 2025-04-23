@@ -10,6 +10,7 @@ const Modal = ({
   showCloseButton = true,
   closeOnClickOutside = true,
   footer = null,
+  disableClose = false,
 }) => {
   const modalRef = useRef(null);
 
@@ -25,7 +26,7 @@ const Modal = ({
   // Close modal when Escape key is pressed
   useEffect(() => {
     const handleEscapeKey = (e) => {
-      if (e.key === "Escape" && isOpen) {
+      if (e.key === "Escape" && isOpen && !disableClose) {
         onClose();
       }
     };
@@ -41,6 +42,7 @@ const Modal = ({
   const handleClickOutside = (e) => {
     if (
       closeOnClickOutside &&
+      !disableClose &&
       modalRef.current &&
       !modalRef.current.contains(e.target)
     ) {
@@ -74,12 +76,12 @@ const Modal = ({
           <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
             {/* Background overlay */}
             <motion.div
-            // initial={{ opacity: 0 }}
-            // animate={{ opacity: 1 }}
-            // exit={{ opacity: 0 }}
-            // transition={{ duration: 0.2 }}
-            // className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"
-            // aria-hidden="true"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="fixed inset-0 bg-gray-500 dark:bg-gray-800 bg-opacity-75 dark:bg-opacity-75 transition-opacity"
+              aria-hidden="true"
             />
 
             {/* Modal positioning trick */}
@@ -97,25 +99,25 @@ const Modal = ({
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
               transition={{ duration: 0.3 }}
-              className={`inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle ${sizes[size]} w-full`}
+              className={`inline-block align-bottom theme-bg-primary rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle ${sizes[size]} w-full`}
               onClick={(e) => e.stopPropagation()}
             >
               {/* Modal header */}
               {(title || showCloseButton) && (
-                <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+                <div className="px-6 py-4 border-b theme-border flex items-center justify-between">
                   {title && (
                     <h3
-                      className="text-lg font-medium text-gray-900"
+                      className="text-lg font-medium theme-text-primary"
                       id="modal-title"
                     >
                       {title}
                     </h3>
                   )}
 
-                  {showCloseButton && (
+                  {showCloseButton && !disableClose && (
                     <button
                       type="button"
-                      className="text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-primary"
+                      className="text-gray-400 dark:text-gray-500 hover:text-gray-500 dark:hover:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary"
                       onClick={onClose}
                       aria-label="Close"
                     >
@@ -142,7 +144,7 @@ const Modal = ({
 
               {/* Modal footer */}
               {footer && (
-                <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-end space-x-3">
+                <div className="px-6 py-4 theme-bg-secondary border-t theme-border flex justify-end space-x-3">
                   {footer}
                 </div>
               )}

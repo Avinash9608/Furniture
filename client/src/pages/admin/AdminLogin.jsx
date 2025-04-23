@@ -71,7 +71,7 @@ const AdminLogin = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+    <div className="min-h-screen theme-bg-primary flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <motion.div
           initial={{ opacity: 0, y: -20 }}
@@ -81,17 +81,17 @@ const AdminLogin = () => {
           <h2 className="text-center text-3xl font-serif font-bold text-primary">
             Shyam Furnitures
           </h2>
-          <h2 className="mt-6 text-center text-2xl font-bold text-gray-900">
+          <h2 className="mt-6 text-center text-2xl font-bold theme-text-primary">
             Admin Login
           </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
+          <p className="mt-2 text-center text-sm theme-text-secondary">
             Enter your admin credentials to access the dashboard
           </p>
         </motion.div>
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+        <div className="theme-bg-primary py-8 px-4 shadow sm:rounded-lg sm:px-10">
           {error && (
             <Alert
               type="error"
@@ -105,7 +105,7 @@ const AdminLogin = () => {
             <div>
               <label
                 htmlFor="email"
-                className="block text-sm font-medium text-gray-700"
+                className="block text-sm font-medium theme-text-primary"
               >
                 Email address
               </label>
@@ -118,7 +118,7 @@ const AdminLogin = () => {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
+                  className="appearance-none block w-full px-3 py-2 border theme-border rounded-md shadow-sm placeholder-gray-400 theme-bg-primary theme-text-primary focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
                 />
               </div>
             </div>
@@ -126,7 +126,7 @@ const AdminLogin = () => {
             <div>
               <label
                 htmlFor="password"
-                className="block text-sm font-medium text-gray-700"
+                className="block text-sm font-medium theme-text-primary"
               >
                 Password
               </label>
@@ -139,7 +139,7 @@ const AdminLogin = () => {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
+                  className="appearance-none block w-full px-3 py-2 border theme-border rounded-md shadow-sm placeholder-gray-400 theme-bg-primary theme-text-primary focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
                 />
               </div>
             </div>
@@ -171,7 +171,7 @@ const AdminLogin = () => {
                   </svg>
                 </div>
                 <div className="ml-3 flex-1 md:flex md:justify-between">
-                  <p className="text-sm text-blue-700">
+                  <p className="text-sm text-blue-700 dark:text-blue-400">
                     <strong>Admin Login:</strong> avinashmadhukar4@gmail.com /
                     123456
                   </p>

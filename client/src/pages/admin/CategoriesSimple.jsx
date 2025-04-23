@@ -1,79 +1,76 @@
 import React, { useState, useEffect } from "react";
-import { motion } from "framer-motion";
 import { categoriesAPI, productsAPI } from "../../utils/api";
 import AdminLayout from "../../components/admin/AdminLayout";
 import Button from "../../components/Button";
 import Loading from "../../components/Loading";
 import Alert from "../../components/Alert";
-import Modal from "../../components/Modal";
+import SimpleModal from "../../components/SimpleModal";
 
-const Categories = () => {
+const CategoriesSimple = () => {
   const [categories, setCategories] = useState([]);
   const [categoryProducts, setCategoryProducts] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
 
-  // New category state
+  // Modal states
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+
+  // Form states
   const [newCategory, setNewCategory] = useState({
     name: "",
     description: "",
     image: null,
   });
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState(null);
-  const [imagePreview, setImagePreview] = useState(null);
-
-  // Edit category state
-  const [showEditModal, setShowEditModal] = useState(false);
   const [editCategory, setEditCategory] = useState(null);
-  const [editImagePreview, setEditImagePreview] = useState(null);
-
-  // Delete category state
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [categoryToDelete, setCategoryToDelete] = useState(null);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [deleteError, setDeleteError] = useState(null);
+
+  // UI states
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formError, setFormError] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
+  const [editImagePreview, setEditImagePreview] = useState(null);
 
   // Fetch categories
   useEffect(() => {
-    const fetchCategories = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-
-        const response = await categoriesAPI.getAll();
-        setCategories(response.data.data);
-
-        // Fetch product counts for each category
-        const productCounts = {};
-        for (const category of response.data.data) {
-          try {
-            const productsResponse = await productsAPI.getAll({
-              category: category._id,
-              limit: 1,
-            });
-            productCounts[category._id] = productsResponse.data.count || 0;
-          } catch (error) {
-            console.error(
-              `Error fetching products for category ${category._id}:`,
-              error
-            );
-            productCounts[category._id] = 0;
-          }
-        }
-        setCategoryProducts(productCounts);
-      } catch (error) {
-        console.error("Error fetching categories:", error);
-        setError("Failed to load categories. Please try again later.");
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchCategories();
   }, []);
+
+  const fetchCategories = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const response = await categoriesAPI.getAll();
+      setCategories(response.data.data);
+
+      // Fetch product counts for each category
+      const productCounts = {};
+      for (const category of response.data.data) {
+        try {
+          const productsResponse = await productsAPI.getAll({
+            category: category._id,
+            limit: 1,
+          });
+          productCounts[category._id] = productsResponse.data.count || 0;
+        } catch (err) {
+          console.error(
+            `Error fetching products for category ${category._id}:`,
+            err
+          );
+          productCounts[category._id] = 0;
+        }
+      }
+      setCategoryProducts(productCounts);
+    } catch (err) {
+      console.error("Error fetching categories:", err);
+      setError("Failed to load categories. Please try again later.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Handle image change for new category
   const handleImageChange = (e) => {
@@ -93,18 +90,18 @@ const Categories = () => {
     }
   };
 
-  // Handle add category
+  // Add category
   const handleAddCategory = async (e) => {
     e.preventDefault();
 
     if (!newCategory.name) {
-      setSubmitError("Category name is required");
+      setFormError("Category name is required");
       return;
     }
 
     try {
       setIsSubmitting(true);
-      setSubmitError(null);
+      setFormError(null);
 
       const formData = new FormData();
       formData.append("name", newCategory.name);
@@ -122,6 +119,7 @@ const Categories = () => {
 
       const response = await categoriesAPI.create(formData, config);
 
+      // Update state
       setCategories([...categories, response.data.data]);
       setCategoryProducts({
         ...categoryProducts,
@@ -129,16 +127,16 @@ const Categories = () => {
       });
 
       // Reset form and close modal
-      setNewCategory({ name: "", description: "", image: null });
-      setImagePreview(null);
+      resetAddForm();
       setShowAddModal(false);
-      setSuccessMessage("Category added successfully!");
 
+      // Show success message
+      setSuccessMessage("Category added successfully!");
       setTimeout(() => setSuccessMessage(null), 3000);
-    } catch (error) {
-      console.error("Error adding category:", error);
-      setSubmitError(
-        error.response?.data?.message ||
+    } catch (err) {
+      console.error("Error adding category:", err);
+      setFormError(
+        err.response?.data?.message ||
           "Failed to add category. Please try again."
       );
     } finally {
@@ -146,7 +144,7 @@ const Categories = () => {
     }
   };
 
-  // Handle edit category click
+  // Edit category
   const handleEditClick = (category) => {
     setEditCategory({
       ...category,
@@ -154,49 +152,49 @@ const Categories = () => {
     });
     setEditImagePreview(category.image);
     setShowEditModal(true);
-    setSubmitError(null);
+    setFormError(null);
   };
 
-  // Handle edit category submit
   const handleEditCategory = async (e) => {
     e.preventDefault();
 
     if (!editCategory.name) {
-      setSubmitError("Category name is required");
+      setFormError("Category name is required");
       return;
     }
 
     try {
       setIsSubmitting(true);
-      setSubmitError(null);
+      setFormError(null);
 
       const formData = new FormData();
       formData.append("name", editCategory.name);
       formData.append("description", editCategory.description);
+
       if (editCategory.newImage) {
         formData.append("image", editCategory.newImage);
       }
 
       const response = await categoriesAPI.update(editCategory._id, formData);
 
+      // Update state
       setCategories(
         categories.map((cat) =>
           cat._id === editCategory._id ? response.data.data : cat
         )
       );
 
-      setSuccessMessage("Category updated successfully!");
-      setEditCategory(null);
-      setEditImagePreview(null);
+      // Reset form and close modal
+      resetEditForm();
       setShowEditModal(false);
 
-      setTimeout(() => {
-        setSuccessMessage(null);
-      }, 3000);
-    } catch (error) {
-      console.error("Error updating category:", error);
-      setSubmitError(
-        error.response?.data?.message ||
+      // Show success message
+      setSuccessMessage("Category updated successfully!");
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (err) {
+      console.error("Error updating category:", err);
+      setFormError(
+        err.response?.data?.message ||
           "Failed to update category. Please try again."
       );
     } finally {
@@ -204,53 +202,85 @@ const Categories = () => {
     }
   };
 
-  // Handle delete category click
+  // Delete category
   const handleDeleteClick = (category) => {
     setCategoryToDelete(category);
     setShowDeleteModal(true);
-    setDeleteError(null);
+    setFormError(null);
   };
 
-  // Handle delete category confirm
-  const handleDeleteConfirm = async () => {
-    if (!categoryToDelete) return;
+  const handleDeleteCategory = async () => {
+    if (!categoryToDelete) {
+      console.error("No category selected for deletion");
+      return;
+    }
+
+    // Check if category has products
+    if (categoryProducts[categoryToDelete._id] > 0) {
+      setFormError(
+        `Cannot delete category because it has ${
+          categoryProducts[categoryToDelete._id]
+        } products. Please reassign or delete these products first.`
+      );
+      return;
+    }
 
     try {
-      setIsDeleting(true);
-      setDeleteError(null);
+      setIsSubmitting(true);
+      setFormError(null);
 
-      // Check if category has products
-      if (categoryProducts[categoryToDelete._id] > 0) {
-        setDeleteError(
-          `Cannot delete category because it has ${
-            categoryProducts[categoryToDelete._id]
-          } products. Please reassign or delete these products first.`
+      // Make the API call
+      console.log("Deleting category with ID:", categoryToDelete._id);
+      console.log("Category object:", categoryToDelete);
+
+      // Call the API to delete the category
+      const response = await categoriesAPI.delete(categoryToDelete._id);
+      console.log("Delete API response:", response);
+
+      // Update the categories state by filtering out the deleted category
+      setCategories((prevCategories) => {
+        console.log("Filtering categories, before:", prevCategories.length);
+        const newCategories = prevCategories.filter(
+          (cat) => cat._id !== categoryToDelete._id
         );
-        setIsDeleting(false);
-        return;
-      }
+        console.log("After filtering:", newCategories.length);
+        return newCategories;
+      });
 
-      await categoriesAPI.delete(categoryToDelete._id);
-
-      setCategories(
-        categories.filter((cat) => cat._id !== categoryToDelete._id)
-      );
-
+      // Reset form and close modal
+      resetDeleteForm();
       setShowDeleteModal(false);
-      setSuccessMessage("Category deleted successfully!");
 
-      setTimeout(() => {
-        setSuccessMessage(null);
-      }, 3000);
-    } catch (error) {
-      console.error("Error deleting category:", error);
-      setDeleteError(
-        error.response?.data?.message ||
+      // Show success message
+      setSuccessMessage("Category deleted successfully!");
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (err) {
+      console.error("Error deleting category:", err);
+      setFormError(
+        err.response?.data?.message ||
           "Failed to delete category. Please try again."
       );
     } finally {
-      setIsDeleting(false);
+      setIsSubmitting(false);
     }
+  };
+
+  // Reset forms
+  const resetAddForm = () => {
+    setNewCategory({ name: "", description: "", image: null });
+    setImagePreview(null);
+    setFormError(null);
+  };
+
+  const resetEditForm = () => {
+    setEditCategory(null);
+    setEditImagePreview(null);
+    setFormError(null);
+  };
+
+  const resetDeleteForm = () => {
+    setCategoryToDelete(null);
+    setFormError(null);
   };
 
   return (
@@ -304,15 +334,12 @@ const Categories = () => {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {categories.map((category) => (
-              <motion.div
+              <div
                 key={category._id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3 }}
                 className="theme-bg-secondary rounded-lg overflow-hidden shadow-sm border theme-border"
               >
                 <div className="h-48 overflow-hidden">
-                  {category.image ? (
+                  {category && category.image ? (
                     <img
                       src={`${
                         import.meta.env.VITE_API_BASE_URL ||
@@ -388,28 +415,28 @@ const Categories = () => {
                     {category.description || "No description available."}
                   </p>
                 </div>
-              </motion.div>
+              </div>
             ))}
           </div>
         )}
       </div>
 
       {/* Add Category Modal */}
-      <Modal
+      <SimpleModal
         isOpen={showAddModal}
         onClose={() => {
           if (!isSubmitting) {
+            resetAddForm();
             setShowAddModal(false);
-            setNewCategory({ name: "", description: "", image: null });
-            setImagePreview(null);
-            setSubmitError(null);
           }
         }}
         title="Add Category"
       >
-        <form onSubmit={handleAddCategory} className="p-6">
-          {submitError && (
-            <Alert type="error" message={submitError} className="mb-4" />
+        <form onSubmit={handleAddCategory}>
+          {formError && (
+            <div className="mb-4 p-3 bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 rounded-md">
+              {formError}
+            </div>
           )}
 
           <div className="mb-4">
@@ -429,6 +456,7 @@ const Categories = () => {
                 setNewCategory({ ...newCategory, name: e.target.value })
               }
               required
+              disabled={isSubmitting}
             />
           </div>
 
@@ -448,6 +476,7 @@ const Categories = () => {
               onChange={(e) =>
                 setNewCategory({ ...newCategory, description: e.target.value })
               }
+              disabled={isSubmitting}
             ></textarea>
           </div>
 
@@ -466,6 +495,7 @@ const Categories = () => {
               hover:file:bg-primary-dark"
               onChange={handleImageChange}
               required
+              disabled={isSubmitting}
             />
             {imagePreview && (
               <div className="mt-2">
@@ -481,10 +511,8 @@ const Categories = () => {
             <button
               type="button"
               onClick={() => {
+                resetAddForm();
                 setShowAddModal(false);
-                setNewCategory({ name: "", description: "", image: null });
-                setImagePreview(null);
-                setSubmitError(null);
               }}
               className="px-4 py-2 border theme-border rounded-md shadow-sm text-sm font-medium theme-text-primary theme-bg-primary hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
               disabled={isSubmitting}
@@ -500,25 +528,25 @@ const Categories = () => {
             </button>
           </div>
         </form>
-      </Modal>
+      </SimpleModal>
 
       {/* Edit Category Modal */}
-      <Modal
+      <SimpleModal
         isOpen={showEditModal}
         onClose={() => {
           if (!isSubmitting) {
+            resetEditForm();
             setShowEditModal(false);
-            setEditCategory(null);
-            setEditImagePreview(null);
-            setSubmitError(null);
           }
         }}
         title="Edit Category"
       >
         {editCategory && (
-          <form onSubmit={handleEditCategory} className="p-6">
-            {submitError && (
-              <Alert type="error" message={submitError} className="mb-4" />
+          <form onSubmit={handleEditCategory}>
+            {formError && (
+              <div className="mb-4 p-3 bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 rounded-md">
+                {formError}
+              </div>
             )}
 
             <div className="mb-4">
@@ -538,6 +566,7 @@ const Categories = () => {
                   setEditCategory({ ...editCategory, name: e.target.value })
                 }
                 required
+                disabled={isSubmitting}
               />
             </div>
 
@@ -560,6 +589,7 @@ const Categories = () => {
                     description: e.target.value,
                   })
                 }
+                disabled={isSubmitting}
               ></textarea>
             </div>
 
@@ -581,6 +611,7 @@ const Categories = () => {
                 file:bg-primary file:text-white
                 hover:file:bg-primary-dark"
                 onChange={handleEditImageChange}
+                disabled={isSubmitting}
               />
               {editImagePreview && (
                 <div className="mt-2">
@@ -597,10 +628,8 @@ const Categories = () => {
               <button
                 type="button"
                 onClick={() => {
+                  resetEditForm();
                   setShowEditModal(false);
-                  setEditCategory(null);
-                  setEditImagePreview(null);
-                  setSubmitError(null);
                 }}
                 className="px-4 py-2 border theme-border rounded-md shadow-sm text-sm font-medium theme-text-primary theme-bg-primary hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
                 disabled={isSubmitting}
@@ -617,25 +646,24 @@ const Categories = () => {
             </div>
           </form>
         )}
-      </Modal>
+      </SimpleModal>
 
       {/* Delete Confirmation Modal */}
-      <Modal
+      <SimpleModal
         isOpen={showDeleteModal}
         onClose={() => {
-          if (!isDeleting) {
+          if (!isSubmitting) {
+            resetDeleteForm();
             setShowDeleteModal(false);
-            setCategoryToDelete(null);
-            setDeleteError(null);
           }
         }}
         title="Delete Category"
       >
-        <div className="p-6">
+        <div>
           <p className="theme-text-primary mb-4">
             Are you sure you want to delete{" "}
             <span className="font-semibold">{categoryToDelete?.name}</span>?
-            {categoryProducts[categoryToDelete?._id] > 0 && (
+            {categoryToDelete && categoryProducts[categoryToDelete._id] > 0 && (
               <span className="text-red-600 dark:text-red-400 block mt-2">
                 This category has {categoryProducts[categoryToDelete._id]}{" "}
                 products. You must reassign or delete these products first.
@@ -643,32 +671,38 @@ const Categories = () => {
             )}
           </p>
 
-          {deleteError && (
-            <Alert type="error" message={deleteError} className="mb-4" />
+          {formError && (
+            <div className="mb-4 p-3 bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 rounded-md">
+              {formError}
+            </div>
           )}
 
           <div className="flex justify-end space-x-4">
             <button
-              onClick={() => setShowDeleteModal(false)}
+              onClick={() => {
+                resetDeleteForm();
+                setShowDeleteModal(false);
+              }}
               className="px-4 py-2 border theme-border rounded-md shadow-sm text-sm font-medium theme-text-primary theme-bg-primary hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
-              disabled={isDeleting}
+              disabled={isSubmitting}
             >
               Cancel
             </button>
             <button
-              onClick={handleDeleteConfirm}
+              onClick={handleDeleteCategory}
               className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
               disabled={
-                isDeleting || categoryProducts[categoryToDelete?._id] > 0
+                isSubmitting ||
+                (categoryToDelete && categoryProducts[categoryToDelete._id] > 0)
               }
             >
-              {isDeleting ? "Deleting..." : "Delete"}
+              {isSubmitting ? "Deleting..." : "Delete"}
             </button>
           </div>
         </div>
-      </Modal>
+      </SimpleModal>
     </AdminLayout>
   );
 };
 
-export default Categories;
+export default CategoriesSimple;

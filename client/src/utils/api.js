@@ -369,10 +369,14 @@ export const categoriesAPI = {
   },
   delete: async (id) => {
     try {
-      return await api.delete(`/categories/${id}`);
+      console.log(`Attempting to delete category with ID: ${id}`);
+      const response = await api.delete(`/categories/${id}`);
+      console.log(`Successfully deleted category ${id}:`, response);
+      return response;
     } catch (error) {
-      console.warn(`Error deleting category ${id}:`, error);
-      return { data: { success: true } };
+      console.error(`Error deleting category ${id}:`, error);
+      // Don't return a fake success response - let the component handle the error
+      throw error;
     }
   },
   getWithProducts: async () => {

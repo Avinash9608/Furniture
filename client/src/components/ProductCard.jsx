@@ -27,7 +27,7 @@ const ProductCard = ({ product }) => {
               "https://via.placeholder.com/300x300?text=Image+Not+Found";
           }}
         />
-        <div className="absolute top-2 right-2 bg-white rounded-full p-2 shadow-md opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+        <div className="absolute top-2 right-2 theme-bg-primary rounded-full p-2 shadow-md opacity-0 group-hover:opacity-100 transition-opacity duration-300">
           <svg
             className="w-5 h-5 text-primary"
             fill="none"
@@ -45,14 +45,16 @@ const ProductCard = ({ product }) => {
         </div>
       </div>
       <div className="p-4">
-        <span className="text-sm text-gray-500">
+        <span className="text-sm theme-text-secondary">
           {product.category &&
           typeof product.category === "object" &&
           product.category.name
             ? product.category.name
             : "Uncategorized"}
         </span>
-        <h3 className="text-lg font-medium mb-2">{product.name}</h3>
+        <h3 className="text-lg font-medium mb-2 theme-text-primary">
+          {product.name}
+        </h3>
         <div className="flex justify-between items-center">
           <div>
             {product.discountPrice && product.discountPrice < product.price ? (
@@ -61,7 +63,7 @@ const ProductCard = ({ product }) => {
                   {formatPrice(product.discountPrice)}
                 </span>
                 <div className="flex items-center">
-                  <span className="text-sm text-gray-500 line-through mr-1">
+                  <span className="text-sm theme-text-secondary line-through mr-1">
                     {formatPrice(product.price, false)}
                   </span>
                   <span className="text-xs text-red-600">
@@ -81,7 +83,7 @@ const ProductCard = ({ product }) => {
           </div>
           <Link
             to={`/products/${product._id}`}
-            className="text-sm font-medium text-gray-600 hover:text-primary transition-colors duration-300"
+            className="text-sm font-medium theme-text-secondary hover:text-primary transition-colors duration-300"
           >
             View Details
           </Link>

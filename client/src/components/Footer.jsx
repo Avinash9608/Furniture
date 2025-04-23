@@ -5,7 +5,12 @@ const Footer = () => {
   const currentYear = new Date().getFullYear();
 
   return (
-    <footer className="bg-secondary text-white">
+    <footer
+      style={{
+        backgroundColor: "var(--color-footer-bg)",
+        color: "var(--color-footer-text)",
+      }}
+    >
       <div className="container-custom py-12">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
           {/* Company Info */}

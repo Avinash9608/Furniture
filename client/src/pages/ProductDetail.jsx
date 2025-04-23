@@ -161,30 +161,33 @@ const ProductDetail = () => {
   }
 
   return (
-    <div className="bg-gray-50 py-8">
+    <div className="theme-bg-primary py-8">
       <div className="container-custom">
         {/* Breadcrumbs */}
         <nav className="flex mb-6 text-sm">
-          <Link to="/" className="text-gray-500 hover:text-primary">
+          <Link to="/" className="theme-text-secondary hover:text-primary">
             Home
           </Link>
-          <span className="mx-2 text-gray-500">/</span>
-          <Link to="/products" className="text-gray-500 hover:text-primary">
+          <span className="mx-2 theme-text-secondary">/</span>
+          <Link
+            to="/products"
+            className="theme-text-secondary hover:text-primary"
+          >
             Products
           </Link>
-          <span className="mx-2 text-gray-500">/</span>
+          <span className="mx-2 theme-text-secondary">/</span>
           <Link
             to={`/products?category=${product.category.slug}`}
-            className="text-gray-500 hover:text-primary"
+            className="theme-text-secondary hover:text-primary"
           >
             {product.category.name}
           </Link>
-          <span className="mx-2 text-gray-500">/</span>
-          <span className="text-gray-900 font-medium">{product.name}</span>
+          <span className="mx-2 theme-text-secondary">/</span>
+          <span className="theme-text-primary font-medium">{product.name}</span>
         </nav>
 
         {/* Product Details */}
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
+        <div className="theme-bg-primary rounded-lg shadow-md overflow-hidden">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 p-6">
             {/* Product Images */}
             <div>
@@ -252,7 +255,7 @@ const ProductDetail = () => {
 
             {/* Product Info */}
             <div>
-              <h1 className="text-2xl md:text-3xl font-serif font-bold mb-2">
+              <h1 className="text-2xl md:text-3xl font-serif font-bold mb-2 theme-text-primary">
                 {product.name}
               </h1>
 
@@ -276,7 +279,7 @@ const ProductDetail = () => {
                   ))}
                 </div>
 
-                <span className="text-gray-600 ml-2">
+                <span className="theme-text-secondary ml-2">
                   {product.ratings.toFixed(1)} ({product.numReviews} reviews)
                 </span>
               </div>
@@ -290,7 +293,7 @@ const ProductDetail = () => {
                       {formatPrice(product.discountPrice)}
                     </span>
                     <div>
-                      <span className="text-lg text-gray-500 line-through block">
+                      <span className="text-lg theme-text-secondary line-through block">
                         {formatPrice(product.price)}
                       </span>
                       <span className="bg-red-100 text-red-800 text-xs font-medium px-2 py-0.5 rounded inline-block mt-1">
@@ -324,7 +327,7 @@ const ProductDetail = () => {
 
               {/* Short Description */}
               <div className="mb-6">
-                <p className="text-gray-700">
+                <p className="theme-text-primary">
                   {product.description.split(".")[0]}
                 </p>
               </div>
@@ -332,13 +335,13 @@ const ProductDetail = () => {
               {/* Quantity Selector */}
               {product.stock > 0 && (
                 <div className="mb-6">
-                  <label className="block text-gray-700 font-medium mb-2">
+                  <label className="block theme-text-primary font-medium mb-2">
                     Quantity
                   </label>
                   <div className="flex items-center">
                     <button
                       onClick={() => handleQuantityChange(-1)}
-                      className="bg-gray-200 text-gray-700 hover:bg-gray-300 h-10 w-10 rounded-l-md flex items-center justify-center"
+                      className="theme-bg-secondary theme-text-primary hover:bg-gray-300 h-10 w-10 rounded-l-md flex items-center justify-center"
                     >
                       <svg
                         className="w-4 h-4"
@@ -361,11 +364,11 @@ const ProductDetail = () => {
                       max={product.stock}
                       value={quantity}
                       onChange={(e) => setQuantity(parseInt(e.target.value))}
-                      className="h-10 w-16 border-y border-gray-300 text-center"
+                      className="h-10 w-16 border-y theme-border theme-bg-primary theme-text-primary text-center"
                     />
                     <button
                       onClick={() => handleQuantityChange(1)}
-                      className="bg-gray-200 text-gray-700 hover:bg-gray-300 h-10 w-10 rounded-r-md flex items-center justify-center"
+                      className="theme-bg-secondary theme-text-primary hover:bg-gray-300 h-10 w-10 rounded-r-md flex items-center justify-center"
                     >
                       <svg
                         className="w-4 h-4"
@@ -436,19 +439,23 @@ const ProductDetail = () => {
                   {product.material && (
                     <li className="flex">
                       <span className="font-medium w-24">Material:</span>
-                      <span className="text-gray-700">{product.material}</span>
+                      <span className="theme-text-primary">
+                        {product.material}
+                      </span>
                     </li>
                   )}
                   {product.color && (
                     <li className="flex">
                       <span className="font-medium w-24">Color:</span>
-                      <span className="text-gray-700">{product.color}</span>
+                      <span className="theme-text-primary">
+                        {product.color}
+                      </span>
                     </li>
                   )}
                   {product.dimensions && (
                     <li className="flex">
                       <span className="font-medium w-24">Dimensions:</span>
-                      <span className="text-gray-700">
+                      <span className="theme-text-primary">
                         {product.dimensions.length} x {product.dimensions.width}{" "}
                         x {product.dimensions.height} cm
                       </span>
@@ -475,7 +482,7 @@ const ProductDetail = () => {
                 <h2 className="text-xl font-serif font-bold mb-4">
                   Description
                 </h2>
-                <div className="prose max-w-none text-gray-700">
+                <div className="prose max-w-none theme-text-primary">
                   <p>{product.description}</p>
                 </div>
               </div>
@@ -487,7 +494,7 @@ const ProductDetail = () => {
                 </h2>
 
                 {/* Review Form */}
-                <div className="bg-gray-50 rounded-lg p-4 mb-6">
+                <div className="theme-bg-secondary rounded-lg p-4 mb-6">
                   <h3 className="text-lg font-medium mb-2">Write a Review</h3>
 
                   {reviewSuccess && (
@@ -508,7 +515,7 @@ const ProductDetail = () => {
 
                   {!isAuthenticated ? (
                     <div className="text-center py-4">
-                      <p className="text-gray-700 mb-2">
+                      <p className="theme-text-primary mb-2">
                         Please login to write a review
                       </p>
                       <Link
@@ -521,7 +528,7 @@ const ProductDetail = () => {
                   ) : (
                     <form onSubmit={handleReviewSubmit}>
                       <div className="mb-4">
-                        <label className="block text-gray-700 font-medium mb-2">
+                        <label className="block theme-text-primary font-medium mb-2">
                           Rating
                         </label>
                         <div className="flex">
@@ -558,7 +565,7 @@ const ProductDetail = () => {
                       <div className="mb-4">
                         <label
                           htmlFor="comment"
-                          className="block text-gray-700 font-medium mb-2"
+                          className="block theme-text-primary font-medium mb-2"
                         >
                           Your Review
                         </label>
@@ -568,7 +575,7 @@ const ProductDetail = () => {
                           rows="4"
                           value={reviewForm.comment}
                           onChange={handleReviewFormChange}
-                          className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-primary"
+                          className="w-full border theme-border theme-bg-primary theme-text-primary rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-primary"
                           placeholder="Share your experience with this product..."
                           required
                         ></textarea>
@@ -587,7 +594,7 @@ const ProductDetail = () => {
 
                 {/* Reviews List */}
                 {product.reviews.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500">
+                  <div className="text-center py-8 theme-text-secondary">
                     No reviews yet. Be the first to review this product!
                   </div>
                 ) : (
@@ -600,7 +607,7 @@ const ProductDetail = () => {
                         <div className="flex items-center mb-2">
                           <div className="font-medium">{review.name}</div>
                           <span className="mx-2 text-gray-300">•</span>
-                          <div className="text-sm text-gray-500">
+                          <div className="text-sm theme-text-secondary">
                             {new Date(review.createdAt).toLocaleDateString()}
                           </div>
                         </div>
@@ -623,7 +630,7 @@ const ProductDetail = () => {
                           ))}
                         </div>
 
-                        <p className="text-gray-700">{review.comment}</p>
+                        <p className="theme-text-primary">{review.comment}</p>
                       </div>
                     ))}
                   </div>

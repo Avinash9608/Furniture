@@ -87,7 +87,7 @@ const Contact = () => {
   };
 
   return (
-    <div className="bg-gray-50">
+    <div className="theme-bg-primary">
       {/* Hero Section */}
       <section className="relative h-[40vh] bg-gray-900 text-white">
         <div className="absolute inset-0 overflow-hidden">
@@ -129,7 +129,7 @@ const Contact = () => {
               <h2 className="text-3xl font-serif font-bold mb-6">
                 Get In Touch
               </h2>
-              <p className="text-gray-700 mb-8">
+              <p className="theme-text-primary mb-8">
                 Have questions about our products or services? Need help with an
                 order? Our team is here to assist you. Reach out to us through
                 any of the following channels:
@@ -161,7 +161,7 @@ const Contact = () => {
                   </div>
                   <div>
                     <h3 className="text-lg font-bold mb-1">Our Location</h3>
-                    <p className="text-gray-700">
+                    <p className="theme-text-primary">
                       Main Road, Sharsha, Bihar, India - 845304
                     </p>
                   </div>
@@ -186,8 +186,8 @@ const Contact = () => {
                   </div>
                   <div>
                     <h3 className="text-lg font-bold mb-1">Phone Number</h3>
-                    <p className="text-gray-700">+91 9876543210</p>
-                    <p className="text-gray-700">+91 9876543211</p>
+                    <p className="theme-text-primary">+91 9876543210</p>
+                    <p className="theme-text-primary">+91 9876543211</p>
                   </div>
                 </div>
 
@@ -210,8 +210,12 @@ const Contact = () => {
                   </div>
                   <div>
                     <h3 className="text-lg font-bold mb-1">Email Address</h3>
-                    <p className="text-gray-700">info@shyamfurnitures.com</p>
-                    <p className="text-gray-700">support@shyamfurnitures.com</p>
+                    <p className="theme-text-primary">
+                      info@shyamfurnitures.com
+                    </p>
+                    <p className="theme-text-primary">
+                      support@shyamfurnitures.com
+                    </p>
                   </div>
                 </div>
 
@@ -234,10 +238,12 @@ const Contact = () => {
                   </div>
                   <div>
                     <h3 className="text-lg font-bold mb-1">Working Hours</h3>
-                    <p className="text-gray-700">
+                    <p className="theme-text-primary">
                       Monday - Saturday: 9:00 AM - 8:00 PM
                     </p>
-                    <p className="text-gray-700">Sunday: 10:00 AM - 6:00 PM</p>
+                    <p className="theme-text-primary">
+                      Sunday: 10:00 AM - 6:00 PM
+                    </p>
                   </div>
                 </div>
               </div>
@@ -317,7 +323,7 @@ const Contact = () => {
               viewport={{ once: true }}
               transition={{ duration: 0.6, delay: 0.2 }}
             >
-              <div className="bg-white rounded-lg shadow-md p-8">
+              <div className="theme-bg-primary rounded-lg shadow-md p-8">
                 <h2 className="text-2xl font-serif font-bold mb-6">
                   Send Us a Message
                 </h2>
@@ -342,7 +348,7 @@ const Contact = () => {
                   <div className="mb-4">
                     <label
                       htmlFor="name"
-                      className="block text-gray-700 font-medium mb-2"
+                      className="block theme-text-primary font-medium mb-2"
                     >
                       Your Name <span className="text-red-500">*</span>
                     </label>
@@ -353,8 +359,8 @@ const Contact = () => {
                       value={formData.name}
                       onChange={handleChange}
                       className={`w-full border ${
-                        errors.name ? "border-red-500" : "border-gray-300"
-                      } rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-primary`}
+                        errors.name ? "border-red-500" : "theme-border"
+                      } rounded-md px-3 py-2 theme-bg-primary theme-text-primary focus:outline-none focus:ring-1 focus:ring-primary`}
                       placeholder="John Doe"
                     />
                     {errors.name && (
@@ -365,7 +371,7 @@ const Contact = () => {
                   <div className="mb-4">
                     <label
                       htmlFor="email"
-                      className="block text-gray-700 font-medium mb-2"
+                      className="block theme-text-primary font-medium mb-2"
                     >
                       Email Address <span className="text-red-500">*</span>
                     </label>
@@ -376,8 +382,8 @@ const Contact = () => {
                       value={formData.email}
                       onChange={handleChange}
                       className={`w-full border ${
-                        errors.email ? "border-red-500" : "border-gray-300"
-                      } rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-primary`}
+                        errors.email ? "border-red-500" : "theme-border"
+                      } rounded-md px-3 py-2 theme-bg-primary theme-text-primary focus:outline-none focus:ring-1 focus:ring-primary`}
                       placeholder="john@example.com"
                     />
                     {errors.email && (
@@ -390,7 +396,7 @@ const Contact = () => {
                   <div className="mb-4">
                     <label
                       htmlFor="phone"
-                      className="block text-gray-700 font-medium mb-2"
+                      className="block theme-text-primary font-medium mb-2"
                     >
                       Phone Number
                     </label>
@@ -401,8 +407,8 @@ const Contact = () => {
                       value={formData.phone}
                       onChange={handleChange}
                       className={`w-full border ${
-                        errors.phone ? "border-red-500" : "border-gray-300"
-                      } rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-primary`}
+                        errors.phone ? "border-red-500" : "theme-border"
+                      } rounded-md px-3 py-2 theme-bg-primary theme-text-primary focus:outline-none focus:ring-1 focus:ring-primary`}
                       placeholder="9876543210"
                     />
                     {errors.phone && (
@@ -415,7 +421,7 @@ const Contact = () => {
                   <div className="mb-4">
                     <label
                       htmlFor="subject"
-                      className="block text-gray-700 font-medium mb-2"
+                      className="block theme-text-primary font-medium mb-2"
                     >
                       Subject <span className="text-red-500">*</span>
                     </label>
@@ -426,8 +432,8 @@ const Contact = () => {
                       value={formData.subject}
                       onChange={handleChange}
                       className={`w-full border ${
-                        errors.subject ? "border-red-500" : "border-gray-300"
-                      } rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-primary`}
+                        errors.subject ? "border-red-500" : "theme-border"
+                      } rounded-md px-3 py-2 theme-bg-primary theme-text-primary focus:outline-none focus:ring-1 focus:ring-primary`}
                       placeholder="Product Inquiry"
                     />
                     {errors.subject && (
@@ -440,7 +446,7 @@ const Contact = () => {
                   <div className="mb-6">
                     <label
                       htmlFor="message"
-                      className="block text-gray-700 font-medium mb-2"
+                      className="block theme-text-primary font-medium mb-2"
                     >
                       Your Message <span className="text-red-500">*</span>
                     </label>
@@ -451,8 +457,8 @@ const Contact = () => {
                       value={formData.message}
                       onChange={handleChange}
                       className={`w-full border ${
-                        errors.message ? "border-red-500" : "border-gray-300"
-                      } rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-primary`}
+                        errors.message ? "border-red-500" : "theme-border"
+                      } rounded-md px-3 py-2 theme-bg-primary theme-text-primary focus:outline-none focus:ring-1 focus:ring-primary`}
                       placeholder="How can we help you?"
                     ></textarea>
                     {errors.message && (
@@ -477,11 +483,11 @@ const Contact = () => {
       </section>
 
       {/* Map Section */}
-      <section className="py-16 bg-white">
+      <section className="py-16 theme-bg-secondary">
         <div className="container-custom">
           <div className="text-center mb-12">
             <h2 className="text-3xl font-serif font-bold mb-4">Our Location</h2>
-            <p className="text-gray-600 max-w-2xl mx-auto">
+            <p className="theme-text-secondary max-w-2xl mx-auto">
               Visit our showroom to experience our furniture collection in
               person
             </p>
@@ -509,17 +515,17 @@ const Contact = () => {
             <h2 className="text-3xl font-serif font-bold mb-4">
               Frequently Asked Questions
             </h2>
-            <p className="text-gray-600 max-w-2xl mx-auto">
+            <p className="theme-text-secondary max-w-2xl mx-auto">
               Find answers to common questions about our products and services
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-white rounded-lg shadow-md p-6">
+            <div className="theme-bg-primary rounded-lg shadow-md p-6">
               <h3 className="text-xl font-bold mb-3">
                 What are your delivery options?
               </h3>
-              <p className="text-gray-700">
+              <p className="theme-text-primary">
                 We offer free delivery within Sharsha and surrounding areas for
                 orders above ₹10,000. For other locations, delivery charges will
                 apply based on distance. Delivery typically takes 3-5 business
@@ -527,22 +533,22 @@ const Contact = () => {
               </p>
             </div>
 
-            <div className="bg-white rounded-lg shadow-md p-6">
+            <div className="theme-bg-primary rounded-lg shadow-md p-6">
               <h3 className="text-xl font-bold mb-3">
                 Do you offer assembly services?
               </h3>
-              <p className="text-gray-700">
+              <p className="theme-text-primary">
                 Yes, we provide professional assembly services for all our
                 furniture. Our trained technicians will ensure your furniture is
                 properly assembled and installed at your location.
               </p>
             </div>
 
-            <div className="bg-white rounded-lg shadow-md p-6">
+            <div className="theme-bg-primary rounded-lg shadow-md p-6">
               <h3 className="text-xl font-bold mb-3">
                 What is your return policy?
               </h3>
-              <p className="text-gray-700">
+              <p className="theme-text-primary">
                 We accept returns within 7 days of delivery for unused and
                 undamaged products in their original packaging. Custom-made
                 furniture cannot be returned unless there is a manufacturing
@@ -550,33 +556,33 @@ const Contact = () => {
               </p>
             </div>
 
-            <div className="bg-white rounded-lg shadow-md p-6">
+            <div className="theme-bg-primary rounded-lg shadow-md p-6">
               <h3 className="text-xl font-bold mb-3">
                 Do you offer customization options?
               </h3>
-              <p className="text-gray-700">
+              <p className="theme-text-primary">
                 Yes, we offer customization services for most of our furniture
                 pieces. You can choose from different materials, colors, and
                 dimensions to match your specific requirements.
               </p>
             </div>
 
-            <div className="bg-white rounded-lg shadow-md p-6">
+            <div className="theme-bg-primary rounded-lg shadow-md p-6">
               <h3 className="text-xl font-bold mb-3">
                 What payment methods do you accept?
               </h3>
-              <p className="text-gray-700">
+              <p className="theme-text-primary">
                 We accept cash, credit/debit cards, UPI payments, and bank
                 transfers. For online purchases, we offer secure payment options
                 through various payment gateways.
               </p>
             </div>
 
-            <div className="bg-white rounded-lg shadow-md p-6">
+            <div className="theme-bg-primary rounded-lg shadow-md p-6">
               <h3 className="text-xl font-bold mb-3">
                 Do you provide warranty on your products?
               </h3>
-              <p className="text-gray-700">
+              <p className="theme-text-primary">
                 Yes, all our furniture comes with a 1-year warranty against
                 manufacturing defects. Some premium products may have extended
                 warranty periods. Please check the product details for specific

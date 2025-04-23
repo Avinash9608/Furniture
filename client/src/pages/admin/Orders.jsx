@@ -106,17 +106,22 @@ const AdminOrders = () => {
   // Get order status badge
   const getOrderStatusBadge = (status) => {
     const statusColors = {
-      Pending: "bg-yellow-100 text-yellow-800",
-      Processing: "bg-blue-100 text-blue-800",
-      Shipped: "bg-purple-100 text-purple-800",
-      Delivered: "bg-green-100 text-green-800",
-      Cancelled: "bg-red-100 text-red-800",
+      Pending:
+        "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300",
+      Processing:
+        "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300",
+      Shipped:
+        "bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300",
+      Delivered:
+        "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300",
+      Cancelled: "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300",
     };
 
     return (
       <span
         className={`px-2 py-1 text-xs font-medium rounded-full ${
-          statusColors[status] || "bg-gray-100 text-gray-800"
+          statusColors[status] ||
+          "bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200"
         }`}
       >
         {status}
@@ -134,7 +139,7 @@ const AdminOrders = () => {
             className={`px-3 py-1 text-sm font-medium rounded-md ${
               statusFilter === "all"
                 ? "bg-primary text-white"
-                : "bg-gray-100 text-gray-800 hover:bg-gray-200"
+                : "bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600"
             }`}
           >
             All Orders
@@ -144,7 +149,7 @@ const AdminOrders = () => {
             className={`px-3 py-1 text-sm font-medium rounded-md ${
               statusFilter === "Pending"
                 ? "bg-yellow-500 text-white"
-                : "bg-yellow-100 text-yellow-800 hover:bg-yellow-200"
+                : "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 hover:bg-yellow-200 dark:hover:bg-yellow-900/50"
             }`}
           >
             Pending
@@ -154,7 +159,7 @@ const AdminOrders = () => {
             className={`px-3 py-1 text-sm font-medium rounded-md ${
               statusFilter === "Processing"
                 ? "bg-blue-500 text-white"
-                : "bg-blue-100 text-blue-800 hover:bg-blue-200"
+                : "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-900/50"
             }`}
           >
             Processing
@@ -164,7 +169,7 @@ const AdminOrders = () => {
             className={`px-3 py-1 text-sm font-medium rounded-md ${
               statusFilter === "Shipped"
                 ? "bg-purple-500 text-white"
-                : "bg-purple-100 text-purple-800 hover:bg-purple-200"
+                : "bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300 hover:bg-purple-200 dark:hover:bg-purple-900/50"
             }`}
           >
             Shipped
@@ -174,7 +179,7 @@ const AdminOrders = () => {
             className={`px-3 py-1 text-sm font-medium rounded-md ${
               statusFilter === "Delivered"
                 ? "bg-green-500 text-white"
-                : "bg-green-100 text-green-800 hover:bg-green-200"
+                : "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 hover:bg-green-200 dark:hover:bg-green-900/50"
             }`}
           >
             Delivered
@@ -184,7 +189,7 @@ const AdminOrders = () => {
             className={`px-3 py-1 text-sm font-medium rounded-md ${
               statusFilter === "Cancelled"
                 ? "bg-red-500 text-white"
-                : "bg-red-100 text-red-800 hover:bg-red-200"
+                : "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-900/50"
             }`}
           >
             Cancelled
@@ -200,9 +205,9 @@ const AdminOrders = () => {
       ) : error ? (
         <Alert type="error" message={error} />
       ) : filteredOrders.length === 0 ? (
-        <div className="bg-white rounded-lg shadow-md p-8 text-center">
+        <div className="theme-bg-primary rounded-lg shadow-md p-8 text-center">
           <svg
-            className="w-16 h-16 text-gray-400 mx-auto mb-4"
+            className="w-16 h-16 theme-text-secondary mx-auto mb-4"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -215,63 +220,65 @@ const AdminOrders = () => {
               d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"
             ></path>
           </svg>
-          <h3 className="text-xl font-bold mb-2">No Orders Found</h3>
-          <p className="text-gray-600 mb-4">
+          <h3 className="text-xl font-bold mb-2 theme-text-primary">
+            No Orders Found
+          </h3>
+          <p className="theme-text-secondary mb-4">
             {statusFilter === "all"
               ? "You don't have any orders yet."
               : `You don't have any ${statusFilter} orders.`}
           </p>
         </div>
       ) : (
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
+        <div className="theme-bg-primary rounded-lg shadow-md overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+            <table className="min-w-full divide-y theme-divide">
+              <thead className="theme-bg-secondary">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium theme-text-secondary uppercase tracking-wider">
                     Order ID
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium theme-text-secondary uppercase tracking-wider">
                     Customer
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium theme-text-secondary uppercase tracking-wider">
                     Date
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium theme-text-secondary uppercase tracking-wider">
                     Total
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium theme-text-secondary uppercase tracking-wider">
                     Status
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium theme-text-secondary uppercase tracking-wider">
                     Payment
                   </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-right text-xs font-medium theme-text-secondary uppercase tracking-wider">
                     Actions
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="theme-bg-primary divide-y theme-divide">
                 {filteredOrders.map((order) => (
                   <motion.tr
                     key={order._id}
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ duration: 0.3 }}
-                    className="hover:bg-gray-50"
+                    className="hover:bg-gray-50 dark:hover:bg-gray-800"
                   >
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium theme-text-primary">
                       #{order._id.substring(order._id.length - 6)}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm theme-text-secondary">
                       {order.user
                         ? order.user.name
                         : order.shippingAddress.name}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm theme-text-secondary">
                       {formatDate(order.createdAt)}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm theme-text-primary">
                       {formatPrice(order.totalPrice)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -281,8 +288,8 @@ const AdminOrders = () => {
                       <span
                         className={`px-2 py-1 text-xs font-medium rounded-full ${
                           order.isPaid
-                            ? "bg-green-100 text-green-800"
-                            : "bg-yellow-100 text-yellow-800"
+                            ? "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300"
+                            : "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300"
                         }`}
                       >
                         {order.isPaid ? "Paid" : "Unpaid"}
@@ -291,7 +298,7 @@ const AdminOrders = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <Link
                         to={`/admin/orders/${order._id}`}
-                        className="text-primary hover:text-primary-dark"
+                        className="text-primary hover:text-primary-dark dark:text-primary-light dark:hover:text-primary-lighter"
                       >
                         View Details
                       </Link>

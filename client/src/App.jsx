@@ -20,7 +20,7 @@ import AdminDashboard from "./pages/admin/Dashboard";
 import AdminProducts from "./pages/admin/Products";
 import AdminAddProduct from "./pages/admin/AddProduct";
 import AdminEditProduct from "./pages/admin/EditProduct";
-import AdminCategories from "./pages/admin/Categories";
+import AdminCategories from "./pages/admin/CategoriesSimple";
 import AdminOrders from "./pages/admin/AdminOrders";
 import AdminMessages from "./pages/admin/Messages";
 import AdminPaymentSettings from "./pages/admin/PaymentSettings";

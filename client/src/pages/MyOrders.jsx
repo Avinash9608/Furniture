@@ -98,7 +98,7 @@ const MyOrders = () => {
   }
 
   return (
-    <div className="bg-gray-50 py-8">
+    <div className="theme-bg-secondary py-8">
       <div className="container-custom">
         <h1 className="text-3xl font-serif font-bold mb-6">My Orders</h1>
 

@@ -106,15 +106,15 @@ const PaymentRequests = () => {
   const getStatusColor = (status) => {
     switch (status) {
       case "pending":
-        return "bg-yellow-100 text-yellow-800";
+        return "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 border border-yellow-200 dark:border-yellow-800";
       case "completed":
-        return "bg-green-100 text-green-800";
+        return "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 border border-green-200 dark:border-green-800";
       case "rejected":
-        return "bg-red-100 text-red-800";
+        return "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border border-red-200 dark:border-red-800";
       case "cancelled":
-        return "bg-gray-100 text-gray-800";
+        return "bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-600";
       default:
-        return "bg-gray-100 text-gray-800";
+        return "bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-600";
     }
   };
 
@@ -122,11 +122,13 @@ const PaymentRequests = () => {
     <AdminLayout title="Payment Requests">
       <div className="container mx-auto px-4 py-6">
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold">Payment Requests</h1>
+          <h1 className="text-2xl font-bold theme-text-primary">
+            Payment Requests
+          </h1>
           <div className="flex items-center">
             <label
               htmlFor="filter"
-              className="mr-2 text-sm font-medium text-gray-700"
+              className="mr-2 text-sm font-medium theme-text-primary"
             >
               Filter:
             </label>
@@ -134,7 +136,7 @@ const PaymentRequests = () => {
               id="filter"
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
-              className="border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary"
+              className="border theme-border rounded-md shadow-sm theme-bg-primary theme-text-primary focus:ring-primary focus:border-primary"
             >
               <option value="all">All Requests</option>
               <option value="pending">Pending</option>
@@ -150,64 +152,64 @@ const PaymentRequests = () => {
         {success && <Alert type="success" message={success} />}
 
         {/* Payment Requests List */}
-        <div className="bg-white rounded-lg shadow-md p-6">
+        <div className="theme-bg-primary rounded-lg shadow-md p-6">
           {loading && <p>Loading...</p>}
           {!loading && filteredRequests.length === 0 && (
-            <p className="text-gray-500">No payment requests found.</p>
+            <p className="theme-text-secondary">No payment requests found.</p>
           )}
           {!loading && filteredRequests.length > 0 && (
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+              <table className="min-w-full divide-y theme-divide">
+                <thead className="theme-bg-secondary">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium theme-text-secondary uppercase tracking-wider">
                       Request ID
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium theme-text-secondary uppercase tracking-wider">
                       User
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium theme-text-secondary uppercase tracking-wider">
                       Order ID
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium theme-text-secondary uppercase tracking-wider">
                       Amount
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium theme-text-secondary uppercase tracking-wider">
                       Payment Method
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium theme-text-secondary uppercase tracking-wider">
                       Status
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium theme-text-secondary uppercase tracking-wider">
                       Date
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium theme-text-secondary uppercase tracking-wider">
                       Actions
                     </th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="theme-bg-primary divide-y theme-divide">
                   {filteredRequests.map((request) => (
                     <tr key={request._id}>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">
+                        <div className="text-sm font-medium theme-text-primary">
                           {request._id.substring(0, 8)}...
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">
+                        <div className="text-sm theme-text-primary">
                           {request.user?.name || "Unknown"}
                         </div>
-                        <div className="text-xs text-gray-500">
+                        <div className="text-xs theme-text-secondary">
                           {request.user?.email || "No email"}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900 font-medium">
+                        <div className="text-sm theme-text-primary font-medium">
                           #{request.order?._id?.substring(0, 8) || "N/A"}
                         </div>
                         {request.order && (
-                          <div className="text-xs text-gray-500">
+                          <div className="text-xs theme-text-secondary">
                             Status: {request.order.status || "Unknown"}
                             <br />
                             Total: {formatPrice(request.order.totalPrice)}
@@ -215,16 +217,16 @@ const PaymentRequests = () => {
                         )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">
+                        <div className="text-sm font-medium theme-text-primary">
                           {formatPrice(request.amount)}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900 capitalize font-medium">
+                        <div className="text-sm theme-text-primary capitalize font-medium">
                           {request.paymentMethod.replace("_", " ")}
                         </div>
                         {request.notes && (
-                          <div className="text-xs text-gray-500 mt-1">
+                          <div className="text-xs theme-text-secondary mt-1">
                             Note:{" "}
                             {request.notes.length > 30
                               ? request.notes.substring(0, 30) + "..."
@@ -243,7 +245,7 @@ const PaymentRequests = () => {
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-500">
+                        <div className="text-sm theme-text-secondary">
                           {new Date(request.createdAt).toLocaleDateString()}
                         </div>
                       </td>
@@ -254,7 +256,7 @@ const PaymentRequests = () => {
                               onClick={() =>
                                 handleStatusUpdate(request._id, "completed")
                               }
-                              className="px-3 py-1 bg-green-100 text-green-800 rounded-md hover:bg-green-200 transition-colors"
+                              className="px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 border border-green-200 dark:border-green-800 rounded-md hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors"
                             >
                               Approve Payment
                             </button>
@@ -262,24 +264,24 @@ const PaymentRequests = () => {
                               onClick={() =>
                                 handleStatusUpdate(request._id, "rejected")
                               }
-                              className="px-3 py-1 bg-red-100 text-red-800 rounded-md hover:bg-red-200 transition-colors"
+                              className="px-3 py-1 bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border border-red-200 dark:border-red-800 rounded-md hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors"
                             >
                               Reject Payment
                             </button>
                           </div>
                         )}
                         {request.status === "completed" && (
-                          <span className="px-3 py-1 bg-green-100 text-green-800 rounded-md inline-block">
+                          <span className="px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 border border-green-200 dark:border-green-800 rounded-md inline-block">
                             Payment Approved
                           </span>
                         )}
                         {request.status === "rejected" && (
-                          <span className="px-3 py-1 bg-red-100 text-red-800 rounded-md inline-block">
+                          <span className="px-3 py-1 bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border border-red-200 dark:border-red-800 rounded-md inline-block">
                             Payment Rejected
                           </span>
                         )}
                         {request.status === "cancelled" && (
-                          <span className="px-3 py-1 bg-gray-100 text-gray-800 rounded-md inline-block">
+                          <span className="px-3 py-1 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-600 rounded-md inline-block">
                             Payment Cancelled
                           </span>
                         )}

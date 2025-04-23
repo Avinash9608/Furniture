@@ -182,7 +182,7 @@ const AdminLayout = ({ children, title }) => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen theme-bg-primary">
       {/* Mobile sidebar */}
       <div
         className={`fixed inset-0 z-40 lg:hidden ${
@@ -199,7 +199,7 @@ const AdminLayout = ({ children, title }) => {
         ></div>
 
         {/* Sidebar */}
-        <div className="relative flex-1 flex flex-col max-w-xs w-full bg-white">
+        <div className="relative flex-1 flex flex-col max-w-xs w-full theme-bg-primary">
           <div className="absolute top-0 right-0 -mr-12 pt-2">
             <button
               type="button"
@@ -241,7 +241,7 @@ const AdminLayout = ({ children, title }) => {
                   className={`${
                     isActive(item.href)
                       ? "bg-gray-100 text-primary"
-                      : "text-gray-600 hover:bg-gray-50 hover:text-primary"
+                      : "theme-text-primary hover:bg-gray-50 hover:text-primary"
                   } group flex items-center px-2 py-2 text-base font-medium rounded-md`}
                 >
                   <div className="mr-4 flex-shrink-0">{item.icon}</div>
@@ -251,17 +251,17 @@ const AdminLayout = ({ children, title }) => {
             </nav>
           </div>
 
-          <div className="flex-shrink-0 flex border-t border-gray-200 p-4">
+          <div className="flex-shrink-0 flex border-t theme-border p-4">
             <div className="flex items-center">
               <div>
-                <div className="bg-gray-300 rounded-full h-10 w-10 flex items-center justify-center">
-                  <span className="text-gray-600 font-medium text-sm">
+                <div className="theme-bg-secondary rounded-full h-10 w-10 flex items-center justify-center">
+                  <span className="theme-text-primary font-medium text-sm">
                     {user?.name?.charAt(0) || "A"}
                   </span>
                 </div>
               </div>
               <div className="ml-3">
-                <p className="text-base font-medium text-gray-700">
+                <p className="text-base font-medium theme-text-primary">
                   {user?.name || "Admin"}
                 </p>
                 <button
@@ -282,7 +282,7 @@ const AdminLayout = ({ children, title }) => {
 
       {/* Static sidebar for desktop */}
       <div className="hidden lg:flex lg:w-64 lg:flex-col lg:fixed lg:inset-y-0">
-        <div className="flex-1 flex flex-col min-h-0 border-r border-gray-200 bg-white">
+        <div className="flex-1 flex flex-col min-h-0 border-r theme-border theme-bg-primary">
           <div className="flex-1 flex flex-col pt-5 pb-4 overflow-y-auto">
             <div className="flex items-center flex-shrink-0 px-4">
               <Link
@@ -292,7 +292,7 @@ const AdminLayout = ({ children, title }) => {
                 Shyam Furnitures
               </Link>
             </div>
-            <nav className="mt-5 flex-1 px-2 bg-white space-y-1">
+            <nav className="mt-5 flex-1 px-2 theme-bg-primary space-y-1">
               {navigation.map((item) => (
                 <Link
                   key={item.name}
@@ -300,7 +300,7 @@ const AdminLayout = ({ children, title }) => {
                   className={`${
                     isActive(item.href)
                       ? "bg-gray-100 text-primary"
-                      : "text-gray-600 hover:bg-gray-50 hover:text-primary"
+                      : "theme-text-primary hover:bg-gray-50 hover:text-primary"
                   } group flex items-center px-2 py-2 text-sm font-medium rounded-md`}
                 >
                   <div className="mr-3 flex-shrink-0">{item.icon}</div>
@@ -310,17 +310,17 @@ const AdminLayout = ({ children, title }) => {
             </nav>
           </div>
 
-          <div className="flex-shrink-0 flex border-t border-gray-200 p-4">
+          <div className="flex-shrink-0 flex border-t theme-border p-4">
             <div className="flex items-center">
               <div>
-                <div className="bg-gray-300 rounded-full h-10 w-10 flex items-center justify-center">
-                  <span className="text-gray-600 font-medium text-sm">
+                <div className="theme-bg-secondary rounded-full h-10 w-10 flex items-center justify-center">
+                  <span className="theme-text-primary font-medium text-sm">
                     {user?.name?.charAt(0) || "A"}
                   </span>
                 </div>
               </div>
               <div className="ml-3">
-                <p className="text-sm font-medium text-gray-700">
+                <p className="text-sm font-medium theme-text-primary">
                   {user?.name || "Admin"}
                 </p>
                 <button
@@ -338,10 +338,10 @@ const AdminLayout = ({ children, title }) => {
       {/* Main content */}
       <div className="lg:pl-64 flex flex-col">
         {/* Top header */}
-        <div className="sticky top-0 z-10 flex-shrink-0 flex h-16 bg-white shadow">
+        <div className="sticky top-0 z-10 flex-shrink-0 flex h-16 theme-bg-primary shadow">
           <button
             type="button"
-            className="px-4 border-r border-gray-200 text-gray-500 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary lg:hidden"
+            className="px-4 border-r theme-border theme-text-primary focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary lg:hidden"
             onClick={() => setSidebarOpen(true)}
           >
             <span className="sr-only">Open sidebar</span>
@@ -363,7 +363,9 @@ const AdminLayout = ({ children, title }) => {
 
           <div className="flex-1 px-4 flex justify-between">
             <div className="flex-1 flex items-center">
-              <h1 className="text-2xl font-semibold text-gray-900">{title}</h1>
+              <h1 className="text-2xl font-semibold theme-text-primary">
+                {title}
+              </h1>
             </div>
             <div className="ml-4 flex items-center md:ml-6">
               {/* Visit store button */}

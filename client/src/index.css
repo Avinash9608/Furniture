@@ -2,6 +2,45 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  /* Light mode variables */
+  --color-bg-primary: #ffffff;
+  --color-bg-secondary: #f9fafb;
+  --color-text-primary: #111827;
+  --color-text-secondary: #4b5563;
+  --color-border: #e5e7eb;
+  --color-card-bg: #ffffff;
+  --color-card-shadow: rgba(0, 0, 0, 0.1);
+  --color-input-bg: #ffffff;
+  --color-input-border: #d1d5db;
+  --color-header-bg: #ffffff;
+  --color-footer-bg: #1f2937;
+  --color-footer-text: #f9fafb;
+}
+
+.dark-mode {
+  /* Dark mode variables */
+  --color-bg-primary: #111827;
+  --color-bg-secondary: #1f2937;
+  --color-text-primary: #f9fafb;
+  --color-text-secondary: #d1d5db;
+  --color-border: #374151;
+  --color-card-bg: #1f2937;
+  --color-card-shadow: rgba(0, 0, 0, 0.5);
+  --color-input-bg: #374151;
+  --color-input-border: #4b5563;
+  --color-header-bg: #1f2937;
+  --color-footer-bg: #111827;
+  --color-footer-text: #f9fafb;
+}
+
+/* Apply theme variables */
+body {
+  background-color: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
 @layer components {
   .container-custom {
     @apply container mx-auto px-4 sm:px-6 lg:px-8;
@@ -16,6 +55,29 @@
   }
 
   .card {
-    @apply bg-white rounded-lg shadow-md overflow-hidden transition-all duration-300;
+    @apply rounded-lg overflow-hidden transition-all duration-300;
+    background-color: var(--color-card-bg);
+    box-shadow: 0 4px 6px var(--color-card-shadow);
+  }
+
+  /* Theme-aware components */
+  .theme-bg-primary {
+    background-color: var(--color-bg-primary);
+  }
+
+  .theme-bg-secondary {
+    background-color: var(--color-bg-secondary);
+  }
+
+  .theme-text-primary {
+    color: var(--color-text-primary);
+  }
+
+  .theme-text-secondary {
+    color: var(--color-text-secondary);
+  }
+
+  .theme-border {
+    border-color: var(--color-border);
   }
 }

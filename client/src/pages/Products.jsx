@@ -198,7 +198,7 @@ const Products = () => {
   };
 
   return (
-    <div className="bg-gray-50 min-h-screen">
+    <div className="theme-bg-primary min-h-screen">
       <div className="container-custom py-8">
         {/* Page Header */}
         <div className="text-center mb-8">
@@ -210,7 +210,7 @@ const Products = () => {
                 } Collection`
               : "All Products"}
           </h1>
-          <p className="text-gray-600">
+          <p className="theme-text-secondary">
             Discover our wide range of high-quality furniture for your home and
             office
           </p>
@@ -220,7 +220,7 @@ const Products = () => {
         <div className="md:hidden mb-4">
           <button
             onClick={toggleFilters}
-            className="w-full bg-white border border-gray-300 rounded-md py-2 px-4 flex items-center justify-between"
+            className="w-full theme-bg-primary border theme-border rounded-md py-2 px-4 flex items-center justify-between"
           >
             <span className="font-medium">Filters & Sorting</span>
             <svg
@@ -245,23 +245,25 @@ const Products = () => {
         <div className="flex flex-col md:flex-row gap-6">
           {/* Filters Sidebar */}
           <motion.div
-            className={`bg-white rounded-lg shadow-md p-4 md:p-6 md:w-1/4 ${
+            className={`theme-bg-primary rounded-lg shadow-md p-4 md:p-6 md:w-1/4 ${
               showFilters ? "block" : "hidden md:block"
             }`}
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.3 }}
           >
-            <h2 className="text-xl font-bold mb-4">Filters</h2>
+            <h2 className="text-xl font-bold mb-4 theme-text-primary">
+              Filters
+            </h2>
 
             {/* Search */}
             <div className="mb-6">
-              <h3 className="font-medium mb-2">Search</h3>
+              <h3 className="font-medium mb-2 theme-text-primary">Search</h3>
               <form onSubmit={handleSearch} className="flex">
                 <input
                   type="text"
                   placeholder="Search products..."
-                  className="flex-grow border border-gray-300 rounded-l-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-primary"
+                  className="flex-grow border theme-border theme-bg-primary theme-text-primary rounded-l-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-primary"
                   value={filters.search}
                   onChange={(e) =>
                     setFilters({ ...filters, search: e.target.value })
@@ -291,7 +293,9 @@ const Products = () => {
 
             {/* Categories */}
             <div className="mb-6">
-              <h3 className="font-medium mb-2">Categories</h3>
+              <h3 className="font-medium mb-2 theme-text-primary">
+                Categories
+              </h3>
               <div className="space-y-2">
                 <div className="flex items-center">
                   <input
@@ -304,7 +308,7 @@ const Products = () => {
                   />
                   <label
                     htmlFor="all-categories"
-                    className="ml-2 text-gray-700"
+                    className="ml-2 theme-text-primary"
                   >
                     All Categories
                   </label>
@@ -324,7 +328,7 @@ const Products = () => {
                     />
                     <label
                       htmlFor={category._id}
-                      className="ml-2 text-gray-700"
+                      className="ml-2 theme-text-primary"
                     >
                       {category.name}
                     </label>
@@ -335,7 +339,9 @@ const Products = () => {
 
             {/* Price Range */}
             <div className="mb-6">
-              <h3 className="font-medium mb-2">Price Range</h3>
+              <h3 className="font-medium mb-2 theme-text-primary">
+                Price Range
+              </h3>
               <div className="px-2">
                 <input
                   type="range"
@@ -348,11 +354,11 @@ const Products = () => {
                   }}
                   onMouseUp={handlePriceRangeChangeCommitted}
                   onTouchEnd={handlePriceRangeChangeCommitted}
-                  className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                  className="w-full h-2 theme-bg-secondary rounded-lg appearance-none cursor-pointer"
                 />
                 <div className="flex justify-between mt-2">
-                  <span className="text-gray-600">{formatPrice(0)}</span>
-                  <span className="text-gray-600">
+                  <span className="theme-text-secondary">{formatPrice(0)}</span>
+                  <span className="theme-text-secondary">
                     {formatPrice(priceRange[1])}
                   </span>
                 </div>
@@ -361,11 +367,11 @@ const Products = () => {
 
             {/* Sort By */}
             <div>
-              <h3 className="font-medium mb-2">Sort By</h3>
+              <h3 className="font-medium mb-2 theme-text-primary">Sort By</h3>
               <select
                 value={filters.sort}
                 onChange={(e) => handleFilterChange("sort", e.target.value)}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-primary"
+                className="w-full border theme-border theme-bg-primary theme-text-primary rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-primary"
               >
                 <option value="newest">Newest</option>
                 <option value="price-low-high">Price: Low to High</option>
@@ -384,7 +390,7 @@ const Products = () => {
             ) : error ? (
               <Alert type="error" message={error} />
             ) : products.length === 0 ? (
-              <div className="bg-white rounded-lg shadow-md p-8 text-center">
+              <div className="theme-bg-primary rounded-lg shadow-md p-8 text-center">
                 <svg
                   className="w-16 h-16 text-gray-400 mx-auto mb-4"
                   fill="none"
@@ -400,7 +406,7 @@ const Products = () => {
                   ></path>
                 </svg>
                 <h3 className="text-xl font-bold mb-2">No Products Found</h3>
-                <p className="text-gray-600 mb-4">
+                <p className="theme-text-secondary mb-4">
                   We couldn't find any products matching your criteria.
                 </p>
                 <button
@@ -437,7 +443,7 @@ const Products = () => {
                         className={`px-3 py-1 rounded-md ${
                           currentPage === 1
                             ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                            : "bg-white text-gray-700 hover:bg-gray-50"
+                            : "theme-bg-primary theme-text-primary hover:bg-gray-50"
                         }`}
                       >
                         Previous
@@ -450,7 +456,7 @@ const Products = () => {
                           className={`px-3 py-1 rounded-md ${
                             currentPage === page + 1
                               ? "bg-primary text-white"
-                              : "bg-white text-gray-700 hover:bg-gray-50"
+                              : "theme-bg-primary theme-text-primary hover:bg-gray-50"
                           }`}
                         >
                           {page + 1}
@@ -463,7 +469,7 @@ const Products = () => {
                         className={`px-3 py-1 rounded-md ${
                           currentPage === totalPages
                             ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                            : "bg-white text-gray-700 hover:bg-gray-50"
+                            : "theme-bg-primary theme-text-primary hover:bg-gray-50"
                         }`}
                       >
                         Next

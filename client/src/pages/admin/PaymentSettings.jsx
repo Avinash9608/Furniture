@@ -143,7 +143,9 @@ const PaymentSettings = () => {
     <AdminLayout title="Payment Settings">
       <div className="container mx-auto px-4 py-6">
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold">Payment Settings</h1>
+          <h1 className="text-2xl font-bold theme-text-primary">
+            Payment Settings
+          </h1>
         </div>
 
         {/* Alerts */}
@@ -151,14 +153,14 @@ const PaymentSettings = () => {
         {success && <Alert type="success" message={success} />}
 
         {/* Payment Settings Form */}
-        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-          <h2 className="text-xl font-semibold mb-4">
+        <div className="theme-bg-primary rounded-lg shadow-md p-6 mb-8">
+          <h2 className="text-xl font-semibold mb-4 theme-text-primary">
             {editMode ? "Edit Payment Setting" : "Add New Payment Setting"}
           </h2>
           <form onSubmit={handleSubmit}>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium theme-text-primary mb-1">
                   Account Number*
                 </label>
                 <input
@@ -167,11 +169,11 @@ const PaymentSettings = () => {
                   value={formData.accountNumber}
                   onChange={handleChange}
                   required
-                  className="w-full p-2 border rounded-md focus:ring-primary focus:border-primary"
+                  className="w-full p-2 border theme-border theme-bg-primary theme-text-primary rounded-md focus:ring-primary focus:border-primary"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium theme-text-primary mb-1">
                   IFSC Code*
                 </label>
                 <input
@@ -180,11 +182,11 @@ const PaymentSettings = () => {
                   value={formData.ifscCode}
                   onChange={handleChange}
                   required
-                  className="w-full p-2 border rounded-md focus:ring-primary focus:border-primary"
+                  className="w-full p-2 border theme-border theme-bg-primary theme-text-primary rounded-md focus:ring-primary focus:border-primary"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium theme-text-primary mb-1">
                   Account Holder Name*
                 </label>
                 <input
@@ -193,11 +195,11 @@ const PaymentSettings = () => {
                   value={formData.accountHolder}
                   onChange={handleChange}
                   required
-                  className="w-full p-2 border rounded-md focus:ring-primary focus:border-primary"
+                  className="w-full p-2 border theme-border theme-bg-primary theme-text-primary rounded-md focus:ring-primary focus:border-primary"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium theme-text-primary mb-1">
                   Bank Name
                 </label>
                 <input
@@ -205,11 +207,11 @@ const PaymentSettings = () => {
                   name="bankName"
                   value={formData.bankName}
                   onChange={handleChange}
-                  className="w-full p-2 border rounded-md focus:ring-primary focus:border-primary"
+                  className="w-full p-2 border theme-border theme-bg-primary theme-text-primary rounded-md focus:ring-primary focus:border-primary"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium theme-text-primary mb-1">
                   Branch Name
                 </label>
                 <input
@@ -217,7 +219,7 @@ const PaymentSettings = () => {
                   name="branchName"
                   value={formData.branchName}
                   onChange={handleChange}
-                  className="w-full p-2 border rounded-md focus:ring-primary focus:border-primary"
+                  className="w-full p-2 border theme-border theme-bg-primary theme-text-primary rounded-md focus:ring-primary focus:border-primary"
                 />
               </div>
               <div className="flex items-center">
@@ -226,9 +228,9 @@ const PaymentSettings = () => {
                   name="isActive"
                   checked={formData.isActive}
                   onChange={handleChange}
-                  className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                  className="h-4 w-4 text-primary focus:ring-primary border-gray-300 dark:border-gray-600 rounded"
                 />
-                <label className="ml-2 block text-sm text-gray-700">
+                <label className="ml-2 block text-sm theme-text-primary">
                   Set as Active Payment Account
                 </label>
               </div>
@@ -266,57 +268,59 @@ const PaymentSettings = () => {
         </div>
 
         {/* Payment Settings List */}
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-xl font-semibold mb-4">Payment Settings List</h2>
+        <div className="theme-bg-primary rounded-lg shadow-md p-6">
+          <h2 className="text-xl font-semibold mb-4 theme-text-primary">
+            Payment Settings List
+          </h2>
           {loading && <p>Loading...</p>}
           {!loading && settings.length === 0 && (
-            <p className="text-gray-500">No payment settings found.</p>
+            <p className="theme-text-secondary">No payment settings found.</p>
           )}
           {!loading && settings.length > 0 && (
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+              <table className="min-w-full divide-y theme-divide">
+                <thead className="theme-bg-secondary">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium theme-text-secondary uppercase tracking-wider">
                       Account Holder
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium theme-text-secondary uppercase tracking-wider">
                       Account Number
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium theme-text-secondary uppercase tracking-wider">
                       IFSC Code
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium theme-text-secondary uppercase tracking-wider">
                       Bank
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium theme-text-secondary uppercase tracking-wider">
                       Status
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium theme-text-secondary uppercase tracking-wider">
                       Actions
                     </th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="theme-bg-primary divide-y theme-divide">
                   {settings.map((setting) => (
                     <tr key={setting._id}>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">
+                        <div className="text-sm font-medium theme-text-primary">
                           {setting.accountHolder}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-500">
+                        <div className="text-sm theme-text-secondary">
                           {setting.accountNumber}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-500">
+                        <div className="text-sm theme-text-secondary">
                           {setting.ifscCode}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-500">
+                        <div className="text-sm theme-text-secondary">
                           {setting.bankName || "-"}
                         </div>
                       </td>
@@ -324,8 +328,8 @@ const PaymentSettings = () => {
                         <span
                           className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
                             setting.isActive
-                              ? "bg-green-100 text-green-800"
-                              : "bg-gray-100 text-gray-800"
+                              ? "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300"
+                              : "bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200"
                           }`}
                         >
                           {setting.isActive ? "Active" : "Inactive"}
@@ -334,13 +338,13 @@ const PaymentSettings = () => {
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <button
                           onClick={() => handleEdit(setting)}
-                          className="text-indigo-600 hover:text-indigo-900 mr-3"
+                          className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-900 dark:hover:text-indigo-300 mr-3"
                         >
                           Edit
                         </button>
                         <button
                           onClick={() => handleDelete(setting._id)}
-                          className="text-red-600 hover:text-red-900"
+                          className="text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300"
                         >
                           Delete
                         </button>
