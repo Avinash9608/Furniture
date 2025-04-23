@@ -1,8 +1,9 @@
 const { defineConfig } = require("vite");
 const react = require("@vitejs/plugin-react");
+const path = require("path");
 
 // https://vitejs.dev/config/
-module.exports = defineConfig({
+module.exports = defineConfig(({ command, mode }) => ({
   plugins: [react()],
   css: {
     postcss: {
@@ -24,4 +25,20 @@ module.exports = defineConfig({
       },
     },
   },
-});
+  build: {
+    outDir: "dist",
+    assetsDir: "assets",
+    emptyOutDir: true,
+    sourcemap: command === "serve", // Only generate sourcemaps in development
+  },
+  resolve: {
+    alias: {
+      "@": path.resolve(__dirname, "src"),
+    },
+  },
+  // Define environment variables for client
+  define: {
+    // Make sure environment variables are properly stringified
+    "process.env.NODE_ENV": JSON.stringify(mode),
+  },
+}));

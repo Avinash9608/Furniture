@@ -10,8 +10,10 @@ const ApiTest = () => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        console.log("Fetching products directly...");
-        const response = await axios.get("http://localhost:5000/api/products");
+        console.log("Fetching products using API utility...");
+        const response = await axios.get(
+          `${import.meta.env.VITE_API_URL || "/api"}/products`
+        );
         console.log("Direct API Response:", response.data);
         setData(response.data);
       } catch (err) {

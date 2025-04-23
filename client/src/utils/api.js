@@ -1,8 +1,24 @@
 import axios from "axios";
 
+// Determine the API base URL based on environment
+const getBaseURL = () => {
+  // Use environment variable if available
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
+  }
+
+  // In production, use relative URL
+  if (import.meta.env.PROD) {
+    return "/api";
+  }
+
+  // In development, use localhost
+  return "http://localhost:5000/api";
+};
+
 // Create axios instance with base URL
 const api = axios.create({
-  baseURL: "http://localhost:5000/api",
+  baseURL: getBaseURL(),
   timeout: 10000,
   withCredentials: false, // Must be false to work with wildcard CORS
   headers: {
