@@ -27,6 +27,31 @@ app.use(
     allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
+
+// Request logging middleware
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+
+  // For POST/PUT requests, log the body (but sanitize sensitive data)
+  if (req.method === "POST" || req.method === "PUT") {
+    const sanitizedBody = { ...req.body };
+
+    // Sanitize sensitive fields if they exist
+    if (sanitizedBody.password) sanitizedBody.password = "[REDACTED]";
+    if (sanitizedBody.token) sanitizedBody.token = "[REDACTED]";
+
+    console.log("Request body:", sanitizedBody);
+  }
+
+  // Log query parameters if they exist
+  if (Object.keys(req.query).length > 0) {
+    console.log("Query params:", req.query);
+  }
+
+  next();
+});
+
+// Body parsing middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -138,63 +163,90 @@ app.get("/api/health", async (req, res) => {
 // Import Contact model
 const Contact = require("./server/models/Contact");
 
+// Common contact form handler function with robust error handling
+const handleContactForm = async (req, res, routeName) => {
+  console.log(
+    `Received contact form submission via ${routeName} route:`,
+    req.body
+  );
+
+  try {
+    // Validate required fields
+    const { name, email, subject, message } = req.body;
+
+    if (!name || !email || !subject || !message) {
+      console.error(
+        `Missing required fields in ${routeName} request:`,
+        req.body
+      );
+      return res.status(400).json({
+        success: false,
+        message:
+          "Please provide all required fields: name, email, subject, and message",
+      });
+    }
+
+    // Log database connection state
+    console.log("MongoDB connection state:", mongoose.connection.readyState);
+
+    // Create contact with explicit fields to avoid schema validation issues
+    const contactData = {
+      name: name.trim(),
+      email: email.trim(),
+      subject: subject.trim(),
+      message: message.trim(),
+      phone: req.body.phone ? req.body.phone.trim() : "",
+      status: "unread",
+    };
+
+    console.log(`Creating contact with data (${routeName}):`, contactData);
+
+    // Create the contact document
+    const contact = await Contact.create(contactData);
+
+    console.log(`Contact created successfully (${routeName}):`, contact._id);
+
+    // Return success response
+    return res.status(201).json({
+      success: true,
+      data: contact,
+    });
+  } catch (error) {
+    console.error(`Error creating contact (${routeName}):`, error);
+
+    // Check for validation errors
+    if (error.name === "ValidationError") {
+      const validationErrors = {};
+
+      // Extract validation error messages
+      for (const field in error.errors) {
+        validationErrors[field] = error.errors[field].message;
+      }
+
+      return res.status(400).json({
+        success: false,
+        message: "Validation error",
+        errors: validationErrors,
+      });
+    }
+
+    // Handle other errors
+    return res.status(500).json({
+      success: false,
+      message: "Server error while processing contact form",
+      error: error.message,
+    });
+  }
+};
+
 // Handle all possible URL patterns for the contact form
-app.post("/contact", async (req, res) => {
-  console.log("Received contact form submission via /contact route:", req.body);
-  try {
-    const contact = await Contact.create(req.body);
-    res.status(201).json({
-      success: true,
-      data: contact,
-    });
-  } catch (error) {
-    console.error("Error creating contact:", error);
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-});
-
-app.post("/api/contact", async (req, res) => {
-  console.log(
-    "Received contact form submission via /api/contact route:",
-    req.body
-  );
-  try {
-    const contact = await Contact.create(req.body);
-    res.status(201).json({
-      success: true,
-      data: contact,
-    });
-  } catch (error) {
-    console.error("Error creating contact:", error);
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-});
-
-app.post("/api/api/contact", async (req, res) => {
-  console.log(
-    "Received contact form submission via /api/api/contact route:",
-    req.body
-  );
-  try {
-    const contact = await Contact.create(req.body);
-    res.status(201).json({
-      success: true,
-      data: contact,
-    });
-  } catch (error) {
-    console.error("Error creating contact:", error);
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-});
+app.post("/contact", (req, res) => handleContactForm(req, res, "/contact"));
+app.post("/api/contact", (req, res) =>
+  handleContactForm(req, res, "/api/contact")
+);
+app.post("/api/api/contact", (req, res) =>
+  handleContactForm(req, res, "/api/api/contact")
+);
 
 // Log all routes for debugging
 console.log("Contact form routes registered:");
@@ -212,6 +264,48 @@ app.use(express.static(path.join(__dirname, "client/dist")));
 // match one above, send back React's index.html file.
 app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "client/dist/index.html"));
+});
+
+// Global error handling middleware (must be after all routes)
+app.use((err, req, res, next) => {
+  console.error("Global error handler caught:", err);
+
+  // Send appropriate response based on error type
+  if (err.name === "ValidationError") {
+    // Mongoose validation error
+    const validationErrors = {};
+    for (const field in err.errors) {
+      validationErrors[field] = err.errors[field].message;
+    }
+
+    return res.status(400).json({
+      success: false,
+      message: "Validation error",
+      errors: validationErrors,
+    });
+  } else if (err.name === "CastError") {
+    // Mongoose cast error (invalid ID, etc.)
+    return res.status(400).json({
+      success: false,
+      message: "Invalid data format",
+      error: err.message,
+    });
+  } else if (err.code === 11000) {
+    // Mongoose duplicate key error
+    return res.status(400).json({
+      success: false,
+      message: "Duplicate data error",
+      error: err.message,
+    });
+  } else {
+    // Generic server error
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error:
+        process.env.NODE_ENV === "production" ? "Server error" : err.message,
+    });
+  }
 });
 
 // Start server
