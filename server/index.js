@@ -186,7 +186,13 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // Production static files
 if (process.env.NODE_ENV === "production") {
-  app.use(express.static(path.join(__dirname, "../../client/dist")));
+  // Serve static files from the React app
+  app.use(express.static(path.join(__dirname, "../client/dist")));
+
+  console.log(
+    "Serving static files from:",
+    path.join(__dirname, "../client/dist")
+  );
 }
 
 // API Routes
@@ -217,9 +223,12 @@ app.get("/api/health", (_req, res) => {
 
 // Client Routing (Production only)
 if (process.env.NODE_ENV === "production") {
+  // Important: This should come AFTER all API routes
   app.get("*", (req, res) => {
-    res.sendFile(path.join(__dirname, "../../client/dist", "index.html"));
+    res.sendFile(path.join(__dirname, "../client/dist", "index.html"));
   });
+
+  console.log("Catch-all route configured for React app");
 }
 
 // Database Connection

@@ -163,7 +163,8 @@ const productsAPI = {
   createReview: (id, reviewData) =>
     api.post(`/products/${id}/reviews`, reviewData),
   getFeatured: () => api.get("/products/featured"),
-  getByCategory: (categoryId) => api.get(`/products/category/${categoryId}`),
+  getByCategory: (categoryId) =>
+    api.get(`/products/category/${categoryId}`),
   search: (query) => api.get(`/products/search?q=${query}`),
   getStats: () => api.get("/products/stats"),
 };
@@ -409,6 +410,7 @@ export const categoriesAPI = {
 export const contactAPI = {
   create: (contactData) => {
     console.log("Creating contact message with data:", contactData);
+    // Use the correct API endpoint without /api prefix (already in baseURL)
     return api.post("/contact", contactData);
   },
   getAll: async () => {
@@ -439,7 +441,8 @@ export const ordersAPI = {
   getAll: (params) => api.get("/orders", { params }),
   getMyOrders: () => api.get("/orders/myorders"),
   getById: (id) => api.get(`/orders/${id}`),
-  updateStatus: (id, statusData) => api.put(`/orders/${id}/status`, statusData),
+  updateStatus: (id, statusData) =>
+    api.put(`/orders/${id}/status`, statusData),
   updateToPaid: (id, paymentResult) =>
     api.put(`/orders/${id}/pay`, paymentResult),
   getStats: () => api.get("/orders/stats"),
@@ -582,7 +585,10 @@ export const paymentRequestsAPI = {
   updateStatus: async (id, data) => {
     try {
       console.log(`Updating payment request ${id} status to ${data.status}`);
-      const response = await api.put(`/payment-requests/${id}/status`, data);
+      const response = await api.put(
+        `/api/payment-requests/${id}/status`,
+        data
+      );
       console.log("Update payment request status response:", response);
       return response;
     } catch (error) {
@@ -594,7 +600,7 @@ export const paymentRequestsAPI = {
     try {
       console.log(`Uploading proof for payment request ${id}`);
       const response = await api.put(
-        `/payment-requests/${id}/proof`,
+        `/api/payment-requests/${id}/proof`,
         formData,
         {
           headers: {
