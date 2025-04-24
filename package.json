@@ -15,7 +15,7 @@
     "install-all": "npm install && cd client && npm install && cd ../server && npm install",
     "build": "cd client && npm install --include=dev && npm run build",
     "vercel-build": "npm install && cd client && npm install --include=dev && NODE_ENV=production npm run build",
-    "render-build": "npm install && cd server && npm install && cd .. && cd client && npm install --include=dev && NODE_ENV=production npm run build && cd ..",
+    "render-build": "bash render-deploy.sh",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [

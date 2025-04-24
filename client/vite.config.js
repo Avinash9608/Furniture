@@ -1,31 +1,17 @@
-const { defineConfig } = require("vite");
-const react = require("@vitejs/plugin-react");
-const path = require("path");
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import path from 'path';
 
 // https://vitejs.dev/config/
-module.exports = defineConfig(({ command, mode }) => ({
+export default defineConfig(({ command, mode }) => ({
   plugins: [
     react({
-      // Explicitly set the JSX runtime
-      jsxRuntime: "automatic",
-      // Force development mode in development, production mode in production
-      jsxImportSource: "react",
-      babel: {
-        // Add any babel options here if needed
-        plugins: [],
-        babelrc: false,
-        configFile: false,
-      },
+      jsxRuntime: 'automatic',
     }),
   ],
-  css: {
-    postcss: {
-      plugins: [require("tailwindcss"), require("autoprefixer")],
-    },
-  },
   server: {
     hmr: {
-      overlay: false, // Disables the error overlay
+      overlay: false,
     },
     port: 5173,
     host: true,
@@ -34,7 +20,6 @@ module.exports = defineConfig(({ command, mode }) => ({
         target: "http://localhost:5000",
         changeOrigin: true,
         secure: false,
-        rewrite: (path) => path.replace(/^\/api/, "/api"),
       },
     },
   },
@@ -42,16 +27,20 @@ module.exports = defineConfig(({ command, mode }) => ({
     outDir: "dist",
     assetsDir: "assets",
     emptyOutDir: true,
-    sourcemap: command === "serve", // Only generate sourcemaps in development
+    sourcemap: command === "serve",
+    minify: "terser",
+    rollupOptions: {
+      output: {
+        format: 'es',
+      },
+    },
   },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "src"),
     },
   },
-  // Define environment variables for client
   define: {
-    // Make sure environment variables are properly stringified
     "process.env.NODE_ENV": JSON.stringify(mode),
   },
 }));

@@ -1,3 +1,4 @@
+// Explicitly import React for JSX transformation
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
@@ -6,6 +7,9 @@ import { AuthProvider } from "./context/AuthContext";
 import { CartProvider } from "./context/CartContext";
 import { ThemeProvider } from "./context/ThemeContext";
 import "./index.css";
+
+// Make React available globally for JSX transformation
+window.React = React;
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
