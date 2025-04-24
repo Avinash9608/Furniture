@@ -132,6 +132,25 @@ app.get("/api/health", async (req, res) => {
     console.error("Cloudinary health check error:", error.message);
   }
 
+  // Check if models are loaded
+  const modelsStatus = {
+    Contact: !!Contact,
+    Product: !!Product,
+    Category: !!Category,
+    Order: !!Order,
+    PaymentSettings: !!PaymentSettings,
+    PaymentRequest: !!PaymentRequest,
+  };
+
+  // Get server information
+  const serverInfo = {
+    nodeVersion: process.version,
+    platform: process.platform,
+    memoryUsage: process.memoryUsage(),
+    uptime: process.uptime(),
+    env: process.env.NODE_ENV,
+  };
+
   res.json({
     status:
       mongoStatus === 1 && cloudinaryStatus === "connected"
@@ -149,6 +168,8 @@ app.get("/api/health", async (req, res) => {
         cloudName: process.env.CLOUDINARY_CLOUD_NAME,
       },
     },
+    models: modelsStatus,
+    server: serverInfo,
     features: {
       auth: true,
       products: mongoStatus === 1,
@@ -157,6 +178,13 @@ app.get("/api/health", async (req, res) => {
       fileUploads: cloudinaryStatus === "connected",
     },
   });
+});
+
+// Simple root health check for Render
+app.get("/", (req, res) => {
+  res.send(
+    "Shyam Furnitures API is running. Go to /api/health for detailed status."
+  );
 });
 
 // DIRECT TEST ROUTES - These are simple routes to test basic functionality
@@ -647,10 +675,35 @@ app.use("/api", routes);
 // Serve static files from the React app
 app.use(express.static(path.join(__dirname, "client/dist")));
 
+// Log static file directory for debugging
+console.log("Serving static files from:", path.join(__dirname, "client/dist"));
+// Check if the directory exists
+const fs = require("fs");
+if (fs.existsSync(path.join(__dirname, "client/dist"))) {
+  console.log("Static file directory exists");
+  // List files in the directory
+  try {
+    const files = fs.readdirSync(path.join(__dirname, "client/dist"));
+    console.log("Files in static directory:", files);
+  } catch (error) {
+    console.error("Error reading static directory:", error);
+  }
+} else {
+  console.warn("Static file directory does not exist!");
+}
+
 // The "catchall" handler: for any request that doesn't
 // match one above, send back React's index.html file.
 app.get("*", (req, res) => {
-  res.sendFile(path.join(__dirname, "client/dist/index.html"));
+  // Check if the file exists before sending
+  const indexPath = path.join(__dirname, "client/dist/index.html");
+  if (fs.existsSync(indexPath)) {
+    console.log(`Serving index.html for path: ${req.path}`);
+    res.sendFile(indexPath);
+  } else {
+    console.warn("index.html not found!");
+    res.status(404).send("index.html not found. Build may be missing.");
+  }
 });
 
 // Global error handling middleware (must be after all routes)
@@ -699,4 +752,14 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running on port ${PORT}`);
+  console.log(`Environment: ${process.env.NODE_ENV}`);
+  console.log(`Server URL: http://localhost:${PORT}`);
+  console.log(
+    `MongoDB connection status: ${
+      mongoose.connection.readyState === 1 ? "Connected" : "Not connected"
+    }`
+  );
+  console.log(
+    `Cloudinary status: ${cloudinary ? "Configured" : "Not configured"}`
+  );
 });
