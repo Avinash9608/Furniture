@@ -409,20 +409,55 @@ export const categoriesAPI = {
 export const contactAPI = {
   create: (contactData) => {
     console.log("Creating contact message with data:", contactData);
-    // Use direct axios for contact form to bypass baseURL issues
-    const baseUrl = window.location.origin;
-    console.log("Using direct URL for contact form:", `${baseUrl}/api/contact`);
 
-    // Create a new axios instance without baseURL to make a direct request
-    const directApi = axios.create({
-      timeout: 10000,
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
-    });
+    // Try multiple approaches to ensure the contact form works in all environments
+    const tryMultipleEndpoints = async () => {
+      const baseUrl = window.location.origin;
+      console.log("Current origin:", baseUrl);
 
-    return directApi.post(`${baseUrl}/api/contact`, contactData);
+      // Create a new axios instance without baseURL
+      const directApi = axios.create({
+        timeout: 15000,
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+      });
+
+      // List of endpoints to try (in order)
+      const endpoints = [
+        // Direct URL with /api prefix (standard API route)
+        `${baseUrl}/api/contact`,
+        // Direct URL without /api prefix (fallback route)
+        `${baseUrl}/contact`,
+        // Direct URL with double /api prefix (for misconfigured environments)
+        `${baseUrl}/api/api/contact`,
+        // Absolute URL to the deployed backend (last resort)
+        "https://furniture-q3nb.onrender.com/api/contact",
+      ];
+
+      // Try each endpoint until one works
+      for (let i = 0; i < endpoints.length; i++) {
+        const endpoint = endpoints[i];
+        console.log(`Attempt ${i + 1}: Trying endpoint ${endpoint}`);
+
+        try {
+          const response = await directApi.post(endpoint, contactData);
+          console.log(`Success with endpoint ${endpoint}:`, response);
+          return response;
+        } catch (error) {
+          console.error(`Error with endpoint ${endpoint}:`, error.message);
+
+          // If this is the last endpoint, throw the error
+          if (i === endpoints.length - 1) {
+            throw error;
+          }
+          // Otherwise, try the next endpoint
+        }
+      }
+    };
+
+    return tryMultipleEndpoints();
   },
   getAll: async () => {
     try {
