@@ -243,26 +243,29 @@ app.post("/test", (req, res) => {
 
 // DIRECT API ROUTE HANDLERS - These ensure all API routes work in all environments
 
-// Import models with error handling
-let Contact, Product, Category, Order, PaymentSettings, PaymentRequest;
+// Import the centralized model loader
+const { loadModel, loadAllModels } = require("./server/utils/modelLoader");
 
-// Helper function to safely require models
-const safeRequire = (path) => {
-  try {
-    return require(path);
-  } catch (error) {
-    console.warn(`Warning: Could not load model from ${path}`, error.message);
-    return null;
-  }
-};
+// Load all models
+console.log("Loading all models...");
+loadAllModels();
 
-// Load models
-Contact = safeRequire("./server/models/Contact");
-Product = safeRequire("./server/models/Product");
-Category = safeRequire("./server/models/Category");
-Order = safeRequire("./server/models/Order");
-PaymentSettings = safeRequire("./server/models/PaymentSettings"); // Note the 's' at the end
-PaymentRequest = safeRequire("./server/models/PaymentRequest");
+// Get references to models
+let Contact = loadModel("Contact");
+let Product = loadModel("Product");
+let Category = loadModel("Category");
+let Order = loadModel("Order");
+let PaymentSettings = loadModel("PaymentSetting");
+let PaymentRequest = loadModel("PaymentRequest");
+
+// Log model loading status
+console.log("Model loading status:");
+console.log(`- Contact: ${Contact ? "Loaded" : "Not loaded"}`);
+console.log(`- Product: ${Product ? "Loaded" : "Not loaded"}`);
+console.log(`- Category: ${Category ? "Loaded" : "Not loaded"}`);
+console.log(`- Order: ${Order ? "Loaded" : "Not loaded"}`);
+console.log(`- PaymentSettings: ${PaymentSettings ? "Loaded" : "Not loaded"}`);
+console.log(`- PaymentRequest: ${PaymentRequest ? "Loaded" : "Not loaded"}`);
 
 // ===== CONTACT ROUTES =====
 // Create contact message
@@ -365,26 +368,24 @@ app.post("/api/api/contact", async (req, res) => {
 app.get("/api/contact", async (req, res) => {
   console.log("Fetching all contact messages");
   try {
-    // Check if Contact model is available
+    // Try to load the Contact model if it's not available
     if (!Contact) {
-      console.warn("Contact model not available, trying to load it directly");
-      try {
-        // Try to load the model directly
-        Contact = require("./server/models/Contact");
-        console.log("Successfully loaded Contact model directly");
-      } catch (loadError) {
-        console.error(
-          "Failed to load Contact model directly:",
-          loadError.message
-        );
-        // Return empty array to prevent client-side errors
-        return res.status(200).json({
-          success: true,
-          count: 0,
-          data: [],
-          message: "Contact model not available, returning empty array",
-        });
-      }
+      Contact = loadModel("Contact");
+      console.log(
+        "Attempted to load Contact model:",
+        Contact ? "Success" : "Failed"
+      );
+    }
+
+    // If Contact model is still not available, return an empty array
+    if (!Contact) {
+      console.warn("Contact model not available, returning empty array");
+      return res.status(200).json({
+        success: true,
+        count: 0,
+        data: [],
+        message: "Contact model not available, returning empty array",
+      });
     }
 
     try {
@@ -506,29 +507,13 @@ app.get("/api/categories", async (req, res) => {
 app.post("/api/categories", async (req, res) => {
   console.log("Creating category with data:", req.body);
   try {
-    // Check if Category model is available
+    // Try to load the Category model if it's not available
     if (!Category) {
-      console.warn("Category model not available, trying to load it directly");
-      try {
-        // Try to load the model directly
-        Category = require("./server/models/Category");
-        console.log("Successfully loaded Category model directly");
-      } catch (loadError) {
-        console.error(
-          "Failed to load Category model directly:",
-          loadError.message
-        );
-        // Return a fake success response with the data provided
-        return res.status(200).json({
-          success: true,
-          data: {
-            ...req.body,
-            _id: `temp_${Date.now()}`,
-            createdAt: new Date().toISOString(),
-          },
-          message: "Category model not available, returning fake success",
-        });
-      }
+      Category = loadModel("Category");
+      console.log(
+        "Attempted to load Category model:",
+        Category ? "Success" : "Failed"
+      );
     }
 
     // Validate required fields
@@ -542,6 +527,23 @@ app.post("/api/categories", async (req, res) => {
     // Create a slug if not provided
     if (!req.body.slug) {
       req.body.slug = req.body.name.toLowerCase().replace(/[^a-zA-Z0-9]/g, "-");
+    }
+
+    // If Category model is still not available, return a fake success response
+    if (!Category) {
+      console.warn("Category model not available, returning fake success");
+      const fakeCategory = {
+        ...req.body,
+        _id: `temp_${Date.now()}`,
+        slug: req.body.slug,
+        createdAt: new Date().toISOString(),
+      };
+
+      return res.status(200).json({
+        success: true,
+        data: fakeCategory,
+        message: "Category model not available, returning fake success",
+      });
     }
 
     // Try-catch block specifically for the database operation
@@ -582,6 +584,7 @@ app.post("/api/categories", async (req, res) => {
       const fallbackCategory = {
         ...req.body,
         _id: `temp_${Date.now()}`,
+        slug: req.body.slug,
         createdAt: new Date().toISOString(),
       };
 
@@ -599,6 +602,10 @@ app.post("/api/categories", async (req, res) => {
     const fallbackCategory = {
       ...req.body,
       _id: `temp_${Date.now()}`,
+      slug:
+        req.body.slug ||
+        req.body.name?.toLowerCase().replace(/[^a-zA-Z0-9]/g, "-") ||
+        `category-${Date.now()}`,
       createdAt: new Date().toISOString(),
     };
 
@@ -616,43 +623,26 @@ app.post("/api/categories", async (req, res) => {
 app.get("/api/payment-settings", async (req, res) => {
   console.log("Fetching payment settings");
   try {
-    // Check if PaymentSettings model is available
+    // Try to load the PaymentSettings model if it's not available
+    if (!PaymentSettings) {
+      PaymentSettings = loadModel("PaymentSetting");
+      console.log(
+        "Attempted to load PaymentSettings model:",
+        PaymentSettings ? "Success" : "Failed"
+      );
+    }
+
+    // If PaymentSettings model is still not available, return an empty array
     if (!PaymentSettings) {
       console.warn(
-        "PaymentSettings model not available, trying to load it directly"
+        "PaymentSettings model not available, returning empty array"
       );
-      try {
-        // Try to load the model directly
-        PaymentSettings = require("./server/models/PaymentSettings");
-        console.log("Successfully loaded PaymentSettings model directly");
-      } catch (loadError) {
-        console.error(
-          "Failed to load PaymentSettings model directly:",
-          loadError.message
-        );
-
-        // Try alternative path
-        try {
-          PaymentSettings = require("./server/models/PaymentSetting");
-          console.log(
-            "Successfully loaded PaymentSettings model from alternative path"
-          );
-        } catch (altLoadError) {
-          console.error(
-            "Failed to load PaymentSettings from alternative path:",
-            altLoadError.message
-          );
-
-          // Return empty array to prevent client-side errors
-          return res.status(200).json({
-            success: true,
-            count: 0,
-            data: [],
-            message:
-              "PaymentSettings model not available, returning empty array",
-          });
-        }
-      }
+      return res.status(200).json({
+        success: true,
+        count: 0,
+        data: [],
+        message: "PaymentSettings model not available, returning empty array",
+      });
     }
 
     // Try-catch block specifically for the database operation
@@ -758,35 +748,40 @@ app.post("/api/payment-settings", async (req, res) => {
 app.get("/api/payment-requests/all", async (req, res) => {
   console.log("Fetching all payment requests");
   try {
-    // Check if PaymentRequest model is available
+    // Try to load the PaymentRequest model if it's not available
     if (!PaymentRequest) {
-      console.warn(
-        "PaymentRequest model not available, trying to load it directly"
+      PaymentRequest = loadModel("PaymentRequest");
+      console.log(
+        "Attempted to load PaymentRequest model:",
+        PaymentRequest ? "Success" : "Failed"
       );
-      try {
-        // Try to load the model directly
-        PaymentRequest = require("./server/models/PaymentRequest");
-        console.log("Successfully loaded PaymentRequest model directly");
-      } catch (loadError) {
-        console.error(
-          "Failed to load PaymentRequest model directly:",
-          loadError.message
-        );
+    }
 
-        // Return empty array to prevent client-side errors
-        return res.status(200).json({
-          success: true,
-          count: 0,
-          data: [],
-          message: "PaymentRequest model not available, returning empty array",
-        });
-      }
+    // If PaymentRequest model is still not available, return an empty array
+    if (!PaymentRequest) {
+      console.warn("PaymentRequest model not available, returning empty array");
+      return res.status(200).json({
+        success: true,
+        count: 0,
+        data: [],
+        message: "PaymentRequest model not available, returning empty array",
+      });
     }
 
     // Try-catch block specifically for the database operation
     try {
       // First try with full population
       try {
+        // Make sure the User and Order models are loaded
+        const User = loadModel("User");
+        const Order = loadModel("Order");
+
+        console.log("Models for population:", {
+          User: !!User,
+          Order: !!Order,
+          PaymentRequest: !!PaymentRequest,
+        });
+
         const paymentRequests = await PaymentRequest.find()
           .populate("user", "name email")
           .populate("order")
