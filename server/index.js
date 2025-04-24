@@ -105,14 +105,17 @@ app.use("/api/orders", orderRoutes);
 app.use("/api/payment-settings", paymentSettingsRoutes);
 app.use("/api/payment-requests", paymentRequestsRoutes);
 
-// Special direct route for contact form - this ensures it works in all environments
+// DIRECT CONTACT FORM HANDLERS - These ensure the contact form works in all environments
+// Handle all possible URL patterns for the contact form
 app.post("/contact", contactController.createContact);
-
-// Note: The apiPrefixFix middleware handles duplicate /api prefixes automatically
-
-// Add a direct route for the client-side API that doesn't use the /api prefix
-// This ensures the contact form works in all environments
+app.post("/api/contact", contactController.createContact);
 app.post("/api/api/contact", contactController.createContact);
+
+// Log all routes for debugging
+console.log("Contact form routes registered:");
+console.log("- POST /contact");
+console.log("- POST /api/contact");
+console.log("- POST /api/api/contact");
 
 // Note: All other contact routes (GET, PUT, DELETE) are handled by contactRoutes
 
