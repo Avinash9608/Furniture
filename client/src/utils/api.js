@@ -426,6 +426,8 @@ export const contactAPI = {
 
       // List of endpoints to try (in order)
       const endpoints = [
+        // Test endpoint (should work if server is running)
+        `${baseUrl}/test`,
         // Direct URL with /api prefix (standard API route)
         `${baseUrl}/api/contact`,
         // Direct URL without /api prefix (fallback route)

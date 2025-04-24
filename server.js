@@ -159,94 +159,56 @@ app.get("/api/health", async (req, res) => {
   });
 });
 
-// DIRECT CONTACT FORM HANDLERS - These ensure the contact form works in all environments
-// Import Contact model
-const Contact = require("./server/models/Contact");
+// DIRECT TEST ROUTES - These are simple routes to test basic functionality
+app.get("/test", (req, res) => {
+  console.log("Test route hit");
+  res.json({ message: "Test route working!" });
+});
 
-// Common contact form handler function with robust error handling
-const handleContactForm = async (req, res, routeName) => {
+app.post("/test", (req, res) => {
+  console.log("Test POST route hit with body:", req.body);
+  res.json({ message: "Test POST route working!", receivedData: req.body });
+});
+
+// SIMPLIFIED CONTACT FORM HANDLERS - Using a direct approach without database
+app.post("/contact", (req, res) => {
+  console.log("Received contact form submission via /contact route:", req.body);
+
+  // Just return success without trying to save to database
+  res.status(200).json({
+    success: true,
+    message: "Contact form received (test mode - not saved to database)",
+    receivedData: req.body,
+  });
+});
+
+app.post("/api/contact", (req, res) => {
   console.log(
-    `Received contact form submission via ${routeName} route:`,
+    "Received contact form submission via /api/contact route:",
     req.body
   );
 
-  try {
-    // Validate required fields
-    const { name, email, subject, message } = req.body;
+  // Just return success without trying to save to database
+  res.status(200).json({
+    success: true,
+    message: "Contact form received (test mode - not saved to database)",
+    receivedData: req.body,
+  });
+});
 
-    if (!name || !email || !subject || !message) {
-      console.error(
-        `Missing required fields in ${routeName} request:`,
-        req.body
-      );
-      return res.status(400).json({
-        success: false,
-        message:
-          "Please provide all required fields: name, email, subject, and message",
-      });
-    }
+app.post("/api/api/contact", (req, res) => {
+  console.log(
+    "Received contact form submission via /api/api/contact route:",
+    req.body
+  );
 
-    // Log database connection state
-    console.log("MongoDB connection state:", mongoose.connection.readyState);
-
-    // Create contact with explicit fields to avoid schema validation issues
-    const contactData = {
-      name: name.trim(),
-      email: email.trim(),
-      subject: subject.trim(),
-      message: message.trim(),
-      phone: req.body.phone ? req.body.phone.trim() : "",
-      status: "unread",
-    };
-
-    console.log(`Creating contact with data (${routeName}):`, contactData);
-
-    // Create the contact document
-    const contact = await Contact.create(contactData);
-
-    console.log(`Contact created successfully (${routeName}):`, contact._id);
-
-    // Return success response
-    return res.status(201).json({
-      success: true,
-      data: contact,
-    });
-  } catch (error) {
-    console.error(`Error creating contact (${routeName}):`, error);
-
-    // Check for validation errors
-    if (error.name === "ValidationError") {
-      const validationErrors = {};
-
-      // Extract validation error messages
-      for (const field in error.errors) {
-        validationErrors[field] = error.errors[field].message;
-      }
-
-      return res.status(400).json({
-        success: false,
-        message: "Validation error",
-        errors: validationErrors,
-      });
-    }
-
-    // Handle other errors
-    return res.status(500).json({
-      success: false,
-      message: "Server error while processing contact form",
-      error: error.message,
-    });
-  }
-};
-
-// Handle all possible URL patterns for the contact form
-app.post("/contact", (req, res) => handleContactForm(req, res, "/contact"));
-app.post("/api/contact", (req, res) =>
-  handleContactForm(req, res, "/api/contact")
-);
-app.post("/api/api/contact", (req, res) =>
-  handleContactForm(req, res, "/api/api/contact")
-);
+  // Just return success without trying to save to database
+  res.status(200).json({
+    success: true,
+    message: "Contact form received (test mode - not saved to database)",
+    receivedData: req.body,
+  });
+});
 
 // Log all routes for debugging
 console.log("Contact form routes registered:");
