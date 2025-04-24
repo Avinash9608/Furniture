@@ -181,6 +181,10 @@ app.use(express.urlencoded({ extended: true }));
 const logger = require("./middleware/logger");
 app.use(logger);
 
+// Fix for duplicate API prefixes in client requests
+const apiPrefixFix = require("./middleware/apiPrefixFix");
+app.use(apiPrefixFix);
+
 // Static Files
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
@@ -211,6 +215,8 @@ app.use("/api/contact", contactRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/payment-settings", paymentSettingsRoutes);
 app.use("/api/payment-requests", paymentRequestsRoutes);
+
+// Note: The apiPrefixFix middleware now handles all duplicate /api prefixes automatically
 
 // Health Check
 app.get("/api/health", (_req, res) => {
