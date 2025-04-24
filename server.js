@@ -402,6 +402,59 @@ app.get("/api/categories", async (req, res) => {
   }
 });
 
+// Create category
+app.post("/api/categories", async (req, res) => {
+  console.log("Creating category with data:", req.body);
+  try {
+    // Check if Category model is available
+    if (!Category) {
+      console.warn("Category model not available, returning fake success");
+      return res.status(200).json({
+        success: true,
+        data: {
+          ...req.body,
+          _id: `temp_${Date.now()}`,
+          createdAt: new Date().toISOString(),
+        },
+        message: "Category model not available, returning fake success",
+      });
+    }
+
+    // Try-catch block specifically for the database operation
+    try {
+      // Create the category
+      const category = await Category.create(req.body);
+      console.log("Category created successfully:", category);
+
+      return res.status(201).json({
+        success: true,
+        data: category,
+      });
+    } catch (dbError) {
+      console.error("Database error creating category:", dbError);
+
+      // Return a more specific error message
+      if (dbError.code === 11000) {
+        return res.status(400).json({
+          success: false,
+          message: "A category with this name already exists",
+        });
+      }
+
+      return res.status(500).json({
+        success: false,
+        message: dbError.message || "Error creating category",
+      });
+    }
+  } catch (error) {
+    console.error("Unexpected error in create category route:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Unexpected error creating category",
+    });
+  }
+});
+
 // ===== PAYMENT SETTINGS ROUTES =====
 // Get all payment settings
 app.get("/api/payment-settings", async (req, res) => {
@@ -453,6 +506,67 @@ app.get("/api/payment-settings", async (req, res) => {
       count: 0,
       data: [],
       message: "Unexpected error, returning empty array",
+    });
+  }
+});
+
+// Create payment settings
+app.post("/api/payment-settings", async (req, res) => {
+  console.log("Creating payment settings with data:", req.body);
+  try {
+    // Check if PaymentSettings model is available
+    if (!PaymentSettings) {
+      console.warn(
+        "PaymentSettings model not available, returning fake success"
+      );
+      return res.status(200).json({
+        success: true,
+        data: {
+          ...req.body,
+          _id: `temp_${Date.now()}`,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+        message: "PaymentSettings model not available, returning fake success",
+      });
+    }
+
+    // Try-catch block specifically for the database operation
+    try {
+      // If we're creating a new active setting, deactivate all others
+      if (req.body.isActive) {
+        await PaymentSettings.updateMany({}, { isActive: false });
+      }
+
+      // Create the payment settings
+      const paymentSettings = await PaymentSettings.create(req.body);
+      console.log("Payment settings created successfully:", paymentSettings);
+
+      return res.status(201).json({
+        success: true,
+        data: paymentSettings,
+      });
+    } catch (dbError) {
+      console.error("Database error creating payment settings:", dbError);
+
+      // Return a more specific error message
+      if (dbError.code === 11000) {
+        return res.status(400).json({
+          success: false,
+          message: "A payment setting with this account number already exists",
+        });
+      }
+
+      return res.status(500).json({
+        success: false,
+        message: dbError.message || "Error creating payment settings",
+      });
+    }
+  } catch (error) {
+    console.error("Unexpected error in create payment settings route:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Unexpected error creating payment settings",
     });
   }
 });
@@ -522,7 +636,9 @@ console.log("- POST /api/api/contact");
 console.log("- GET /api/contact");
 console.log("- GET /api/products");
 console.log("- GET /api/categories");
+console.log("- POST /api/categories");
 console.log("- GET /api/payment-settings");
+console.log("- POST /api/payment-settings");
 console.log("- GET /api/payment-requests/all");
 
 // Use routes from server

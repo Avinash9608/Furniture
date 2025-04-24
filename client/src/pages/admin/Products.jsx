@@ -574,16 +574,20 @@ const AdminProducts = () => {
                       <div className="w-16 h-16 rounded-md overflow-hidden">
                         {product.images && product.images.length > 0 ? (
                           <img
-                            src={`${
-                              import.meta.env.VITE_API_BASE_URL ||
-                              "http://localhost:5000"
-                            }${product.images[0]}`}
+                            src={
+                              product.images[0].startsWith("http")
+                                ? product.images[0]
+                                : `${
+                                    import.meta.env.VITE_API_BASE_URL ||
+                                    "http://localhost:5000"
+                                  }${product.images[0]}`
+                            }
                             alt={product.name}
                             className="w-full h-full object-cover"
                             onError={(e) => {
                               e.target.onerror = null;
                               e.target.src =
-                                "https://via.placeholder.com/300x300?text=No+Image";
+                                "https://placehold.co/300x300/gray/white?text=No+Image";
                             }}
                           />
                         ) : (
