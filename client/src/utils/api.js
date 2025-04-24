@@ -163,8 +163,7 @@ const productsAPI = {
   createReview: (id, reviewData) =>
     api.post(`/products/${id}/reviews`, reviewData),
   getFeatured: () => api.get("/products/featured"),
-  getByCategory: (categoryId) =>
-    api.get(`/products/category/${categoryId}`),
+  getByCategory: (categoryId) => api.get(`/products/category/${categoryId}`),
   search: (query) => api.get(`/products/search?q=${query}`),
   getStats: () => api.get("/products/stats"),
 };
@@ -410,12 +409,25 @@ export const categoriesAPI = {
 export const contactAPI = {
   create: (contactData) => {
     console.log("Creating contact message with data:", contactData);
-    // Use the correct API endpoint without /api prefix (already in baseURL)
-    return api.post("/contact", contactData);
+    // Use direct axios for contact form to bypass baseURL issues
+    const baseUrl = window.location.origin;
+    console.log("Using direct URL for contact form:", `${baseUrl}/api/contact`);
+
+    // Create a new axios instance without baseURL to make a direct request
+    const directApi = axios.create({
+      timeout: 10000,
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+    });
+
+    return directApi.post(`${baseUrl}/api/contact`, contactData);
   },
   getAll: async () => {
     try {
       console.log("Fetching all contact messages");
+      // For admin panel, use the standard API
       const response = await api.get("/contact");
       console.log("Contact messages fetched successfully:", response.data);
       return response;
@@ -441,8 +453,7 @@ export const ordersAPI = {
   getAll: (params) => api.get("/orders", { params }),
   getMyOrders: () => api.get("/orders/myorders"),
   getById: (id) => api.get(`/orders/${id}`),
-  updateStatus: (id, statusData) =>
-    api.put(`/orders/${id}/status`, statusData),
+  updateStatus: (id, statusData) => api.put(`/orders/${id}/status`, statusData),
   updateToPaid: (id, paymentResult) =>
     api.put(`/orders/${id}/pay`, paymentResult),
   getStats: () => api.get("/orders/stats"),
