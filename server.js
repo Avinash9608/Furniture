@@ -134,6 +134,74 @@ app.get("/api/health", async (req, res) => {
   });
 });
 
+// DIRECT CONTACT FORM HANDLERS - These ensure the contact form works in all environments
+// Import Contact model
+const Contact = require("./server/models/Contact");
+
+// Handle all possible URL patterns for the contact form
+app.post("/contact", async (req, res) => {
+  console.log("Received contact form submission via /contact route:", req.body);
+  try {
+    const contact = await Contact.create(req.body);
+    res.status(201).json({
+      success: true,
+      data: contact,
+    });
+  } catch (error) {
+    console.error("Error creating contact:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+});
+
+app.post("/api/contact", async (req, res) => {
+  console.log(
+    "Received contact form submission via /api/contact route:",
+    req.body
+  );
+  try {
+    const contact = await Contact.create(req.body);
+    res.status(201).json({
+      success: true,
+      data: contact,
+    });
+  } catch (error) {
+    console.error("Error creating contact:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+});
+
+app.post("/api/api/contact", async (req, res) => {
+  console.log(
+    "Received contact form submission via /api/api/contact route:",
+    req.body
+  );
+  try {
+    const contact = await Contact.create(req.body);
+    res.status(201).json({
+      success: true,
+      data: contact,
+    });
+  } catch (error) {
+    console.error("Error creating contact:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+});
+
+// Log all routes for debugging
+console.log("Contact form routes registered:");
+console.log("- POST /contact");
+console.log("- POST /api/contact");
+console.log("- POST /api/api/contact");
+
 // Use routes from server
 app.use("/api", routes);
 
