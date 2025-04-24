@@ -182,9 +182,52 @@ app.get("/api/health", async (req, res) => {
 
 // Simple root health check for Render
 app.get("/", (req, res) => {
-  res.send(
-    "Shyam Furnitures API is running. Go to /api/health for detailed status."
-  );
+  // Check if we have a frontend build
+  const indexPath = path.join(__dirname, "client/dist/index.html");
+  if (fs.existsSync(indexPath)) {
+    // If index.html exists, serve it
+    console.log("Serving index.html for root path");
+    res.sendFile(indexPath);
+  } else {
+    // If no frontend build, show API status
+    console.warn("No frontend build found, showing API status");
+    res.send(`
+      <html>
+        <head>
+          <title>Shyam Furnitures API</title>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; padding: 20px; max-width: 800px; margin: 0 auto; }
+            h1 { color: #333; }
+            .status { padding: 15px; background-color: #f0f0f0; border-radius: 5px; margin-bottom: 20px; }
+            .status.ok { background-color: #d4edda; color: #155724; }
+            .status.warning { background-color: #fff3cd; color: #856404; }
+            a { color: #007bff; text-decoration: none; }
+            a:hover { text-decoration: underline; }
+            pre { background-color: #f8f9fa; padding: 10px; border-radius: 5px; overflow: auto; }
+          </style>
+        </head>
+        <body>
+          <h1>Shyam Furnitures API</h1>
+          <div class="status ok">
+            <strong>API Status:</strong> Running
+          </div>
+          <div class="status warning">
+            <strong>Frontend Status:</strong> Not Found
+            <p>The frontend build files were not found. This means the React application is not available.</p>
+          </div>
+          <h2>Available Endpoints:</h2>
+          <ul>
+            <li><a href="/api/health">/api/health</a> - Detailed API health status</li>
+            <li><a href="/api/products">/api/products</a> - List all products</li>
+            <li><a href="/api/categories">/api/categories</a> - List all categories</li>
+          </ul>
+          <h2>Troubleshooting:</h2>
+          <p>If you're seeing this page instead of the Shyam Furnitures website, it means the frontend build is missing or not properly configured.</p>
+          <p>Check the build process in your deployment settings to ensure the frontend is being built correctly.</p>
+        </body>
+      </html>
+    `);
+  }
 });
 
 // DIRECT TEST ROUTES - These are simple routes to test basic functionality
@@ -695,6 +738,13 @@ if (fs.existsSync(path.join(__dirname, "client/dist"))) {
 // The "catchall" handler: for any request that doesn't
 // match one above, send back React's index.html file.
 app.get("*", (req, res) => {
+  // Skip API routes
+  if (req.path.startsWith("/api/")) {
+    return res
+      .status(404)
+      .json({ success: false, message: "API endpoint not found" });
+  }
+
   // Check if the file exists before sending
   const indexPath = path.join(__dirname, "client/dist/index.html");
   if (fs.existsSync(indexPath)) {
@@ -702,7 +752,34 @@ app.get("*", (req, res) => {
     res.sendFile(indexPath);
   } else {
     console.warn("index.html not found!");
-    res.status(404).send("index.html not found. Build may be missing.");
+    // Try to provide more helpful information
+    try {
+      const rootDir = fs.readdirSync(__dirname);
+      const clientDir = fs.existsSync(path.join(__dirname, "client"))
+        ? fs.readdirSync(path.join(__dirname, "client"))
+        : "client directory not found";
+      const distDir = fs.existsSync(path.join(__dirname, "client/dist"))
+        ? fs.readdirSync(path.join(__dirname, "client/dist"))
+        : "dist directory not found";
+
+      res.status(404).send(`
+        <h1>Frontend build not found</h1>
+        <p>The index.html file could not be found. This usually means the frontend build is missing.</p>
+        <h2>Debugging Information:</h2>
+        <pre>
+Root directory: ${JSON.stringify(rootDir, null, 2)}
+Client directory: ${JSON.stringify(clientDir, null, 2)}
+Dist directory: ${JSON.stringify(distDir, null, 2)}
+        </pre>
+        <p>API is running. <a href="/api/health">Check API health</a></p>
+      `);
+    } catch (error) {
+      res
+        .status(404)
+        .send(
+          `index.html not found. Build may be missing. Error: ${error.message}`
+        );
+    }
   }
 });
 
