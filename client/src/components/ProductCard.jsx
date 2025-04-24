@@ -2,30 +2,17 @@ import React from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { formatPrice, calculateDiscountPercentage } from "../utils/format";
+import { getProductImage, handleImageError } from "../utils/defaultImages";
 
 const ProductCard = ({ product }) => {
   return (
     <motion.div whileHover={{ y: -5 }} className="card group">
       <div className="relative overflow-hidden h-64">
         <img
-          src={
-            product.images && product.images.length > 0
-              ? product.images[0].startsWith("http")
-                ? product.images[0]
-                : `${
-                    import.meta.env.VITE_API_BASE_URL || "http://localhost:5000"
-                  }${product.images[0]}`
-              : "https://via.placeholder.com/300x300?text=" +
-                encodeURIComponent(product.name || "Product")
-          }
+          src={getProductImage(product)}
           alt={product.name}
           className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-          onError={(e) => {
-            console.log("Image load error:", e.target.src);
-            e.target.onerror = null;
-            e.target.src =
-              "https://via.placeholder.com/300x300?text=Image+Not+Found";
-          }}
+          onError={handleImageError}
         />
         <div className="absolute top-2 right-2 theme-bg-primary rounded-full p-2 shadow-md opacity-0 group-hover:opacity-100 transition-opacity duration-300">
           <svg

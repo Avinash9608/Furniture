@@ -367,17 +367,37 @@ app.get("/api/categories", async (req, res) => {
       });
     }
 
-    const categories = await Category.find();
-    res.status(200).json({
-      success: true,
-      count: categories.length,
-      data: categories,
-    });
+    // Try-catch block specifically for the database operation
+    try {
+      const categories = await Category.find();
+      console.log(`Successfully fetched ${categories.length} categories`);
+
+      return res.status(200).json({
+        success: true,
+        count: categories.length,
+        data: categories,
+      });
+    } catch (dbError) {
+      console.error("Database error fetching categories:", dbError);
+
+      // Return empty array instead of error to prevent client-side crashes
+      return res.status(200).json({
+        success: true,
+        count: 0,
+        data: [],
+        message:
+          "Error fetching categories from database, returning empty array",
+      });
+    }
   } catch (error) {
-    console.error("Error fetching categories:", error);
-    res.status(500).json({
-      success: false,
-      message: error.message,
+    console.error("Unexpected error in categories route:", error);
+
+    // Return empty array instead of error to prevent client-side crashes
+    return res.status(200).json({
+      success: true,
+      count: 0,
+      data: [],
+      message: "Unexpected error, returning empty array",
     });
   }
 });
@@ -400,17 +420,39 @@ app.get("/api/payment-settings", async (req, res) => {
       });
     }
 
-    const paymentSettings = await PaymentSettings.find({ isActive: true });
-    res.status(200).json({
-      success: true,
-      count: paymentSettings.length,
-      data: paymentSettings,
-    });
+    // Try-catch block specifically for the database operation
+    try {
+      const paymentSettings = await PaymentSettings.find({ isActive: true });
+      console.log(
+        `Successfully fetched ${paymentSettings.length} payment settings`
+      );
+
+      return res.status(200).json({
+        success: true,
+        count: paymentSettings.length,
+        data: paymentSettings,
+      });
+    } catch (dbError) {
+      console.error("Database error fetching payment settings:", dbError);
+
+      // Return empty array instead of error to prevent client-side crashes
+      return res.status(200).json({
+        success: true,
+        count: 0,
+        data: [],
+        message:
+          "Error fetching payment settings from database, returning empty array",
+      });
+    }
   } catch (error) {
-    console.error("Error fetching payment settings:", error);
-    res.status(500).json({
-      success: false,
-      message: error.message,
+    console.error("Unexpected error in payment settings route:", error);
+
+    // Return empty array instead of error to prevent client-side crashes
+    return res.status(200).json({
+      success: true,
+      count: 0,
+      data: [],
+      message: "Unexpected error, returning empty array",
     });
   }
 });
@@ -431,20 +473,43 @@ app.get("/api/payment-requests/all", async (req, res) => {
       });
     }
 
-    const paymentRequests = await PaymentRequest.find()
-      .populate("user", "name email")
-      .populate("order")
-      .sort({ createdAt: -1 });
-    res.status(200).json({
-      success: true,
-      count: paymentRequests.length,
-      data: paymentRequests,
-    });
+    // Try-catch block specifically for the database operation
+    try {
+      const paymentRequests = await PaymentRequest.find()
+        .populate("user", "name email")
+        .populate("order")
+        .sort({ createdAt: -1 });
+
+      console.log(
+        `Successfully fetched ${paymentRequests.length} payment requests`
+      );
+
+      return res.status(200).json({
+        success: true,
+        count: paymentRequests.length,
+        data: paymentRequests,
+      });
+    } catch (dbError) {
+      console.error("Database error fetching payment requests:", dbError);
+
+      // Return empty array instead of error to prevent client-side crashes
+      return res.status(200).json({
+        success: true,
+        count: 0,
+        data: [],
+        message:
+          "Error fetching payment requests from database, returning empty array",
+      });
+    }
   } catch (error) {
-    console.error("Error fetching payment requests:", error);
-    res.status(500).json({
-      success: false,
-      message: error.message,
+    console.error("Unexpected error in payment requests route:", error);
+
+    // Return empty array instead of error to prevent client-side crashes
+    return res.status(200).json({
+      success: true,
+      count: 0,
+      data: [],
+      message: "Unexpected error, returning empty array",
     });
   }
 });

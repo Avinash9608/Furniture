@@ -169,7 +169,7 @@ const AdminProducts = () => {
         price: 12999,
         stock: 25,
         category: { _id: "category1", name: "Chairs" },
-        images: ["https://via.placeholder.com/300x300?text=Chair"],
+        images: ["https://placehold.co/300x300/gray/white?text=Chair"],
       },
       {
         _id: "product2",
@@ -177,7 +177,7 @@ const AdminProducts = () => {
         price: 24999,
         stock: 10,
         category: { _id: "category2", name: "Tables" },
-        images: ["https://via.placeholder.com/300x300?text=Table"],
+        images: ["https://placehold.co/300x300/gray/white?text=Table"],
       },
       {
         _id: "product3",
@@ -185,7 +185,7 @@ const AdminProducts = () => {
         price: 49999,
         stock: 5,
         category: { _id: "category3", name: "Sofa Beds" },
-        images: ["https://via.placeholder.com/300x300?text=Sofa"],
+        images: ["https://placehold.co/300x300/gray/white?text=Sofa"],
       },
       {
         _id: "product4",
@@ -193,7 +193,7 @@ const AdminProducts = () => {
         price: 34999,
         stock: 0,
         category: { _id: "category4", name: "Wardrobes" },
-        images: ["https://via.placeholder.com/300x300?text=Wardrobe"],
+        images: ["https://placehold.co/300x300/gray/white?text=Wardrobe"],
       },
       {
         _id: "product5",
@@ -201,7 +201,7 @@ const AdminProducts = () => {
         price: 39999,
         stock: 8,
         category: { _id: "category2", name: "Tables" },
-        images: ["https://via.placeholder.com/300x300?text=DiningSet"],
+        images: ["https://placehold.co/300x300/gray/white?text=DiningSet"],
       },
     ];
   };
