@@ -166,11 +166,36 @@ if (!process.env.JWT_SECRET) {
 const app = express();
 
 // Middleware Configuration
+// Define allowed origins
+const allowedOrigins = [
+  "https://furniture-q3nb.onrender.com",
+  "http://localhost:5173",
+  "http://localhost:3000",
+  process.env.CLIENT_URL,
+].filter(Boolean); // Remove any undefined values
+
+console.log("CORS allowed origins:", allowedOrigins);
+
+// Configure CORS
 app.use(
   cors({
-    origin:
-      process.env.NODE_ENV === "production" ? process.env.CLIENT_URL : "*",
+    origin: function (origin, callback) {
+      // Allow requests with no origin (like mobile apps, curl requests)
+      if (!origin) return callback(null, true);
+
+      if (
+        allowedOrigins.indexOf(origin) !== -1 ||
+        process.env.NODE_ENV !== "production"
+      ) {
+        callback(null, true);
+      } else {
+        console.log("CORS blocked origin:", origin);
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
 
@@ -217,6 +242,14 @@ app.use("/api/payment-settings", paymentSettingsRoutes);
 app.use("/api/payment-requests", paymentRequestsRoutes);
 
 // Note: The apiPrefixFix middleware now handles all duplicate /api prefixes automatically
+
+// Direct route handler for contact form (backup in case the regular route doesn't work)
+app.post("/contact", (req, res) => {
+  console.log("Received contact form submission via direct /contact route");
+  // Forward to the contact controller
+  const { createContact } = require("./controllers/contact");
+  createContact(req, res);
+});
 
 // Health Check
 app.get("/api/health", (_req, res) => {
