@@ -733,13 +733,58 @@ export const contactAPI = {
   getAll: async () => {
     try {
       console.log("Fetching all contact messages");
-      // For admin panel, use the standard API
-      const response = await api.get("/contact");
-      console.log("Contact messages fetched successfully:", response.data);
-      return response;
+
+      // Create a direct axios instance
+      const directApi = axios.create({
+        timeout: 30000, // Increased timeout
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+      });
+
+      // Try multiple endpoints
+      const baseUrl = window.location.origin;
+      const endpoints = [
+        `${baseUrl}/api/contact`,
+        `${baseUrl}/contact`,
+        `${baseUrl}/api/api/contact`,
+        "https://furniture-q3nb.onrender.com/api/contact",
+      ];
+
+      // Try each endpoint until one works
+      for (const endpoint of endpoints) {
+        try {
+          console.log(`Trying to fetch all contact messages from: ${endpoint}`);
+          const response = await directApi.get(endpoint);
+          console.log("Contact messages fetched successfully:", response.data);
+
+          // Ensure the response has the expected structure
+          const data = response.data.data || response.data;
+
+          // Make sure data is an array
+          const safeData = Array.isArray(data) ? data : [];
+
+          return {
+            data: safeData,
+          };
+        } catch (error) {
+          console.warn(
+            `Error fetching contact messages from ${endpoint}:`,
+            error
+          );
+          // Continue to the next endpoint
+        }
+      }
+
+      // If all endpoints fail, return empty array
+      console.warn(
+        "All contact message endpoints failed, returning empty array"
+      );
+      return { data: [] };
     } catch (error) {
-      console.error("Error fetching contact messages:", error);
-      throw error;
+      console.error("Error in contactAPI.getAll:", error);
+      return { data: [] };
     }
   },
   getById: (id) => api.get(`/contact/${id}`),
@@ -753,20 +798,516 @@ export const contactAPI = {
   },
 };
 
-// Orders API
+// Orders API with robust implementation
 export const ordersAPI = {
-  create: (orderData) => api.post("/orders", orderData),
-  getAll: (params) => api.get("/orders", { params }),
-  getMyOrders: () => api.get("/orders/myorders"),
-  getById: (id) => api.get(`/orders/${id}`),
-  updateStatus: (id, statusData) => api.put(`/orders/${id}/status`, statusData),
-  updateToPaid: (id, paymentResult) =>
-    api.put(`/orders/${id}/pay`, paymentResult),
-  getStats: () => api.get("/orders/stats"),
-  getRecent: (limit = 5) => api.get(`/orders/recent?limit=${limit}`),
-  getAllOrders: () => api.get("/orders"),
-  updateOrderStatus: (id, status) =>
-    api.patch(`/orders/${id}/status`, { status }),
+  create: async (orderData) => {
+    try {
+      console.log("Creating order with data:", orderData);
+
+      // Create a direct axios instance
+      const directApi = axios.create({
+        timeout: 30000, // Increased timeout for order creation
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+      });
+
+      // Try multiple endpoints
+      const baseUrl = window.location.origin;
+      const endpoints = [
+        `${baseUrl}/api/orders`,
+        `${baseUrl}/orders`,
+        `${baseUrl}/api/api/orders`,
+        "https://furniture-q3nb.onrender.com/api/orders",
+      ];
+
+      // Try each endpoint until one works
+      for (const endpoint of endpoints) {
+        try {
+          console.log(`Trying to create order at: ${endpoint}`);
+          const response = await directApi.post(endpoint, orderData);
+          console.log("Order created successfully:", response.data);
+          return response;
+        } catch (error) {
+          console.warn(`Error creating order at ${endpoint}:`, error);
+          // Continue to the next endpoint
+        }
+      }
+
+      // If all endpoints fail, fall back to the original implementation
+      console.warn(
+        "All order creation endpoints failed, falling back to original implementation"
+      );
+      return api.post("/orders", orderData);
+    } catch (error) {
+      console.error("Error in ordersAPI.create:", error);
+      throw error;
+    }
+  },
+
+  getAll: async (params) => {
+    try {
+      console.log("Fetching all orders with params:", params);
+
+      // Create a direct axios instance
+      const directApi = axios.create({
+        timeout: 30000, // Increased timeout
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+      });
+
+      // Try multiple endpoints
+      const baseUrl = window.location.origin;
+      const endpoints = [
+        `${baseUrl}/api/orders`,
+        `${baseUrl}/orders`,
+        `${baseUrl}/api/api/orders`,
+        "https://furniture-q3nb.onrender.com/api/orders",
+      ];
+
+      // Try each endpoint until one works
+      for (const endpoint of endpoints) {
+        try {
+          console.log(`Trying to fetch all orders from: ${endpoint}`);
+          const response = await directApi.get(endpoint, { params });
+          console.log("Orders fetched successfully:", response.data);
+
+          // Ensure the response has the expected structure
+          const data = response.data.data || response.data;
+
+          // Make sure data is an array
+          const safeData = Array.isArray(data) ? data : [];
+
+          return {
+            data: safeData,
+          };
+        } catch (error) {
+          console.warn(`Error fetching orders from ${endpoint}:`, error);
+          // Continue to the next endpoint
+        }
+      }
+
+      // If all endpoints fail, return empty array
+      console.warn("All order endpoints failed, returning empty array");
+      return { data: [] };
+    } catch (error) {
+      console.error("Error in ordersAPI.getAll:", error);
+      return { data: [] };
+    }
+  },
+
+  getMyOrders: async () => {
+    try {
+      console.log("Fetching my orders");
+
+      // Create a direct axios instance
+      const directApi = axios.create({
+        timeout: 30000, // Increased timeout
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+      });
+
+      // Try multiple endpoints
+      const baseUrl = window.location.origin;
+      const endpoints = [
+        `${baseUrl}/api/orders/myorders`,
+        `${baseUrl}/orders/myorders`,
+        `${baseUrl}/api/api/orders/myorders`,
+        "https://furniture-q3nb.onrender.com/api/orders/myorders",
+      ];
+
+      // Try each endpoint until one works
+      for (const endpoint of endpoints) {
+        try {
+          console.log(`Trying to fetch my orders from: ${endpoint}`);
+          const response = await directApi.get(endpoint);
+          console.log("My orders fetched successfully:", response.data);
+
+          // Ensure the response has the expected structure
+          const data = response.data.data || response.data;
+
+          // Make sure data is an array
+          const safeData = Array.isArray(data) ? data : [];
+
+          return {
+            data: safeData,
+          };
+        } catch (error) {
+          console.warn(`Error fetching my orders from ${endpoint}:`, error);
+          // Continue to the next endpoint
+        }
+      }
+
+      // If all endpoints fail, return empty array
+      console.warn("All my orders endpoints failed, returning empty array");
+      return { data: [] };
+    } catch (error) {
+      console.error("Error in ordersAPI.getMyOrders:", error);
+      return { data: [] };
+    }
+  },
+
+  getById: async (id) => {
+    try {
+      console.log(`Fetching order ${id}`);
+
+      // Create a direct axios instance
+      const directApi = axios.create({
+        timeout: 30000, // Increased timeout
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+      });
+
+      // Try multiple endpoints
+      const baseUrl = window.location.origin;
+      const endpoints = [
+        `${baseUrl}/api/orders/${id}`,
+        `${baseUrl}/orders/${id}`,
+        `${baseUrl}/api/api/orders/${id}`,
+        `https://furniture-q3nb.onrender.com/api/orders/${id}`,
+      ];
+
+      // Try each endpoint until one works
+      for (const endpoint of endpoints) {
+        try {
+          console.log(`Trying to fetch order from: ${endpoint}`);
+          const response = await directApi.get(endpoint);
+          console.log(`Order ${id} fetched successfully:`, response.data);
+          return response;
+        } catch (error) {
+          console.warn(`Error fetching order from ${endpoint}:`, error);
+          // Continue to the next endpoint
+        }
+      }
+
+      // If all endpoints fail, fall back to the original implementation
+      console.warn(
+        `All order fetch endpoints failed for ${id}, falling back to original implementation`
+      );
+      return api.get(`/orders/${id}`);
+    } catch (error) {
+      console.error(`Error in ordersAPI.getById for ${id}:`, error);
+      throw error;
+    }
+  },
+
+  updateStatus: async (id, statusData) => {
+    try {
+      console.log(`Updating order ${id} status to:`, statusData);
+
+      // Create a direct axios instance
+      const directApi = axios.create({
+        timeout: 30000, // Increased timeout
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+      });
+
+      // Try multiple endpoints
+      const baseUrl = window.location.origin;
+      const endpoints = [
+        `${baseUrl}/api/orders/${id}/status`,
+        `${baseUrl}/orders/${id}/status`,
+        `${baseUrl}/api/api/orders/${id}/status`,
+        `https://furniture-q3nb.onrender.com/api/orders/${id}/status`,
+      ];
+
+      // Try each endpoint until one works
+      for (const endpoint of endpoints) {
+        try {
+          console.log(`Trying to update order status at: ${endpoint}`);
+          const response = await directApi.put(endpoint, statusData);
+          console.log(
+            `Order ${id} status updated successfully:`,
+            response.data
+          );
+          return response;
+        } catch (error) {
+          console.warn(`Error updating order status at ${endpoint}:`, error);
+          // Continue to the next endpoint
+        }
+      }
+
+      // If all endpoints fail, fall back to the original implementation
+      console.warn(
+        `All order status update endpoints failed for ${id}, falling back to original implementation`
+      );
+      return api.put(`/orders/${id}/status`, statusData);
+    } catch (error) {
+      console.error(`Error in ordersAPI.updateStatus for ${id}:`, error);
+      throw error;
+    }
+  },
+
+  updateToPaid: async (id, paymentResult) => {
+    try {
+      console.log(`Updating order ${id} to paid with:`, paymentResult);
+
+      // Create a direct axios instance
+      const directApi = axios.create({
+        timeout: 30000, // Increased timeout
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+      });
+
+      // Try multiple endpoints
+      const baseUrl = window.location.origin;
+      const endpoints = [
+        `${baseUrl}/api/orders/${id}/pay`,
+        `${baseUrl}/orders/${id}/pay`,
+        `${baseUrl}/api/api/orders/${id}/pay`,
+        `https://furniture-q3nb.onrender.com/api/orders/${id}/pay`,
+      ];
+
+      // Try each endpoint until one works
+      for (const endpoint of endpoints) {
+        try {
+          console.log(`Trying to update order to paid at: ${endpoint}`);
+          const response = await directApi.put(endpoint, paymentResult);
+          console.log(
+            `Order ${id} updated to paid successfully:`,
+            response.data
+          );
+          return response;
+        } catch (error) {
+          console.warn(`Error updating order to paid at ${endpoint}:`, error);
+          // Continue to the next endpoint
+        }
+      }
+
+      // If all endpoints fail, fall back to the original implementation
+      console.warn(
+        `All order pay endpoints failed for ${id}, falling back to original implementation`
+      );
+      return api.put(`/orders/${id}/pay`, paymentResult);
+    } catch (error) {
+      console.error(`Error in ordersAPI.updateToPaid for ${id}:`, error);
+      throw error;
+    }
+  },
+
+  getStats: async () => {
+    try {
+      console.log("Fetching order stats");
+
+      // Create a direct axios instance
+      const directApi = axios.create({
+        timeout: 30000, // Increased timeout
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+      });
+
+      // Try multiple endpoints
+      const baseUrl = window.location.origin;
+      const endpoints = [
+        `${baseUrl}/api/orders/stats`,
+        `${baseUrl}/orders/stats`,
+        `${baseUrl}/api/api/orders/stats`,
+        "https://furniture-q3nb.onrender.com/api/orders/stats",
+      ];
+
+      // Try each endpoint until one works
+      for (const endpoint of endpoints) {
+        try {
+          console.log(`Trying to fetch order stats from: ${endpoint}`);
+          const response = await directApi.get(endpoint);
+          console.log("Order stats fetched successfully:", response.data);
+          return response;
+        } catch (error) {
+          console.warn(`Error fetching order stats from ${endpoint}:`, error);
+          // Continue to the next endpoint
+        }
+      }
+
+      // If all endpoints fail, return a default response
+      console.warn("All order stats endpoints failed, returning default stats");
+      return {
+        data: {
+          totalOrders: 0,
+          totalRevenue: 0,
+          pendingOrders: 0,
+          completedOrders: 0,
+        },
+      };
+    } catch (error) {
+      console.error("Error in ordersAPI.getStats:", error);
+      return {
+        data: {
+          totalOrders: 0,
+          totalRevenue: 0,
+          pendingOrders: 0,
+          completedOrders: 0,
+        },
+      };
+    }
+  },
+
+  getRecent: async (limit = 5) => {
+    try {
+      console.log(`Fetching ${limit} recent orders`);
+
+      // Create a direct axios instance
+      const directApi = axios.create({
+        timeout: 30000, // Increased timeout
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+      });
+
+      // Try multiple endpoints
+      const baseUrl = window.location.origin;
+      const endpoints = [
+        `${baseUrl}/api/orders/recent?limit=${limit}`,
+        `${baseUrl}/orders/recent?limit=${limit}`,
+        `${baseUrl}/api/api/orders/recent?limit=${limit}`,
+        `https://furniture-q3nb.onrender.com/api/orders/recent?limit=${limit}`,
+      ];
+
+      // Try each endpoint until one works
+      for (const endpoint of endpoints) {
+        try {
+          console.log(`Trying to fetch recent orders from: ${endpoint}`);
+          const response = await directApi.get(endpoint);
+          console.log("Recent orders fetched successfully:", response.data);
+
+          // Ensure the response has the expected structure
+          const data = response.data.data || response.data;
+
+          // Make sure data is an array
+          const safeData = Array.isArray(data) ? data : [];
+
+          return {
+            data: safeData,
+          };
+        } catch (error) {
+          console.warn(`Error fetching recent orders from ${endpoint}:`, error);
+          // Continue to the next endpoint
+        }
+      }
+
+      // If all endpoints fail, return empty array
+      console.warn("All recent orders endpoints failed, returning empty array");
+      return { data: [] };
+    } catch (error) {
+      console.error("Error in ordersAPI.getRecent:", error);
+      return { data: [] };
+    }
+  },
+
+  getAllOrders: async () => {
+    try {
+      console.log("Fetching all orders");
+
+      // Create a direct axios instance
+      const directApi = axios.create({
+        timeout: 30000, // Increased timeout
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+      });
+
+      // Try multiple endpoints
+      const baseUrl = window.location.origin;
+      const endpoints = [
+        `${baseUrl}/api/orders`,
+        `${baseUrl}/orders`,
+        `${baseUrl}/api/api/orders`,
+        "https://furniture-q3nb.onrender.com/api/orders",
+      ];
+
+      // Try each endpoint until one works
+      for (const endpoint of endpoints) {
+        try {
+          console.log(`Trying to fetch all orders from: ${endpoint}`);
+          const response = await directApi.get(endpoint);
+          console.log("All orders fetched successfully:", response.data);
+
+          // Ensure the response has the expected structure
+          const data = response.data.data || response.data;
+
+          // Make sure data is an array
+          const safeData = Array.isArray(data) ? data : [];
+
+          return {
+            data: safeData,
+          };
+        } catch (error) {
+          console.warn(`Error fetching all orders from ${endpoint}:`, error);
+          // Continue to the next endpoint
+        }
+      }
+
+      // If all endpoints fail, return empty array
+      console.warn("All orders endpoints failed, returning empty array");
+      return { data: [] };
+    } catch (error) {
+      console.error("Error in ordersAPI.getAllOrders:", error);
+      return { data: [] };
+    }
+  },
+
+  updateOrderStatus: async (id, status) => {
+    try {
+      console.log(`Updating order ${id} status to:`, status);
+
+      // Create a direct axios instance
+      const directApi = axios.create({
+        timeout: 30000, // Increased timeout
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+      });
+
+      // Try multiple endpoints
+      const baseUrl = window.location.origin;
+      const endpoints = [
+        `${baseUrl}/api/orders/${id}/status`,
+        `${baseUrl}/orders/${id}/status`,
+        `${baseUrl}/api/api/orders/${id}/status`,
+        `https://furniture-q3nb.onrender.com/api/orders/${id}/status`,
+      ];
+
+      // Try each endpoint until one works
+      for (const endpoint of endpoints) {
+        try {
+          console.log(`Trying to update order status at: ${endpoint}`);
+          const response = await directApi.patch(endpoint, { status });
+          console.log(
+            `Order ${id} status updated successfully:`,
+            response.data
+          );
+          return response;
+        } catch (error) {
+          console.warn(`Error updating order status at ${endpoint}:`, error);
+          // Continue to the next endpoint
+        }
+      }
+
+      // If all endpoints fail, fall back to the original implementation
+      console.warn(
+        `All order status update endpoints failed for ${id}, falling back to original implementation`
+      );
+      return api.patch(`/orders/${id}/status`, { status });
+    } catch (error) {
+      console.error(`Error in ordersAPI.updateOrderStatus for ${id}:`, error);
+      throw error;
+    }
+  },
 };
 
 // Dashboard API
