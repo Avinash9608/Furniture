@@ -743,6 +743,70 @@ app.post("/api/payment-settings", async (req, res) => {
   }
 });
 
+// Get all payment settings (alternative endpoint)
+app.get("/api/payment-settings/all", async (req, res) => {
+  console.log("Fetching all payment settings (alternative endpoint)");
+  try {
+    // Try to load the PaymentSettings model if it's not available
+    if (!PaymentSettings) {
+      PaymentSettings = loadModel("PaymentSetting");
+      console.log(
+        "Attempted to load PaymentSettings model:",
+        PaymentSettings ? "Success" : "Failed"
+      );
+    }
+
+    // If PaymentSettings model is still not available, return an empty array
+    if (!PaymentSettings) {
+      console.warn(
+        "PaymentSettings model not available, returning empty array"
+      );
+      return res.status(200).json({
+        success: true,
+        count: 0,
+        data: [],
+        message: "PaymentSettings model not available, returning empty array",
+      });
+    }
+
+    // Try-catch block specifically for the database operation
+    try {
+      // Get all payment settings (not just active ones)
+      const paymentSettings = await PaymentSettings.find();
+      console.log(
+        `Successfully fetched ${paymentSettings.length} payment settings (all)`
+      );
+
+      return res.status(200).json({
+        success: true,
+        count: paymentSettings.length,
+        data: paymentSettings,
+      });
+    } catch (dbError) {
+      console.error("Database error fetching all payment settings:", dbError);
+
+      // Return empty array instead of error to prevent client-side crashes
+      return res.status(200).json({
+        success: true,
+        count: 0,
+        data: [],
+        message:
+          "Error fetching all payment settings from database, returning empty array",
+      });
+    }
+  } catch (error) {
+    console.error("Unexpected error in all payment settings route:", error);
+
+    // Return empty array instead of error to prevent client-side crashes
+    return res.status(200).json({
+      success: true,
+      count: 0,
+      data: [],
+      message: "Unexpected error, returning empty array",
+    });
+  }
+});
+
 // ===== PAYMENT REQUESTS ROUTES =====
 // Get all payment requests
 app.get("/api/payment-requests/all", async (req, res) => {
@@ -849,6 +913,7 @@ console.log("- GET /api/products");
 console.log("- GET /api/categories");
 console.log("- POST /api/categories");
 console.log("- GET /api/payment-settings");
+console.log("- GET /api/payment-settings/all");
 console.log("- POST /api/payment-settings");
 console.log("- GET /api/payment-requests/all");
 
