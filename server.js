@@ -170,51 +170,189 @@ app.post("/test", (req, res) => {
   res.json({ message: "Test POST route working!", receivedData: req.body });
 });
 
-// SIMPLIFIED CONTACT FORM HANDLERS - Using a direct approach without database
-app.post("/contact", (req, res) => {
-  console.log("Received contact form submission via /contact route:", req.body);
+// DIRECT API ROUTE HANDLERS - These ensure all API routes work in all environments
 
-  // Just return success without trying to save to database
-  res.status(200).json({
-    success: true,
-    message: "Contact form received (test mode - not saved to database)",
-    receivedData: req.body,
-  });
+// Import models
+const Contact = require("./server/models/Contact");
+const Product = require("./server/models/Product");
+const Category = require("./server/models/Category");
+const Order = require("./server/models/Order");
+const PaymentSetting = require("./server/models/PaymentSetting");
+const PaymentRequest = require("./server/models/PaymentRequest");
+
+// ===== CONTACT ROUTES =====
+// Create contact message
+app.post("/contact", async (req, res) => {
+  console.log("Received contact form submission via /contact route:", req.body);
+  try {
+    const contact = await Contact.create(req.body);
+    res.status(201).json({
+      success: true,
+      data: contact,
+    });
+  } catch (error) {
+    console.error("Error creating contact:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
 });
 
-app.post("/api/contact", (req, res) => {
+app.post("/api/contact", async (req, res) => {
   console.log(
     "Received contact form submission via /api/contact route:",
     req.body
   );
-
-  // Just return success without trying to save to database
-  res.status(200).json({
-    success: true,
-    message: "Contact form received (test mode - not saved to database)",
-    receivedData: req.body,
-  });
+  try {
+    const contact = await Contact.create(req.body);
+    res.status(201).json({
+      success: true,
+      data: contact,
+    });
+  } catch (error) {
+    console.error("Error creating contact:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
 });
 
-app.post("/api/api/contact", (req, res) => {
+app.post("/api/api/contact", async (req, res) => {
   console.log(
     "Received contact form submission via /api/api/contact route:",
     req.body
   );
-
-  // Just return success without trying to save to database
-  res.status(200).json({
-    success: true,
-    message: "Contact form received (test mode - not saved to database)",
-    receivedData: req.body,
-  });
+  try {
+    const contact = await Contact.create(req.body);
+    res.status(201).json({
+      success: true,
+      data: contact,
+    });
+  } catch (error) {
+    console.error("Error creating contact:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
 });
 
-// Log all routes for debugging
-console.log("Contact form routes registered:");
+// ===== ADDITIONAL API ROUTES =====
+
+// Get all contact messages
+app.get("/api/contact", async (req, res) => {
+  console.log("Fetching all contact messages");
+  try {
+    const contacts = await Contact.find().sort({ createdAt: -1 });
+    res.status(200).json({
+      success: true,
+      count: contacts.length,
+      data: contacts,
+    });
+  } catch (error) {
+    console.error("Error fetching contacts:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+});
+
+// ===== PRODUCT ROUTES =====
+// Get all products
+app.get("/api/products", async (req, res) => {
+  console.log("Fetching all products");
+  try {
+    const products = await Product.find().populate("category");
+    res.status(200).json({
+      success: true,
+      count: products.length,
+      data: products,
+    });
+  } catch (error) {
+    console.error("Error fetching products:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+});
+
+// ===== CATEGORY ROUTES =====
+// Get all categories
+app.get("/api/categories", async (req, res) => {
+  console.log("Fetching all categories");
+  try {
+    const categories = await Category.find();
+    res.status(200).json({
+      success: true,
+      count: categories.length,
+      data: categories,
+    });
+  } catch (error) {
+    console.error("Error fetching categories:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+});
+
+// ===== PAYMENT SETTINGS ROUTES =====
+// Get all payment settings
+app.get("/api/payment-settings", async (req, res) => {
+  console.log("Fetching payment settings");
+  try {
+    const paymentSettings = await PaymentSetting.find({ isActive: true });
+    res.status(200).json({
+      success: true,
+      count: paymentSettings.length,
+      data: paymentSettings,
+    });
+  } catch (error) {
+    console.error("Error fetching payment settings:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+});
+
+// ===== PAYMENT REQUESTS ROUTES =====
+// Get all payment requests
+app.get("/api/payment-requests/all", async (req, res) => {
+  console.log("Fetching all payment requests");
+  try {
+    const paymentRequests = await PaymentRequest.find()
+      .populate("user", "name email")
+      .populate("order")
+      .sort({ createdAt: -1 });
+    res.status(200).json({
+      success: true,
+      count: paymentRequests.length,
+      data: paymentRequests,
+    });
+  } catch (error) {
+    console.error("Error fetching payment requests:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+});
+
+// Log all direct API routes for debugging
+console.log("Direct API routes registered:");
 console.log("- POST /contact");
 console.log("- POST /api/contact");
 console.log("- POST /api/api/contact");
+console.log("- GET /api/contact");
+console.log("- GET /api/products");
+console.log("- GET /api/categories");
+console.log("- GET /api/payment-settings");
+console.log("- GET /api/payment-requests/all");
 
 // Use routes from server
 app.use("/api", routes);

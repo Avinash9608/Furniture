@@ -308,11 +308,11 @@ api.interceptors.response.use(
   }
 );
 
-// Default image URLs for fallbacks
+// Default image URLs for fallbacks (using reliable CDN)
 export const DEFAULT_PRODUCT_IMAGE =
-  "https://via.placeholder.com/300x300?text=Product";
+  "https://placehold.co/300x300/gray/white?text=Product";
 export const DEFAULT_CATEGORY_IMAGE =
-  "https://via.placeholder.com/300x300?text=Category";
+  "https://placehold.co/300x300/gray/white?text=Category";
 
 // Auth API
 export const authAPI = {
