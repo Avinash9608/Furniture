@@ -30,6 +30,27 @@ EOL
 # Create .babelrc file
 echo "Creating .babelrc file..."
 cat > .babelrc << EOL
+
+# Create babel.config.js
+echo "Creating babel.config.js..."
+cat > babel.config.js << EOL
+module.exports = {
+  presets: [
+    ["@babel/preset-env", {
+      "targets": {
+        "browsers": [">0.25%", "not ie 11", "not op_mini all"]
+      },
+      "modules": false
+    }],
+    ["@babel/preset-react", {
+      "runtime": "classic",
+      "pragma": "React.createElement",
+      "pragmaFrag": "React.Fragment"
+    }]
+  ],
+  plugins: []
+};
+EOL
 {
   "presets": [
     ["@babel/preset-env", {
@@ -53,9 +74,77 @@ if ! grep -q "window.React = React" "$MAIN_JSX_PATH"; then
   sed -i 's/import "\.\/index\.css";/import "\.\/index\.css";\n\n\/\/ Make React available globally for JSX transformation\nwindow.React = React;/' "$MAIN_JSX_PATH"
 fi
 
-# Update vite.config.js to use ES modules
-echo "Updating vite.config.js to use ES modules..."
+# Update vite.config.js for production
+echo "Creating production-ready vite.config.js..."
 cat > vite.config.js << EOL
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import path from 'path';
+
+// https://vitejs.dev/config/
+export default defineConfig(({ command, mode }) => ({
+  plugins: [
+    react({
+      // Force classic JSX runtime for production
+      jsxRuntime: 'classic',
+      jsxImportSource: undefined,
+      // Use React.createElement instead of _jsx
+      babel: {
+        plugins: [],
+        presets: [
+          ['@babel/preset-react', {
+            runtime: 'classic',
+            pragma: 'React.createElement',
+            pragmaFrag: 'React.Fragment'
+          }]
+        ],
+        babelrc: false,
+        configFile: false,
+      },
+    }),
+  ],
+  server: {
+    hmr: {
+      overlay: false,
+    },
+    port: 5173,
+    host: true,
+    proxy: {
+      "/api": {
+        target: "http://localhost:5000",
+        changeOrigin: true,
+        secure: false,
+      },
+    },
+  },
+  build: {
+    outDir: "dist",
+    assetsDir: "assets",
+    emptyOutDir: true,
+    sourcemap: false,
+    minify: "terser",
+    terserOptions: {
+      compress: {
+        drop_console: true,
+      },
+    },
+    rollupOptions: {
+      output: {
+        format: 'es',
+        manualChunks: undefined,
+      },
+    },
+  },
+  resolve: {
+    alias: {
+      "@": path.resolve(__dirname, "src"),
+    },
+  },
+  define: {
+    "process.env.NODE_ENV": JSON.stringify(mode),
+  },
+}));
+EOL
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';

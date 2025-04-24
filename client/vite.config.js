@@ -6,7 +6,22 @@ import path from 'path';
 export default defineConfig(({ command, mode }) => ({
   plugins: [
     react({
-      jsxRuntime: 'automatic',
+      // Force classic JSX runtime for production
+      jsxRuntime: 'classic',
+      jsxImportSource: undefined,
+      // Use React.createElement instead of _jsx
+      babel: {
+        plugins: [],
+        presets: [
+          ['@babel/preset-react', {
+            runtime: 'classic',
+            pragma: 'React.createElement',
+            pragmaFrag: 'React.Fragment'
+          }]
+        ],
+        babelrc: false,
+        configFile: false,
+      },
     }),
   ],
   server: {
@@ -27,11 +42,17 @@ export default defineConfig(({ command, mode }) => ({
     outDir: "dist",
     assetsDir: "assets",
     emptyOutDir: true,
-    sourcemap: command === "serve",
+    sourcemap: false,
     minify: "terser",
+    terserOptions: {
+      compress: {
+        drop_console: true,
+      },
+    },
     rollupOptions: {
       output: {
         format: 'es',
+        manualChunks: undefined,
       },
     },
   },
