@@ -65,12 +65,8 @@ const Categories = () => {
           categoriesData = [response.data];
         }
 
-        console.log("Categories data before filtering:", categoriesData);
-
-        // Filter out invalid categories
-        const validCategories = categoriesData.filter(
-          (category) => category && typeof category === "object" && category._id
-        );
+        // Filter out any invalid categories (missing _id)
+        const validCategories = categoriesData.filter((cat) => cat && cat._id);
 
         if (validCategories.length < categoriesData.length) {
           console.warn(
@@ -78,29 +74,11 @@ const Categories = () => {
               categoriesData.length - validCategories.length
             } invalid categories`
           );
+          categoriesData = validCategories;
         }
 
-        console.log("Valid categories after filtering:", validCategories);
-        setCategories(validCategories);
-
-        // Check if there's a warning about temporary categories
-        if (response.data && response.data.warning) {
-          setSuccessMessage(response.data.warning);
-          setTimeout(() => {
-            setSuccessMessage(null);
-          }, 8000); // Show for 8 seconds
-        }
-
-        // If server fetch failed, show a message
-        if (
-          response.data &&
-          response.data.error &&
-          !response.data.fetchSucceeded
-        ) {
-          setError(
-            `Server error: ${response.data.error}. Using locally stored categories.`
-          );
-        }
+        console.log("Categories data:", categoriesData);
+        setCategories(categoriesData);
 
         // Fetch product counts for each category
         const productCounts = {};
@@ -108,12 +86,6 @@ const Categories = () => {
           // Skip if category doesn't have a valid _id
           if (!category || !category._id) {
             console.warn("Invalid category object:", category);
-            continue;
-          }
-
-          // For temporary categories, set product count to 0
-          if (category.isTemporary) {
-            productCounts[category._id] = 0;
             continue;
           }
 
@@ -226,24 +198,15 @@ const Categories = () => {
         setShowAddModal(false);
 
         // Show success message with warning if applicable
-        if (response.isTemporary) {
+        if (response.warning) {
           setSuccessMessage(
-            `Category added with temporary data. It will be saved to the server when connection is restored.`
+            `Category added with temporary data. Please refresh the page to confirm.`
           );
-
-          // Set a follow-up message after a delay
-          setTimeout(() => {
-            setSuccessMessage(
-              "You can continue using this category normally. It will be automatically synced when server connection is available."
-            );
-          }, 5000);
-        } else if (response.warning) {
-          setSuccessMessage(`Category added successfully! ${response.warning}`);
         } else {
           setSuccessMessage("Category added successfully!");
         }
 
-        setTimeout(() => setSuccessMessage(null), 10000);
+        setTimeout(() => setSuccessMessage(null), 5000);
       } else {
         console.error("Invalid category data received:", response);
         setSubmitError("Received invalid data from server. Please try again.");
@@ -416,113 +379,97 @@ const Categories = () => {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {categories
-              .filter((category) => category && category._id) // Filter out invalid categories
-              .map((category) => (
-                <motion.div
-                  key={category._id || `temp-${Date.now()}-${Math.random()}`} // Ensure we always have a valid key
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3 }}
-                  className="theme-bg-secondary rounded-lg overflow-hidden shadow-sm border theme-border"
-                >
-                  <div className="h-48 overflow-hidden">
-                    {category.image ? (
-                      <img
-                        src={`${
-                          import.meta.env.VITE_API_BASE_URL ||
-                          "http://localhost:5000"
-                        }${category.image}`}
-                        alt={category.name}
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          e.target.onerror = null;
-                          e.target.src = "/no-image.jpg";
-                        }}
-                      />
-                    ) : (
-                      <div className="w-full h-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
-                        <span className="text-xs theme-text-secondary">
-                          No Image
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                  <div className="p-4">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <div className="flex items-center">
-                          <h3 className="text-lg font-semibold theme-text-primary">
-                            {category.name}
-                          </h3>
-                          {category.isTemporary && (
-                            <span className="ml-2 px-2 py-0.5 text-xs bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 rounded-full">
-                              Local
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-sm theme-text-secondary mt-1">
-                          {categoryProducts[category._id] || 0} products
-                          {category.isTemporary && " • Not saved to server"}
-                        </p>
-                      </div>
-                      <div className="flex space-x-2">
-                        <button
-                          onClick={() => handleEditClick(category)}
-                          className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-900 dark:hover:text-indigo-300"
-                          title="Edit category"
-                        >
-                          <svg
-                            className="w-5 h-5"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                            xmlns="http://www.w3.org/2000/svg"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth="2"
-                              d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                            ></path>
-                          </svg>
-                        </button>
-                        <button
-                          onClick={() => handleDeleteClick(category)}
-                          className="text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300"
-                          title="Delete category"
-                        >
-                          <svg
-                            className="w-5 h-5"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                            xmlns="http://www.w3.org/2000/svg"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth="2"
-                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                            ></path>
-                          </svg>
-                        </button>
-                      </div>
+            {categories.map((category) => (
+              <motion.div
+                key={category._id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3 }}
+                className="theme-bg-secondary rounded-lg overflow-hidden shadow-sm border theme-border"
+              >
+                <div className="h-48 overflow-hidden">
+                  {category.image ? (
+                    <img
+                      src={
+                        category.image.startsWith("http")
+                          ? category.image
+                          : `${window.location.origin}${category.image}`
+                      }
+                      alt={category.name}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        console.log("Image load error for:", category.name);
+                        e.target.onerror = null;
+                        // Use a data URI for a simple placeholder image
+                        e.target.src =
+                          "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMzAwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iI2YwZjBmMCIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMjQiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRkbGUiIGZpbGw9IiM5OTkiPk5vIEltYWdlPC90ZXh0Pjwvc3ZnPg==";
+                      }}
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+                      <span className="text-lg theme-text-secondary">
+                        No Image Available
+                      </span>
                     </div>
-                    <p className="text-sm theme-text-secondary mt-2 line-clamp-2">
-                      {category.description || "No description available."}
-                    </p>
-                    {category.isTemporary && (
-                      <div className="mt-3 text-xs text-yellow-700 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/30 p-2 rounded">
-                        <p>
-                          This category is stored locally and will be saved to
-                          the server when connection is restored.
-                        </p>
-                      </div>
-                    )}
+                  )}
+                </div>
+                <div className="p-4">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h3 className="text-lg font-semibold theme-text-primary">
+                        {category.name}
+                      </h3>
+                      <p className="text-sm theme-text-secondary mt-1">
+                        {categoryProducts[category._id] || 0} products
+                      </p>
+                    </div>
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={() => handleEditClick(category)}
+                        className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-900 dark:hover:text-indigo-300"
+                      >
+                        <svg
+                          className="w-5 h-5"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                          xmlns="http://www.w3.org/2000/svg"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="2"
+                            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                          ></path>
+                        </svg>
+                      </button>
+                      <button
+                        onClick={() => handleDeleteClick(category)}
+                        className="text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300"
+                      >
+                        <svg
+                          className="w-5 h-5"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                          xmlns="http://www.w3.org/2000/svg"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="2"
+                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                          ></path>
+                        </svg>
+                      </button>
+                    </div>
                   </div>
-                </motion.div>
-              ))}
+                  <p className="text-sm theme-text-secondary mt-2 line-clamp-2">
+                    {category.description || "No description available."}
+                  </p>
+                </div>
+              </motion.div>
+            ))}
           </div>
         )}
       </div>

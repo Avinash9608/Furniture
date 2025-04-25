@@ -229,12 +229,20 @@ const createCategory = async (req, res) => {
       throw new Error("Category was not saved");
     }
 
-    // Return success response
+    // Return success response with consistent structure
     return res.status(201).json({
       success: true,
-      data: savedCategory,
-      method: "direct-mongodb",
       message: "Category created successfully",
+      method: "direct-mongodb",
+      data: {
+        _id: savedCategory._id,
+        name: savedCategory.name,
+        slug: savedCategory.slug,
+        description: savedCategory.description || "",
+        image: savedCategory.image || null,
+        createdAt: savedCategory.createdAt,
+        updatedAt: savedCategory.updatedAt,
+      },
     });
   } catch (error) {
     console.error("Error creating category:", error);
