@@ -1010,20 +1010,40 @@ const contactAPI = {
       // Try regular contact endpoints first since they're more likely to work
       const baseUrl = window.location.origin;
       const deployedUrl = "https://furniture-q3nb.onrender.com";
-      const endpoints = [
-        // Regular contact endpoints first
-        `${baseUrl}/api/contact`,
-        `${deployedUrl}/api/contact`,
-        `${baseUrl}/contact`,
-        `${baseUrl}/api/api/contact`,
-        `${deployedUrl}/contact`,
-        // Admin-specific endpoints as fallback
-        `${baseUrl}/api/admin/messages`,
-        `${deployedUrl}/api/admin/messages`,
-        // Health check endpoint to verify API is working
-        `${baseUrl}/api/health`,
-        `${deployedUrl}/api/health`,
-      ];
+
+      // Check if we're running on Render
+      const isRender = baseUrl.includes("onrender.com");
+
+      // For Render deployment, we need to be more careful with the endpoints
+      const endpoints = isRender
+        ? [
+            // On Render, these are the most likely to work
+            `${baseUrl}/api/contact`,
+            `${baseUrl}/contact`,
+            // Direct database query endpoint
+            `${baseUrl}/api/direct/contacts`,
+            // Admin-specific endpoints
+            `${baseUrl}/api/admin/messages`,
+            `${baseUrl}/admin/messages`,
+            // Health check endpoint
+            `${baseUrl}/api/health`,
+          ]
+        : [
+            // Regular contact endpoints first
+            `${baseUrl}/api/contact`,
+            `${deployedUrl}/api/contact`,
+            `${baseUrl}/contact`,
+            `${deployedUrl}/contact`,
+            // Admin-specific endpoints as fallback
+            `${baseUrl}/api/admin/messages`,
+            `${deployedUrl}/api/admin/messages`,
+            // Direct database query endpoint
+            `${baseUrl}/api/direct/contacts`,
+            `${deployedUrl}/api/direct/contacts`,
+            // Health check endpoint to verify API is working
+            `${baseUrl}/api/health`,
+            `${deployedUrl}/api/health`,
+          ];
 
       // Try each endpoint until one works
       for (const endpoint of endpoints) {

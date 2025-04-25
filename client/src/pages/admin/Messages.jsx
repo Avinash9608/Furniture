@@ -92,7 +92,14 @@ const AdminMessages = () => {
 
           // Check if there's an error message in the response
           if (response.error) {
-            setError(response.error);
+            // Check for specific MongoDB buffering timeout error
+            if (response.error.includes("buffering timed out")) {
+              setError(
+                "Database operation timed out. This is often due to slow network connection to MongoDB. Please try again later."
+              );
+            } else {
+              setError(response.error);
+            }
           } else {
             setError(
               "No messages found in the database. Try submitting a contact form first."
