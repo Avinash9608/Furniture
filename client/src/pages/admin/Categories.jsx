@@ -6,11 +6,13 @@ import {
   getImageUrl,
   DEFAULT_CATEGORY_IMAGE,
 } from "../../utils/api";
+import { safeRender, safeGet, safeMake } from "../../utils/safeRender";
 import AdminLayout from "../../components/admin/AdminLayout";
 import Button from "../../components/Button";
 import Loading from "../../components/Loading";
 import Alert from "../../components/Alert";
 import Modal from "../../components/Modal";
+import ErrorBoundary from "../../components/ErrorBoundary";
 
 const Categories = () => {
   const [categories, setCategories] = useState([]);
@@ -51,6 +53,7 @@ const Categories = () => {
         console.log("Fetching categories...");
         const response = await categoriesAPI.getAll();
 
+        // Validate response structure
         if (!response || !response.data) {
           console.error("Invalid response from server:", response);
           throw new Error("Invalid response from server");
@@ -58,115 +61,102 @@ const Categories = () => {
 
         console.log("Raw categories response:", response);
 
-        // Ensure we have a valid array of categories
+        // Extract categories data with safe fallbacks
         let categoriesData = [];
 
-        // Handle different response structures
         if (
-          response.data &&
-          response.data.data &&
+          safeGet(response, "data.data") &&
           Array.isArray(response.data.data)
         ) {
           categoriesData = response.data.data;
-        } else if (response.data && Array.isArray(response.data)) {
+        } else if (Array.isArray(response.data)) {
           categoriesData = response.data;
-        } else if (response.data && response.data.data) {
-          // If data.data is not an array but exists, convert to array
+        } else if (safeGet(response, "data.data")) {
           categoriesData = [response.data.data];
         } else if (response.data) {
-          // If data exists but not in expected format, try to use it
           categoriesData = [response.data];
         }
 
-        console.log("Extracted categories data:", categoriesData);
-
-        // Filter out any invalid categories (missing _id or invalid _id type)
-        const validCategories = categoriesData.filter(
-          (cat) =>
-            cat &&
-            cat._id &&
-            (typeof cat._id === "string" || typeof cat._id === "object")
-        );
-
-        if (validCategories.length < categoriesData.length) {
-          console.warn(
-            `Filtered out ${
-              categoriesData.length - validCategories.length
-            } invalid categories`
-          );
-          console.warn(
-            "Invalid categories:",
-            categoriesData.filter(
-              (cat) =>
-                !cat ||
-                !cat._id ||
-                (typeof cat._id !== "string" && typeof cat._id !== "object")
-            )
-          );
-          categoriesData = validCategories;
-        }
-
-        // Process image URLs to ensure they work in all environments
+        // Ensure each category has required fields and proper types
         const processedCategories = categoriesData
+          .filter((cat) => cat && typeof cat === "object")
           .map((category) => {
-            if (!category) return null;
-
-            // Create a new object to avoid modifying the original
-            return {
-              ...category,
-              // Ensure _id is always present and valid
-              _id: category._id ? category._id.toString() : null,
-              // Use our helper function to get the correct image URL
-              image: category.image
-                ? getImageUrl(category.image)
-                : DEFAULT_CATEGORY_IMAGE,
-            };
+            // Create a normalized category object with defaults for missing fields
+            return safeMake(category, {
+              _id: `temp_${Date.now()}_${Math.floor(Math.random() * 10000)}`,
+              name: "Unnamed Category",
+              description: "",
+              slug: "",
+              image: DEFAULT_CATEGORY_IMAGE,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            });
           })
-          .filter((cat) => cat !== null && cat._id !== null);
+          .map((category) => ({
+            ...category,
+            // Ensure _id is always a string
+            _id: category._id ? category._id.toString() : category._id,
+            // Process image URL
+            image: category.image
+              ? getImageUrl(category.image)
+              : DEFAULT_CATEGORY_IMAGE,
+          }))
+          // Final validation to ensure _id exists
+          .filter((cat) => cat && cat._id);
 
         console.log("Processed categories data:", processedCategories);
+
+        // Update state with validated data
         setCategories(processedCategories);
 
-        // Fetch product counts for each category
-        const productCounts = {};
+        // Fetch product counts for each category using Promise.all for better performance
+        try {
+          console.log("Fetching product counts for all categories");
 
-        // Use the processed categories to ensure we only fetch for valid categories
-        for (const category of processedCategories) {
-          // Skip if category doesn't have a valid _id
-          if (!category || !category._id) {
-            console.warn("Invalid category object:", category);
-            continue;
-          }
+          // Create an array of promises for fetching product counts
+          const countPromises = processedCategories.map(async (category) => {
+            if (!category || !category._id) return null;
 
-          try {
-            console.log(
-              `Fetching product count for category: ${category.name} (${category._id})`
-            );
-            const productsResponse = await productsAPI.getAll({
-              category: category._id,
-              limit: 1,
-            });
+            try {
+              const productsResponse = await productsAPI.getAll({
+                category: category._id,
+                limit: 1,
+              });
 
-            if (productsResponse && productsResponse.data) {
-              productCounts[category._id] = productsResponse.data.count || 0;
-            } else {
-              console.warn(
-                `Invalid response for category ${category._id}:`,
-                productsResponse
+              return {
+                categoryId: category._id,
+                count: safeGet(productsResponse, "data.count", 0),
+              };
+            } catch (error) {
+              console.error(
+                `Error fetching products for category ${category._id}:`,
+                error
               );
-              productCounts[category._id] = 0;
+              return {
+                categoryId: category._id,
+                count: 0,
+              };
             }
-          } catch (error) {
-            console.error(
-              `Error fetching products for category ${category._id}:`,
-              error
-            );
-            productCounts[category._id] = 0;
-          }
-        }
+          });
 
-        console.log("Category product counts:", productCounts);
-        setCategoryProducts(productCounts);
+          // Wait for all promises to resolve
+          const results = await Promise.all(countPromises);
+
+          // Convert results to an object
+          const productCounts = results.reduce((counts, result) => {
+            if (result && result.categoryId) {
+              counts[result.categoryId] = result.count;
+            }
+            return counts;
+          }, {});
+
+          console.log("Category product counts:", productCounts);
+          setCategoryProducts(productCounts);
+        } catch (error) {
+          console.error("Error fetching product counts:", error);
+          // Set empty product counts as fallback
+          setCategoryProducts({});
+        }
       } catch (error) {
         console.error("Error fetching categories:", error);
         setError("Failed to load categories. Please try again later.");
@@ -460,95 +450,110 @@ const Categories = () => {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {categories
-              .filter((category) => category && category._id)
-              .map((category) => (
-                <motion.div
-                  key={category._id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3 }}
-                  className="theme-bg-secondary rounded-lg overflow-hidden shadow-sm border theme-border"
-                >
-                  <div className="h-48 overflow-hidden">
-                    {category.image ? (
-                      <img
-                        src={getImageUrl(category.image)}
-                        alt={category.name}
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          console.log("Image load error for:", category.name);
-                          e.target.onerror = null;
-                          e.target.src = DEFAULT_CATEGORY_IMAGE;
-                          e.target.className =
-                            "w-full h-full object-contain p-4";
-                        }}
-                      />
-                    ) : (
-                      <div className="w-full h-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
-                        <span className="text-lg theme-text-secondary">
-                          No Image Available
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                  <div className="p-4">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h3 className="text-lg font-semibold theme-text-primary">
-                          {category.name}
-                        </h3>
-                        <p className="text-sm theme-text-secondary mt-1">
-                          {categoryProducts[category._id] || 0} products
-                        </p>
-                      </div>
-                      <div className="flex space-x-2">
-                        <button
-                          onClick={() => handleEditClick(category)}
-                          className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-900 dark:hover:text-indigo-300"
-                        >
-                          <svg
-                            className="w-5 h-5"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                            xmlns="http://www.w3.org/2000/svg"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth="2"
-                              d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                            ></path>
-                          </svg>
-                        </button>
-                        <button
-                          onClick={() => handleDeleteClick(category)}
-                          className="text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300"
-                        >
-                          <svg
-                            className="w-5 h-5"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                            xmlns="http://www.w3.org/2000/svg"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth="2"
-                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                            ></path>
-                          </svg>
-                        </button>
-                      </div>
+            <ErrorBoundary
+              fallback={
+                <Alert type="error" message="Error rendering categories" />
+              }
+            >
+              {safeRender(
+                categories,
+                (category) => (
+                  <motion.div
+                    key={category._id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3 }}
+                    className="theme-bg-secondary rounded-lg overflow-hidden shadow-sm border theme-border"
+                  >
+                    <div className="h-48 overflow-hidden">
+                      {category.image ? (
+                        <img
+                          src={getImageUrl(category.image)}
+                          alt={safeGet(category, "name", "Category")}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            console.log("Image load error for:", category.name);
+                            e.target.onerror = null;
+                            e.target.src = DEFAULT_CATEGORY_IMAGE;
+                            e.target.className =
+                              "w-full h-full object-contain p-4";
+                          }}
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+                          <span className="text-lg theme-text-secondary">
+                            No Image Available
+                          </span>
+                        </div>
+                      )}
                     </div>
-                    <p className="text-sm theme-text-secondary mt-2 line-clamp-2">
-                      {category.description || "No description available."}
-                    </p>
-                  </div>
-                </motion.div>
-              ))}
+                    <div className="p-4">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h3 className="text-lg font-semibold theme-text-primary">
+                            {safeGet(category, "name", "Unnamed Category")}
+                          </h3>
+                          <p className="text-sm theme-text-secondary mt-1">
+                            {safeGet(categoryProducts, category._id, 0)}{" "}
+                            products
+                          </p>
+                        </div>
+                        <div className="flex space-x-2">
+                          <button
+                            onClick={() => handleEditClick(category)}
+                            className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-900 dark:hover:text-indigo-300"
+                          >
+                            <svg
+                              className="w-5 h-5"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                              xmlns="http://www.w3.org/2000/svg"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth="2"
+                                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                              ></path>
+                            </svg>
+                          </button>
+                          <button
+                            onClick={() => handleDeleteClick(category)}
+                            className="text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300"
+                          >
+                            <svg
+                              className="w-5 h-5"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                              xmlns="http://www.w3.org/2000/svg"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth="2"
+                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                              ></path>
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                      <p className="text-sm theme-text-secondary mt-2 line-clamp-2">
+                        {safeGet(
+                          category,
+                          "description",
+                          "No description available."
+                        )}
+                      </p>
+                    </div>
+                  </motion.div>
+                ),
+                <div className="col-span-3 text-center py-8 theme-text-secondary">
+                  No valid categories found.
+                </div>
+              )}
+            </ErrorBoundary>
           </div>
         )}
       </div>
@@ -793,15 +798,19 @@ const Categories = () => {
           <p className="theme-text-primary mb-4">
             Are you sure you want to delete{" "}
             <span className="font-semibold">
-              {categoryToDelete?.name || "this category"}
+              {safeGet(categoryToDelete, "name", "this category")}
             </span>
             ?
-            {categoryToDelete &&
-              categoryToDelete._id &&
-              categoryProducts &&
-              categoryProducts[categoryToDelete._id] > 0 && (
+            {safeGet(categoryToDelete, "_id") &&
+              safeGet(categoryProducts, safeGet(categoryToDelete, "_id"), 0) >
+                0 && (
                 <span className="text-red-600 dark:text-red-400 block mt-2">
-                  This category has {categoryProducts[categoryToDelete._id]}{" "}
+                  This category has{" "}
+                  {safeGet(
+                    categoryProducts,
+                    safeGet(categoryToDelete, "_id"),
+                    0
+                  )}{" "}
                   products. You must reassign or delete these products first.
                 </span>
               )}
@@ -824,11 +833,9 @@ const Categories = () => {
               className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
               disabled={
                 isDeleting ||
-                !categoryToDelete ||
-                !categoryToDelete._id ||
-                (categoryProducts &&
-                  categoryToDelete._id &&
-                  categoryProducts[categoryToDelete._id] > 0)
+                !safeGet(categoryToDelete, "_id") ||
+                safeGet(categoryProducts, safeGet(categoryToDelete, "_id"), 0) >
+                  0
               }
             >
               {isDeleting ? "Deleting..." : "Delete"}

@@ -580,13 +580,32 @@ const categoriesAPI = {
               categoriesData = [response.data];
             }
 
-            console.log("Processed categories data:", categoriesData);
+            // Validate and normalize each category object
+            const validatedCategories = categoriesData
+              .filter((cat) => cat && typeof cat === "object")
+              .map((cat) => ({
+                _id: cat._id
+                  ? cat._id.toString()
+                  : `temp_${Date.now()}_${Math.floor(Math.random() * 10000)}`,
+                name: cat.name || "Unnamed Category",
+                description: cat.description || "",
+                slug:
+                  cat.slug ||
+                  (cat.name
+                    ? cat.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")
+                    : ""),
+                image: cat.image || DEFAULT_CATEGORY_IMAGE,
+                createdAt: cat.createdAt || new Date().toISOString(),
+                updatedAt: cat.updatedAt || new Date().toISOString(),
+              }));
+
+            console.log("Validated categories data:", validatedCategories);
 
             return {
               data: {
                 success: true,
-                count: categoriesData.length,
-                data: categoriesData,
+                count: validatedCategories.length,
+                data: validatedCategories,
               },
             };
           }
