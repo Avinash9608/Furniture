@@ -17,7 +17,8 @@
     "build:client": "cd client && npm run build",
     "render-build": "npm install --include=dev && cd client && npm install && npm run build",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "fix-slugs": "node server/scripts/fixSlugs.js"
+    "fix-slugs": "node server/scripts/fixSlugs.js",
+    "fix-category-slugs": "node server/scripts/fixCategorySlugs.js"
   },
   "keywords": [
     "furniture",

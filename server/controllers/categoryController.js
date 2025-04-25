@@ -1,11 +1,43 @@
 /**
  * Category Controller
- * 
+ *
  * Handles all category-related operations with robust error handling
  * and guaranteed persistence.
  */
 
-const { MongoClient, ObjectId } = require('mongodb');
+const { MongoClient, ObjectId } = require("mongodb");
+
+// Try to require slugify, but provide a fallback if it's not available
+let slugify;
+try {
+  slugify = require("slugify");
+} catch (error) {
+  console.warn(
+    "Slugify package not found in category controller, using fallback implementation"
+  );
+  // Simple fallback implementation of slugify
+  slugify = (text, options = {}) => {
+    if (!text) return "";
+
+    // Convert to lowercase if specified in options
+    let result = options.lower ? text.toLowerCase() : text;
+
+    // Replace spaces with hyphens
+    result = result.replace(/\s+/g, "-");
+
+    // Remove special characters if strict mode is enabled
+    if (options.strict) {
+      result = result.replace(/[^a-zA-Z0-9-]/g, "");
+    }
+
+    // Remove specific characters if provided in options
+    if (options.remove && options.remove instanceof RegExp) {
+      result = result.replace(options.remove, "");
+    }
+
+    return result;
+  };
+}
 
 // Get the MongoDB URI from environment variables
 const getMongoURI = () => process.env.MONGO_URI;
@@ -14,41 +46,64 @@ const getMongoURI = () => process.env.MONGO_URI;
  * Create a new category with guaranteed persistence
  */
 const createCategory = async (req, res) => {
-  console.log('Creating category with data:', req.body);
-  
+  console.log("Creating category with data:", req.body);
+
   // Set proper headers to ensure JSON response
-  res.setHeader('Content-Type', 'application/json');
-  
+  res.setHeader("Content-Type", "application/json");
+
   try {
     // Validate required fields
     if (!req.body.name) {
       return res.status(200).json({
         success: false,
-        message: 'Please provide a category name',
+        message: "Please provide a category name",
       });
     }
-    
+
+    // Generate a slug from the category name
+    let categoryName = req.body.name ? req.body.name.trim() : "";
+    let slug = "";
+
+    if (categoryName) {
+      // Generate base slug from name using slugify
+      slug = slugify(categoryName, {
+        lower: true,
+        strict: true, // removes special characters
+        remove: /[*+~.()'"!:@]/g,
+      });
+
+      // If slug is empty after processing, use a fallback
+      if (!slug || slug.trim() === "") {
+        slug = `category-${Date.now()}`;
+      }
+    } else {
+      // If no name provided, generate a random slug
+      slug = `category-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+    }
+
+    console.log(`Generated slug: ${slug} for category: ${categoryName}`);
+
     // Create the category data
     const categoryData = {
-      name: req.body.name,
-      description: req.body.description || '',
-      slug: req.body.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+      name: categoryName,
+      description: req.body.description || "",
+      slug: slug,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
-    
-    console.log('Category data to be saved:', categoryData);
-    
+
+    console.log("Category data to be saved:", categoryData);
+
     // Create a new direct MongoDB connection specifically for this operation
     let client = null;
     let savedCategory = null;
-    
+
     try {
-      console.log('Attempting to save category using direct MongoDB driver');
-      
+      console.log("Attempting to save category using direct MongoDB driver");
+
       // Get the MongoDB URI
       const uri = getMongoURI();
-      
+
       // Direct connection options
       const options = {
         useNewUrlParser: true,
@@ -56,82 +111,121 @@ const createCategory = async (req, res) => {
         connectTimeoutMS: 30000,
         socketTimeoutMS: 45000,
         serverSelectionTimeoutMS: 30000,
-        maxPoolSize: 5
+        maxPoolSize: 5,
       };
-      
+
       // Create a new MongoClient
       client = new MongoClient(uri, options);
       await client.connect();
-      
+
       // Get database name from connection string
-      const dbName = uri.split('/').pop().split('?')[0];
+      const dbName = uri.split("/").pop().split("?")[0];
       const db = client.db(dbName);
-      
+
       console.log(`MongoDB connection established to database: ${dbName}`);
-      
+
       // Check if category with same name already exists
-      const categoriesCollection = db.collection('categories');
-      const existingCategory = await categoriesCollection.findOne({ 
-        name: { $regex: new RegExp(`^${categoryData.name}$`, 'i') } 
+      const categoriesCollection = db.collection("categories");
+      const existingCategory = await categoriesCollection.findOne({
+        name: { $regex: new RegExp(`^${categoryData.name}$`, "i") },
       });
-      
+
       if (existingCategory) {
         return res.status(200).json({
           success: false,
-          message: 'Category with this name already exists',
-          data: existingCategory
+          message: "Category with this name already exists",
+          data: existingCategory,
         });
       }
-      
+
       // Insert the category into the categories collection
-      console.log('Inserting category into database');
+      console.log("Inserting category into database");
       const result = await categoriesCollection.insertOne(categoryData);
-      
+
       if (result.acknowledged) {
-        console.log('Category created successfully:', result);
-        
+        console.log("Category created successfully:", result);
+
         // Verify the category was saved by fetching it back
-        savedCategory = await categoriesCollection.findOne({ _id: result.insertedId });
-        
+        savedCategory = await categoriesCollection.findOne({
+          _id: result.insertedId,
+        });
+
         if (!savedCategory) {
-          throw new Error('Category verification failed');
+          throw new Error("Category verification failed");
         }
-        
-        console.log('Category verified in database:', savedCategory._id);
+
+        console.log("Category verified in database:", savedCategory._id);
       } else {
-        throw new Error('Insert operation not acknowledged');
+        throw new Error("Insert operation not acknowledged");
       }
     } catch (error) {
-      console.error('Error saving category:', error);
+      console.error("Error saving category:", error);
       throw error;
     } finally {
       // Close the MongoDB client
       if (client) {
         await client.close();
-        console.log('MongoDB connection closed');
+        console.log("MongoDB connection closed");
       }
     }
-    
+
     // Verify that the category was saved
     if (!savedCategory) {
-      throw new Error('Category was not saved');
+      throw new Error("Category was not saved");
     }
-    
+
     // Return success response
     return res.status(201).json({
       success: true,
       data: savedCategory,
-      method: 'direct-mongodb',
-      message: 'Category created successfully'
+      method: "direct-mongodb",
+      message: "Category created successfully",
     });
   } catch (error) {
-    console.error('Error creating category:', error);
-    
-    // Return error response
+    console.error("Error creating category:", error);
+
+    // Handle duplicate key errors specifically
+    if (error.code === 11000) {
+      console.log("Duplicate key error:", error.keyValue);
+
+      // Check if it's a duplicate slug
+      if (error.keyValue && error.keyValue.slug) {
+        return res.status(200).json({
+          success: false,
+          message:
+            "A category with a similar name already exists. Please try a different name.",
+          error: "Duplicate slug error",
+          code: "DUPLICATE_SLUG",
+        });
+      }
+
+      // Check if it's a duplicate name
+      if (error.keyValue && error.keyValue.name) {
+        return res.status(200).json({
+          success: false,
+          message:
+            "A category with this exact name already exists. Please use a different name.",
+          error: "Duplicate name error",
+          code: "DUPLICATE_NAME",
+        });
+      }
+
+      // Generic duplicate key error
+      return res.status(200).json({
+        success: false,
+        message:
+          "This category conflicts with an existing one. Please check your input.",
+        error: "Duplicate key error",
+        code: "DUPLICATE_KEY",
+        duplicateField: Object.keys(error.keyValue)[0],
+      });
+    }
+
+    // Return error response for other errors
     return res.status(200).json({
       success: false,
-      message: error.message || 'Error creating category',
-      error: error.stack
+      message: error.message || "Error creating category",
+      error: error.stack,
     });
   }
 };
@@ -140,22 +234,22 @@ const createCategory = async (req, res) => {
  * Get all categories with guaranteed retrieval
  */
 const getAllCategories = async (req, res) => {
-  console.log('Fetching all categories');
-  
+  console.log("Fetching all categories");
+
   // Set proper headers to ensure JSON response
-  res.setHeader('Content-Type', 'application/json');
-  
+  res.setHeader("Content-Type", "application/json");
+
   try {
     // Create a new direct MongoDB connection specifically for this operation
     let client = null;
     let categories = [];
-    
+
     try {
-      console.log('Attempting to fetch categories using direct MongoDB driver');
-      
+      console.log("Attempting to fetch categories using direct MongoDB driver");
+
       // Get the MongoDB URI
       const uri = getMongoURI();
-      
+
       // Direct connection options
       const options = {
         useNewUrlParser: true,
@@ -163,71 +257,74 @@ const getAllCategories = async (req, res) => {
         connectTimeoutMS: 30000,
         socketTimeoutMS: 45000,
         serverSelectionTimeoutMS: 30000,
-        maxPoolSize: 5
+        maxPoolSize: 5,
       };
-      
+
       // Create a new MongoClient
       client = new MongoClient(uri, options);
       await client.connect();
-      
+
       // Get database name from connection string
-      const dbName = uri.split('/').pop().split('?')[0];
+      const dbName = uri.split("/").pop().split("?")[0];
       const db = client.db(dbName);
-      
+
       console.log(`MongoDB connection established to database: ${dbName}`);
-      
+
       // Fetch categories from the categories collection
-      console.log('Fetching categories from database');
-      const categoriesCollection = db.collection('categories');
-      categories = await categoriesCollection.find({}).sort({ name: 1 }).toArray();
-      
+      console.log("Fetching categories from database");
+      const categoriesCollection = db.collection("categories");
+      categories = await categoriesCollection
+        .find({})
+        .sort({ name: 1 })
+        .toArray();
+
       console.log(`Fetched ${categories.length} categories from database`);
-      
+
       // Count products in each category
       try {
-        const productsCollection = db.collection('products');
-        
+        const productsCollection = db.collection("products");
+
         for (let i = 0; i < categories.length; i++) {
           const category = categories[i];
-          const productCount = await productsCollection.countDocuments({ 
-            category: category._id.toString() 
+          const productCount = await productsCollection.countDocuments({
+            category: category._id.toString(),
           });
-          
+
           categories[i] = {
             ...category,
-            productCount
+            productCount,
           };
         }
       } catch (countError) {
-        console.error('Error counting products in categories:', countError);
+        console.error("Error counting products in categories:", countError);
       }
     } catch (error) {
-      console.error('Error fetching categories:', error);
+      console.error("Error fetching categories:", error);
       throw error;
     } finally {
       // Close the MongoDB client
       if (client) {
         await client.close();
-        console.log('MongoDB connection closed');
+        console.log("MongoDB connection closed");
       }
     }
-    
+
     // Return success response
     return res.status(200).json({
       success: true,
       count: categories.length,
       data: categories,
-      method: 'direct-mongodb'
+      method: "direct-mongodb",
     });
   } catch (error) {
-    console.error('Error fetching categories:', error);
-    
+    console.error("Error fetching categories:", error);
+
     // Return error response
     return res.status(200).json({
       success: false,
-      message: error.message || 'Error fetching categories',
+      message: error.message || "Error fetching categories",
       error: error.stack,
-      data: []
+      data: [],
     });
   }
 };
@@ -238,21 +335,21 @@ const getAllCategories = async (req, res) => {
 const getCategoryById = async (req, res) => {
   const { id } = req.params;
   console.log(`Fetching category with ID: ${id}`);
-  
+
   // Set proper headers to ensure JSON response
-  res.setHeader('Content-Type', 'application/json');
-  
+  res.setHeader("Content-Type", "application/json");
+
   try {
     // Create a new direct MongoDB connection specifically for this operation
     let client = null;
     let category = null;
-    
+
     try {
-      console.log('Attempting to fetch category using direct MongoDB driver');
-      
+      console.log("Attempting to fetch category using direct MongoDB driver");
+
       // Get the MongoDB URI
       const uri = getMongoURI();
-      
+
       // Direct connection options
       const options = {
         useNewUrlParser: true,
@@ -260,75 +357,77 @@ const getCategoryById = async (req, res) => {
         connectTimeoutMS: 30000,
         socketTimeoutMS: 45000,
         serverSelectionTimeoutMS: 30000,
-        maxPoolSize: 5
+        maxPoolSize: 5,
       };
-      
+
       // Create a new MongoClient
       client = new MongoClient(uri, options);
       await client.connect();
-      
+
       // Get database name from connection string
-      const dbName = uri.split('/').pop().split('?')[0];
+      const dbName = uri.split("/").pop().split("?")[0];
       const db = client.db(dbName);
-      
+
       console.log(`MongoDB connection established to database: ${dbName}`);
-      
+
       // Fetch category from the categories collection
-      console.log('Fetching category from database');
-      const categoriesCollection = db.collection('categories');
-      
+      console.log("Fetching category from database");
+      const categoriesCollection = db.collection("categories");
+
       try {
-        category = await categoriesCollection.findOne({ _id: new ObjectId(id) });
+        category = await categoriesCollection.findOne({
+          _id: new ObjectId(id),
+        });
       } catch (idError) {
-        console.error('Error with ObjectId:', idError);
+        console.error("Error with ObjectId:", idError);
         category = await categoriesCollection.findOne({ _id: id });
       }
-      
+
       if (!category) {
         return res.status(404).json({
           success: false,
-          message: 'Category not found'
+          message: "Category not found",
         });
       }
-      
-      console.log('Fetched category from database:', category._id);
-      
+
+      console.log("Fetched category from database:", category._id);
+
       // Count products in this category
       try {
-        const productsCollection = db.collection('products');
-        const productCount = await productsCollection.countDocuments({ 
-          category: category._id.toString() 
+        const productsCollection = db.collection("products");
+        const productCount = await productsCollection.countDocuments({
+          category: category._id.toString(),
         });
-        
+
         category.productCount = productCount;
       } catch (countError) {
-        console.error('Error counting products in category:', countError);
+        console.error("Error counting products in category:", countError);
       }
     } catch (error) {
-      console.error('Error fetching category:', error);
+      console.error("Error fetching category:", error);
       throw error;
     } finally {
       // Close the MongoDB client
       if (client) {
         await client.close();
-        console.log('MongoDB connection closed');
+        console.log("MongoDB connection closed");
       }
     }
-    
+
     // Return success response
     return res.status(200).json({
       success: true,
       data: category,
-      method: 'direct-mongodb'
+      method: "direct-mongodb",
     });
   } catch (error) {
-    console.error('Error fetching category:', error);
-    
+    console.error("Error fetching category:", error);
+
     // Return error response
     return res.status(200).json({
       success: false,
-      message: error.message || 'Error fetching category',
-      error: error.stack
+      message: error.message || "Error fetching category",
+      error: error.stack,
     });
   }
 };
@@ -339,30 +438,30 @@ const getCategoryById = async (req, res) => {
 const updateCategory = async (req, res) => {
   const { id } = req.params;
   console.log(`Updating category with ID: ${id}`);
-  console.log('Update data:', req.body);
-  
+  console.log("Update data:", req.body);
+
   // Set proper headers to ensure JSON response
-  res.setHeader('Content-Type', 'application/json');
-  
+  res.setHeader("Content-Type", "application/json");
+
   try {
     // Validate required fields
     if (!req.body.name) {
       return res.status(200).json({
         success: false,
-        message: 'Please provide a category name',
+        message: "Please provide a category name",
       });
     }
-    
+
     // Create a new direct MongoDB connection specifically for this operation
     let client = null;
     let updatedCategory = null;
-    
+
     try {
-      console.log('Attempting to update category using direct MongoDB driver');
-      
+      console.log("Attempting to update category using direct MongoDB driver");
+
       // Get the MongoDB URI
       const uri = getMongoURI();
-      
+
       // Direct connection options
       const options = {
         useNewUrlParser: true,
@@ -370,116 +469,212 @@ const updateCategory = async (req, res) => {
         connectTimeoutMS: 30000,
         socketTimeoutMS: 45000,
         serverSelectionTimeoutMS: 30000,
-        maxPoolSize: 5
+        maxPoolSize: 5,
       };
-      
+
       // Create a new MongoClient
       client = new MongoClient(uri, options);
       await client.connect();
-      
+
       // Get database name from connection string
-      const dbName = uri.split('/').pop().split('?')[0];
+      const dbName = uri.split("/").pop().split("?")[0];
       const db = client.db(dbName);
-      
+
       console.log(`MongoDB connection established to database: ${dbName}`);
-      
+
       // Fetch the existing category
-      const categoriesCollection = db.collection('categories');
-      
+      const categoriesCollection = db.collection("categories");
+
       let existingCategory;
       try {
-        existingCategory = await categoriesCollection.findOne({ _id: new ObjectId(id) });
+        existingCategory = await categoriesCollection.findOne({
+          _id: new ObjectId(id),
+        });
       } catch (idError) {
         existingCategory = await categoriesCollection.findOne({ _id: id });
       }
-      
+
       if (!existingCategory) {
         return res.status(404).json({
           success: false,
-          message: 'Category not found'
+          message: "Category not found",
         });
       }
-      
+
       // Check if another category with the same name already exists
       if (req.body.name !== existingCategory.name) {
-        const duplicateCategory = await categoriesCollection.findOne({ 
-          name: { $regex: new RegExp(`^${req.body.name}$`, 'i') },
-          _id: { $ne: existingCategory._id }
+        const duplicateCategory = await categoriesCollection.findOne({
+          name: { $regex: new RegExp(`^${req.body.name}$`, "i") },
+          _id: { $ne: existingCategory._id },
         });
-        
+
         if (duplicateCategory) {
           return res.status(200).json({
             success: false,
-            message: 'Another category with this name already exists',
-            data: duplicateCategory
+            message: "Another category with this name already exists",
+            data: duplicateCategory,
           });
         }
       }
-      
+
+      // Generate a new slug if the name is being updated
+      let newName = req.body.name.trim();
+      let newSlug = "";
+
+      // Generate base slug from name using slugify
+      newSlug = slugify(newName, {
+        lower: true,
+        strict: true, // removes special characters
+        remove: /[*+~.()'"!:@]/g,
+      });
+
+      // If slug is empty after processing, use a fallback
+      if (!newSlug || newSlug.trim() === "") {
+        newSlug = `category-${Date.now()}`;
+      }
+
+      // Check if the new slug is different from the existing one
+      if (newSlug !== existingCategory.slug) {
+        console.log(
+          `Updating slug from ${existingCategory.slug} to ${newSlug}`
+        );
+
+        // Check if the new slug already exists
+        let slugCounter = 1;
+        let finalSlug = newSlug;
+        let slugExists = true;
+
+        while (slugExists) {
+          try {
+            // Check if another category has this slug
+            const categoryWithSlug = await categoriesCollection.findOne({
+              slug: finalSlug,
+              _id: { $ne: existingCategory._id },
+            });
+
+            if (!categoryWithSlug) {
+              // Slug is unique
+              slugExists = false;
+            } else {
+              // Slug exists, try with counter
+              finalSlug = `${newSlug}-${slugCounter}`;
+              slugCounter++;
+            }
+          } catch (err) {
+            console.error("Error checking slug uniqueness:", err);
+            // In case of error, use timestamp to ensure uniqueness
+            finalSlug = `${newSlug}-${Date.now()}`;
+            slugExists = false;
+          }
+        }
+
+        newSlug = finalSlug;
+      }
+
       // Create the update data
       const updateData = {
         $set: {
-          name: req.body.name,
-          description: req.body.description || existingCategory.description || '',
-          slug: req.body.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-          updatedAt: new Date()
-        }
+          name: newName,
+          description:
+            req.body.description || existingCategory.description || "",
+          slug: newSlug,
+          updatedAt: new Date(),
+        },
       };
-      
-      console.log('Update data:', updateData);
-      
+
+      console.log("Update data:", updateData);
+
       // Update the category
       const result = await categoriesCollection.updateOne(
         { _id: existingCategory._id },
         updateData
       );
-      
+
       if (result.modifiedCount === 1) {
-        console.log('Category updated successfully');
-        
+        console.log("Category updated successfully");
+
         // Fetch the updated category
-        updatedCategory = await categoriesCollection.findOne({ _id: existingCategory._id });
-        
+        updatedCategory = await categoriesCollection.findOne({
+          _id: existingCategory._id,
+        });
+
         // Count products in this category
         try {
-          const productsCollection = db.collection('products');
-          const productCount = await productsCollection.countDocuments({ 
-            category: updatedCategory._id.toString() 
+          const productsCollection = db.collection("products");
+          const productCount = await productsCollection.countDocuments({
+            category: updatedCategory._id.toString(),
           });
-          
+
           updatedCategory.productCount = productCount;
         } catch (countError) {
-          console.error('Error counting products in category:', countError);
+          console.error("Error counting products in category:", countError);
         }
       } else {
-        throw new Error('Category update failed');
+        throw new Error("Category update failed");
       }
     } catch (error) {
-      console.error('Error updating category:', error);
+      console.error("Error updating category:", error);
       throw error;
     } finally {
       // Close the MongoDB client
       if (client) {
         await client.close();
-        console.log('MongoDB connection closed');
+        console.log("MongoDB connection closed");
       }
     }
-    
+
     // Return success response
     return res.status(200).json({
       success: true,
       data: updatedCategory,
-      method: 'direct-mongodb',
-      message: 'Category updated successfully'
+      method: "direct-mongodb",
+      message: "Category updated successfully",
     });
   } catch (error) {
-    console.error('Error updating category:', error);
-    
-    // Return error response
+    console.error("Error updating category:", error);
+
+    // Handle duplicate key errors specifically
+    if (error.code === 11000) {
+      console.log("Duplicate key error during update:", error.keyValue);
+
+      // Check if it's a duplicate slug
+      if (error.keyValue && error.keyValue.slug) {
+        return res.status(200).json({
+          success: false,
+          message:
+            "A category with a similar name already exists. Please try a different name.",
+          error: "Duplicate slug error",
+          code: "DUPLICATE_SLUG",
+        });
+      }
+
+      // Check if it's a duplicate name
+      if (error.keyValue && error.keyValue.name) {
+        return res.status(200).json({
+          success: false,
+          message:
+            "A category with this exact name already exists. Please use a different name.",
+          error: "Duplicate name error",
+          code: "DUPLICATE_NAME",
+        });
+      }
+
+      // Generic duplicate key error
+      return res.status(200).json({
+        success: false,
+        message:
+          "This update conflicts with an existing category. Please check your input.",
+        error: "Duplicate key error",
+        code: "DUPLICATE_KEY",
+        duplicateField: Object.keys(error.keyValue)[0],
+      });
+    }
+
+    // Return error response for other errors
     return res.status(200).json({
       success: false,
-      message: error.message || 'Error updating category',
-      error: error.stack
+      message: error.message || "Error updating category",
+      error: error.stack,
     });
   }
 };
@@ -490,20 +685,20 @@ const updateCategory = async (req, res) => {
 const deleteCategory = async (req, res) => {
   const { id } = req.params;
   console.log(`Deleting category with ID: ${id}`);
-  
+
   // Set proper headers to ensure JSON response
-  res.setHeader('Content-Type', 'application/json');
-  
+  res.setHeader("Content-Type", "application/json");
+
   try {
     // Create a new direct MongoDB connection specifically for this operation
     let client = null;
-    
+
     try {
-      console.log('Attempting to delete category using direct MongoDB driver');
-      
+      console.log("Attempting to delete category using direct MongoDB driver");
+
       // Get the MongoDB URI
       const uri = getMongoURI();
-      
+
       // Direct connection options
       const options = {
         useNewUrlParser: true,
@@ -511,83 +706,87 @@ const deleteCategory = async (req, res) => {
         connectTimeoutMS: 30000,
         socketTimeoutMS: 45000,
         serverSelectionTimeoutMS: 30000,
-        maxPoolSize: 5
+        maxPoolSize: 5,
       };
-      
+
       // Create a new MongoClient
       client = new MongoClient(uri, options);
       await client.connect();
-      
+
       // Get database name from connection string
-      const dbName = uri.split('/').pop().split('?')[0];
+      const dbName = uri.split("/").pop().split("?")[0];
       const db = client.db(dbName);
-      
+
       console.log(`MongoDB connection established to database: ${dbName}`);
-      
+
       // Fetch the existing category
-      const categoriesCollection = db.collection('categories');
-      
+      const categoriesCollection = db.collection("categories");
+
       let existingCategory;
       try {
-        existingCategory = await categoriesCollection.findOne({ _id: new ObjectId(id) });
+        existingCategory = await categoriesCollection.findOne({
+          _id: new ObjectId(id),
+        });
       } catch (idError) {
         existingCategory = await categoriesCollection.findOne({ _id: id });
       }
-      
+
       if (!existingCategory) {
         return res.status(404).json({
           success: false,
-          message: 'Category not found'
+          message: "Category not found",
         });
       }
-      
+
       // Check if there are products using this category
-      const productsCollection = db.collection('products');
-      const productCount = await productsCollection.countDocuments({ 
-        category: existingCategory._id.toString() 
+      const productsCollection = db.collection("products");
+      const productCount = await productsCollection.countDocuments({
+        category: existingCategory._id.toString(),
       });
-      
+
       if (productCount > 0) {
         return res.status(200).json({
           success: false,
           message: `Cannot delete category because it is used by ${productCount} products`,
-          data: { productCount }
+          data: { productCount },
         });
       }
-      
+
       // Delete the category
-      const result = await categoriesCollection.deleteOne({ _id: existingCategory._id });
-      
+      const result = await categoriesCollection.deleteOne({
+        _id: existingCategory._id,
+      });
+
       if (result.deletedCount !== 1) {
-        throw new Error('Category deletion failed');
+        throw new Error("Category deletion failed");
       }
-      
-      console.log('Category deleted successfully');
+
+      console.log("Category deleted successfully");
     } catch (error) {
-      console.error('Error deleting category:', error);
+      console.error("Error deleting category:", error);
       throw error;
     } finally {
       // Close the MongoDB client
       if (client) {
         await client.close();
-        console.log('MongoDB connection closed');
+        console.log("MongoDB connection closed");
       }
     }
-    
+
     // Return success response
     return res.status(200).json({
       success: true,
-      method: 'direct-mongodb',
-      message: 'Category deleted successfully'
+      method: "direct-mongodb",
+      message: "Category deleted successfully",
     });
   } catch (error) {
-    console.error('Error deleting category:', error);
-    
+    console.error("Error deleting category:", error);
+
     // Return error response
     return res.status(200).json({
       success: false,
-      message: error.message || 'Error deleting category',
-      error: error.stack
+      message: error.message || "Error deleting category",
+      error: error.stack,
     });
   }
 };
@@ -597,5 +796,5 @@ module.exports = {
   getAllCategories,
   getCategoryById,
   updateCategory,
-  deleteCategory
+  deleteCategory,
 };
