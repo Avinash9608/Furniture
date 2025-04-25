@@ -2409,9 +2409,42 @@ console.log("- POST /contact");
 console.log("- POST /api/contact");
 console.log("- POST /api/api/contact");
 console.log("- GET /api/contact");
+
+// Product routes
+console.log("- GET /api/direct/products");
+console.log("- GET /api/direct/products/:id");
+console.log("- POST /api/direct/products");
+console.log("- PUT /api/direct/products/:id");
+console.log("- DELETE /api/direct/products/:id");
 console.log("- GET /api/products");
+console.log("- GET /api/products/:id");
+console.log("- POST /api/products");
+console.log("- PUT /api/products/:id");
+console.log("- DELETE /api/products/:id");
+
+// Category routes
+console.log("- GET /api/direct/categories");
+console.log("- GET /api/direct/categories/:id");
+console.log("- POST /api/direct/categories");
+console.log("- PUT /api/direct/categories/:id");
+console.log("- DELETE /api/direct/categories/:id");
 console.log("- GET /api/categories");
+console.log("- GET /api/categories/:id");
 console.log("- POST /api/categories");
+console.log("- PUT /api/categories/:id");
+console.log("- DELETE /api/categories/:id");
+console.log("- GET /categories");
+console.log("- GET /categories/:id");
+console.log("- POST /categories");
+console.log("- PUT /categories/:id");
+console.log("- DELETE /categories/:id");
+console.log("- GET /api/api/categories");
+console.log("- GET /api/api/categories/:id");
+console.log("- POST /api/api/categories");
+console.log("- PUT /api/api/categories/:id");
+console.log("- DELETE /api/api/categories/:id");
+
+// Payment routes
 console.log("- GET /api/payment-settings");
 console.log("- GET /api/payment-settings/all");
 console.log("- POST /api/payment-settings");
@@ -2486,10 +2519,20 @@ app.delete("/api/products/:id", productController.deleteProduct);
 
 // Override the existing category routes to use our direct MongoDB driver approach
 app.post("/api/categories", categoryController.createCategory);
+app.post("/categories", categoryController.createCategory); // Add additional route for fallback
+app.post("/api/api/categories", categoryController.createCategory); // Add additional route for fallback
 app.get("/api/categories", categoryController.getAllCategories);
+app.get("/categories", categoryController.getAllCategories); // Add additional route for fallback
+app.get("/api/api/categories", categoryController.getAllCategories); // Add additional route for fallback
 app.get("/api/categories/:id", categoryController.getCategoryById);
+app.get("/categories/:id", categoryController.getCategoryById); // Add additional route for fallback
+app.get("/api/api/categories/:id", categoryController.getCategoryById); // Add additional route for fallback
 app.put("/api/categories/:id", categoryController.updateCategory);
+app.put("/categories/:id", categoryController.updateCategory); // Add additional route for fallback
+app.put("/api/api/categories/:id", categoryController.updateCategory); // Add additional route for fallback
 app.delete("/api/categories/:id", categoryController.deleteCategory);
+app.delete("/categories/:id", categoryController.deleteCategory); // Add additional route for fallback
+app.delete("/api/api/categories/:id", categoryController.deleteCategory); // Add additional route for fallback
 
 // Use routes from server
 app.use("/api", routes);

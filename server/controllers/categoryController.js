@@ -140,23 +140,78 @@ const createCategory = async (req, res) => {
 
       // Insert the category into the categories collection
       console.log("Inserting category into database");
-      const result = await categoriesCollection.insertOne(categoryData);
 
-      if (result.acknowledged) {
-        console.log("Category created successfully:", result);
+      try {
+        const result = await categoriesCollection.insertOne(categoryData);
 
-        // Verify the category was saved by fetching it back
-        savedCategory = await categoriesCollection.findOne({
-          _id: result.insertedId,
-        });
+        if (result.acknowledged) {
+          console.log("Category created successfully:", result);
 
-        if (!savedCategory) {
-          throw new Error("Category verification failed");
+          // Verify the category was saved by fetching it back
+          savedCategory = await categoriesCollection.findOne({
+            _id: result.insertedId,
+          });
+
+          if (!savedCategory) {
+            throw new Error("Category verification failed");
+          }
+
+          console.log("Category verified in database:", savedCategory._id);
+        } else {
+          throw new Error("Insert operation not acknowledged");
         }
+      } catch (insertError) {
+        console.error("Error inserting category:", insertError);
 
-        console.log("Category verified in database:", savedCategory._id);
-      } else {
-        throw new Error("Insert operation not acknowledged");
+        // Check for duplicate key error
+        if (insertError.code === 11000) {
+          console.log("Duplicate key error:", insertError.keyValue);
+
+          // Check if it's a duplicate slug
+          if (insertError.keyValue && insertError.keyValue.slug) {
+            // Try to generate a new unique slug
+            const timestamp = Date.now();
+            const newSlug = `${categoryData.slug}-${timestamp}`;
+            console.log(`Trying with new slug: ${newSlug}`);
+
+            // Update the category data with the new slug
+            categoryData.slug = newSlug;
+
+            // Try to insert again with the new slug
+            const retryResult = await categoriesCollection.insertOne(
+              categoryData
+            );
+
+            if (retryResult.acknowledged) {
+              console.log(
+                "Category created successfully with new slug:",
+                retryResult
+              );
+
+              // Verify the category was saved by fetching it back
+              savedCategory = await categoriesCollection.findOne({
+                _id: retryResult.insertedId,
+              });
+
+              if (!savedCategory) {
+                throw new Error("Category verification failed after retry");
+              }
+
+              console.log(
+                "Category verified in database after retry:",
+                savedCategory._id
+              );
+            } else {
+              throw new Error("Insert operation not acknowledged after retry");
+            }
+          } else {
+            // If it's not a duplicate slug, rethrow the error
+            throw insertError;
+          }
+        } else {
+          // If it's not a duplicate key error, rethrow the error
+          throw insertError;
+        }
       }
     } catch (error) {
       console.error("Error saving category:", error);

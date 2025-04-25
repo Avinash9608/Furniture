@@ -580,11 +580,14 @@ const categoriesAPI = {
 
       // Try multiple endpoints
       const baseUrl = window.location.origin;
+      const deployedUrl = "https://furniture-q3nb.onrender.com";
       const endpoints = [
+        `${baseUrl}/api/direct/categories/${id}`,
         `${baseUrl}/api/categories/${id}`,
         `${baseUrl}/categories/${id}`,
         `${baseUrl}/api/api/categories/${id}`,
-        `https://furniture-q3nb.onrender.com/api/categories/${id}`,
+        `${deployedUrl}/api/direct/categories/${id}`,
+        `${deployedUrl}/api/categories/${id}`,
       ];
 
       // Try each endpoint until one works
@@ -631,9 +634,11 @@ const categoriesAPI = {
       const baseUrl = window.location.origin;
       const deployedUrl = "https://furniture-q3nb.onrender.com";
       const endpoints = [
+        `${baseUrl}/api/direct/categories`,
         `${baseUrl}/api/categories`,
         `${baseUrl}/categories`,
         `${baseUrl}/api/api/categories`,
+        `${deployedUrl}/api/direct/categories`,
         `${deployedUrl}/api/categories`,
       ];
 
@@ -750,11 +755,14 @@ const categoriesAPI = {
 
       // Try multiple endpoints
       const baseUrl = window.location.origin;
+      const deployedUrl = "https://furniture-q3nb.onrender.com";
       const endpoints = [
+        `${baseUrl}/api/direct/categories/${id}`,
         `${baseUrl}/api/categories/${id}`,
         `${baseUrl}/categories/${id}`,
         `${baseUrl}/api/api/categories/${id}`,
-        `https://furniture-q3nb.onrender.com/api/categories/${id}`,
+        `${deployedUrl}/api/direct/categories/${id}`,
+        `${deployedUrl}/api/categories/${id}`,
       ];
 
       // Try each endpoint until one works
@@ -810,11 +818,14 @@ const categoriesAPI = {
 
       // Try multiple endpoints
       const baseUrl = window.location.origin;
+      const deployedUrl = "https://furniture-q3nb.onrender.com";
       const endpoints = [
+        `${baseUrl}/api/direct/categories/${id}`,
         `${baseUrl}/api/categories/${id}`,
         `${baseUrl}/categories/${id}`,
         `${baseUrl}/api/api/categories/${id}`,
-        `https://furniture-q3nb.onrender.com/api/categories/${id}`,
+        `${deployedUrl}/api/direct/categories/${id}`,
+        `${deployedUrl}/api/categories/${id}`,
       ];
 
       // Try each endpoint until one works
@@ -856,11 +867,14 @@ const categoriesAPI = {
 
       // Try multiple endpoints
       const baseUrl = window.location.origin;
+      const deployedUrl = "https://furniture-q3nb.onrender.com";
       const endpoints = [
+        `${baseUrl}/api/direct/categories/with-products`,
         `${baseUrl}/api/categories/with-products`,
         `${baseUrl}/categories/with-products`,
         `${baseUrl}/api/api/categories/with-products`,
-        "https://furniture-q3nb.onrender.com/api/categories/with-products",
+        `${deployedUrl}/api/direct/categories/with-products`,
+        `${deployedUrl}/api/categories/with-products`,
       ];
 
       // Try each endpoint until one works
