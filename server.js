@@ -625,42 +625,50 @@ app.get("/api/contact", async (req, res) => {
     } catch (dbError) {
       console.error("Database error fetching contacts:", dbError);
 
-      // Create mock data for testing if in development
-      const mockContacts =
-        process.env.NODE_ENV !== "production"
-          ? [
-              {
-                _id: `mock_${Date.now()}_1`,
-                name: "John Doe",
-                email: "john@example.com",
-                subject: "Product Inquiry",
-                message:
-                  "I'm interested in your wooden chairs. Do you ship internationally?",
-                status: "unread",
-                createdAt: new Date().toISOString(),
-              },
-              {
-                _id: `mock_${Date.now()}_2`,
-                name: "Jane Smith",
-                email: "jane@example.com",
-                subject: "Order Status",
-                message:
-                  "I placed an order last week. Could you please provide an update?",
-                status: "read",
-                createdAt: new Date(Date.now() - 86400000).toISOString(), // 1 day ago
-              },
-            ]
-          : [];
+      // Try one more time with a different approach
+      try {
+        console.log("Making another attempt to connect to MongoDB...");
 
-      // Return mock data or empty array to prevent client-side errors
-      return res.status(200).json({
-        success: true,
-        count: mockContacts.length,
-        data: mockContacts,
-        message:
-          "Error fetching contacts from database, returning " +
-          (mockContacts.length > 0 ? "mock data" : "empty array"),
-      });
+        // Force a new connection to MongoDB
+        await mongoose.disconnect();
+        console.log("Disconnected from MongoDB to reset connection");
+
+        // Connect with enhanced options
+        await mongoose.connect(process.env.MONGO_URI, {
+          serverSelectionTimeoutMS: 30000, // Increased timeout
+          socketTimeoutMS: 60000,
+          connectTimeoutMS: 30000,
+          retryWrites: true,
+          w: "majority",
+          maxPoolSize: 10,
+        });
+
+        console.log("Reconnected to MongoDB successfully");
+
+        // Try fetching contacts again
+        const contacts = await Contact.find().sort({ createdAt: -1 });
+        console.log(
+          `Successfully fetched ${contacts.length} contact messages on second attempt`
+        );
+
+        return res.status(200).json({
+          success: true,
+          count: contacts.length,
+          data: contacts,
+        });
+      } catch (retryError) {
+        console.error("Second attempt to fetch contacts failed:", retryError);
+
+        // Return empty array to prevent client-side errors
+        return res.status(200).json({
+          success: false,
+          count: 0,
+          data: [],
+          message:
+            "Failed to fetch contacts from database after multiple attempts",
+          error: retryError.message,
+        });
+      }
     }
   } catch (error) {
     console.error("Unexpected error in contact messages route:", error);

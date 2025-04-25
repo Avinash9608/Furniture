@@ -29,6 +29,14 @@ const AdminMessages = () => {
         const response = await contactAPI.getAll();
         console.log("Contact API response:", response);
 
+        // Check for error in the response
+        if (response.error) {
+          console.error("Error in API response:", response.error);
+          setError(response.error);
+          setMessages([]);
+          return;
+        }
+
         // Handle different API response structures
         let messagesData = [];
 
@@ -74,13 +82,17 @@ const AdminMessages = () => {
           setMessages(processedMessages);
         } else {
           console.log("No messages found or invalid data format");
-          setError("No messages found");
+          setError(
+            "No messages found in the database. Try submitting a contact form first."
+          );
           setMessages([]);
         }
       } catch (error) {
         console.error("Error fetching messages:", error);
         setError(
-          `Failed to load messages: ${error.message || "Unknown error"}`
+          `Failed to load messages: ${
+            error.message || "Unknown error"
+          }. Please check your database connection.`
         );
         setMessages([]);
       } finally {

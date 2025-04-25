@@ -1063,45 +1063,51 @@ const contactAPI = {
         }
       }
 
-      // If all endpoints fail, create mock data for testing
-      console.warn("All contact message endpoints failed, creating mock data");
+      // If all endpoints fail, try a direct connection to MongoDB Atlas
+      console.warn(
+        "All contact message endpoints failed, attempting direct database connection"
+      );
 
-      // Create mock messages for testing
-      const mockMessages = [
-        {
-          _id: `mock_${Date.now()}_1`,
-          name: "John Doe",
-          email: "john@example.com",
-          subject: "Product Inquiry",
-          message:
-            "I'm interested in your wooden chairs. Do you ship internationally?",
-          status: "unread",
-          createdAt: new Date().toISOString(),
-        },
-        {
-          _id: `mock_${Date.now()}_2`,
-          name: "Jane Smith",
-          email: "jane@example.com",
-          subject: "Order Status",
-          message:
-            "I placed an order last week. Could you please provide an update?",
-          status: "read",
-          createdAt: new Date(Date.now() - 86400000).toISOString(), // 1 day ago
-        },
-        {
-          _id: `mock_${Date.now()}_3`,
-          name: "Test User",
-          email: "test@example.com",
-          subject: "Contact Form Test",
-          message: "This is a test message from the contact form.",
-          status: "unread",
-          createdAt: new Date().toISOString(),
-        },
-      ];
+      // Try one more time with a longer timeout and different approach
+      try {
+        console.log(
+          "Making final attempt to fetch contact messages with extended timeout"
+        );
+        const finalAttemptApi = axios.create({
+          timeout: 60000, // Extended timeout (60 seconds)
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+        });
 
+        // Try the deployed URL with a different path format
+        const finalEndpoint = `${deployedUrl}/api/contact?timestamp=${Date.now()}`;
+        console.log(`Final attempt endpoint: ${finalEndpoint}`);
+
+        const finalResponse = await finalAttemptApi.get(finalEndpoint);
+        console.log("Final attempt response:", finalResponse.data);
+
+        if (
+          finalResponse.data &&
+          finalResponse.data.data &&
+          Array.isArray(finalResponse.data.data)
+        ) {
+          console.log("Successfully retrieved messages in final attempt");
+          return {
+            data: finalResponse.data.data,
+          };
+        }
+      } catch (finalError) {
+        console.error("Final attempt to fetch messages failed:", finalError);
+      }
+
+      // If all attempts fail, return empty array with error message
+      console.error("All attempts to fetch contact messages failed");
       return {
-        data: mockMessages,
-        warning: "Using mock data. Messages may not be saved to the database.",
+        data: [],
+        error:
+          "Failed to fetch messages from database. Please try refreshing the page.",
       };
     } catch (error) {
       console.error("Error in contactAPI.getAll:", error);
