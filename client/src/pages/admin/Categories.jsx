@@ -379,97 +379,99 @@ const Categories = () => {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {categories.map((category) => (
-              <motion.div
-                key={category._id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3 }}
-                className="theme-bg-secondary rounded-lg overflow-hidden shadow-sm border theme-border"
-              >
-                <div className="h-48 overflow-hidden">
-                  {category.image ? (
-                    <img
-                      src={
-                        category.image.startsWith("http")
-                          ? category.image
-                          : `${window.location.origin}${category.image}`
-                      }
-                      alt={category.name}
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        console.log("Image load error for:", category.name);
-                        e.target.onerror = null;
-                        // Use a data URI for a simple placeholder image
-                        e.target.src =
-                          "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMzAwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iI2YwZjBmMCIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMjQiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRkbGUiIGZpbGw9IiM5OTkiPk5vIEltYWdlPC90ZXh0Pjwvc3ZnPg==";
-                      }}
-                    />
-                  ) : (
-                    <div className="w-full h-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
-                      <span className="text-lg theme-text-secondary">
-                        No Image Available
-                      </span>
-                    </div>
-                  )}
-                </div>
-                <div className="p-4">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h3 className="text-lg font-semibold theme-text-primary">
-                        {category.name}
-                      </h3>
-                      <p className="text-sm theme-text-secondary mt-1">
-                        {categoryProducts[category._id] || 0} products
-                      </p>
-                    </div>
-                    <div className="flex space-x-2">
-                      <button
-                        onClick={() => handleEditClick(category)}
-                        className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-900 dark:hover:text-indigo-300"
-                      >
-                        <svg
-                          className="w-5 h-5"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                          xmlns="http://www.w3.org/2000/svg"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth="2"
-                            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                          ></path>
-                        </svg>
-                      </button>
-                      <button
-                        onClick={() => handleDeleteClick(category)}
-                        className="text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300"
-                      >
-                        <svg
-                          className="w-5 h-5"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                          xmlns="http://www.w3.org/2000/svg"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth="2"
-                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                          ></path>
-                        </svg>
-                      </button>
-                    </div>
+            {categories
+              .filter((category) => category && category._id)
+              .map((category) => (
+                <motion.div
+                  key={category._id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3 }}
+                  className="theme-bg-secondary rounded-lg overflow-hidden shadow-sm border theme-border"
+                >
+                  <div className="h-48 overflow-hidden">
+                    {category.image ? (
+                      <img
+                        src={
+                          category.image.startsWith("http")
+                            ? category.image
+                            : `${window.location.origin}${category.image}`
+                        }
+                        alt={category.name}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          console.log("Image load error for:", category.name);
+                          e.target.onerror = null;
+                          // Use a data URI for a simple placeholder image
+                          e.target.src =
+                            "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMzAwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iI2YwZjBmMCIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMjQiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRkbGUiIGZpbGw9IiM5OTkiPk5vIEltYWdlPC90ZXh0Pjwvc3ZnPg==";
+                        }}
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+                        <span className="text-lg theme-text-secondary">
+                          No Image Available
+                        </span>
+                      </div>
+                    )}
                   </div>
-                  <p className="text-sm theme-text-secondary mt-2 line-clamp-2">
-                    {category.description || "No description available."}
-                  </p>
-                </div>
-              </motion.div>
-            ))}
+                  <div className="p-4">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h3 className="text-lg font-semibold theme-text-primary">
+                          {category.name}
+                        </h3>
+                        <p className="text-sm theme-text-secondary mt-1">
+                          {categoryProducts[category._id] || 0} products
+                        </p>
+                      </div>
+                      <div className="flex space-x-2">
+                        <button
+                          onClick={() => handleEditClick(category)}
+                          className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-900 dark:hover:text-indigo-300"
+                        >
+                          <svg
+                            className="w-5 h-5"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                            xmlns="http://www.w3.org/2000/svg"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth="2"
+                              d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                            ></path>
+                          </svg>
+                        </button>
+                        <button
+                          onClick={() => handleDeleteClick(category)}
+                          className="text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300"
+                        >
+                          <svg
+                            className="w-5 h-5"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                            xmlns="http://www.w3.org/2000/svg"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth="2"
+                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                            ></path>
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                    <p className="text-sm theme-text-secondary mt-2 line-clamp-2">
+                      {category.description || "No description available."}
+                    </p>
+                  </div>
+                </motion.div>
+              ))}
           </div>
         )}
       </div>
@@ -714,13 +716,18 @@ const Categories = () => {
         <div className="p-6">
           <p className="theme-text-primary mb-4">
             Are you sure you want to delete{" "}
-            <span className="font-semibold">{categoryToDelete?.name}</span>?
-            {categoryProducts[categoryToDelete?._id] > 0 && (
-              <span className="text-red-600 dark:text-red-400 block mt-2">
-                This category has {categoryProducts[categoryToDelete._id]}{" "}
-                products. You must reassign or delete these products first.
-              </span>
-            )}
+            <span className="font-semibold">
+              {categoryToDelete?.name || "this category"}
+            </span>
+            ?
+            {categoryToDelete &&
+              categoryToDelete._id &&
+              categoryProducts[categoryToDelete._id] > 0 && (
+                <span className="text-red-600 dark:text-red-400 block mt-2">
+                  This category has {categoryProducts[categoryToDelete._id]}{" "}
+                  products. You must reassign or delete these products first.
+                </span>
+              )}
           </p>
 
           {deleteError && (
@@ -739,7 +746,10 @@ const Categories = () => {
               onClick={handleDeleteConfirm}
               className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
               disabled={
-                isDeleting || categoryProducts[categoryToDelete?._id] > 0
+                isDeleting ||
+                !categoryToDelete ||
+                (categoryToDelete._id &&
+                  categoryProducts[categoryToDelete._id] > 0)
               }
             >
               {isDeleting ? "Deleting..." : "Delete"}
