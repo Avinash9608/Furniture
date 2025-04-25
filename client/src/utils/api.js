@@ -1007,43 +1007,34 @@ const contactAPI = {
         },
       });
 
-      // Try regular contact endpoints first since they're more likely to work
+      // Determine the current environment
       const baseUrl = window.location.origin;
-      const deployedUrl = "https://furniture-q3nb.onrender.com";
+      const isProduction = baseUrl.includes("onrender.com");
 
-      // Check if we're running on Render
-      const isRender = baseUrl.includes("onrender.com");
+      // In production, all API calls should be relative to the current origin
+      // This ensures we don't make cross-origin requests unnecessarily
+      const apiBase = isProduction ? baseUrl : baseUrl;
 
-      // For Render deployment, we need to be more careful with the endpoints
-      const endpoints = isRender
-        ? [
-            // On Render, these are the most likely to work
-            `${baseUrl}/api/contact`,
-            `${baseUrl}/contact`,
-            // Direct database query endpoint
-            `${baseUrl}/api/direct/contacts`,
-            // Admin-specific endpoints
-            `${baseUrl}/api/admin/messages`,
-            `${baseUrl}/admin/messages`,
-            // Health check endpoint
-            `${baseUrl}/api/health`,
-          ]
-        : [
-            // Regular contact endpoints first
-            `${baseUrl}/api/contact`,
-            `${deployedUrl}/api/contact`,
-            `${baseUrl}/contact`,
-            `${deployedUrl}/contact`,
-            // Admin-specific endpoints as fallback
-            `${baseUrl}/api/admin/messages`,
-            `${deployedUrl}/api/admin/messages`,
-            // Direct database query endpoint
-            `${baseUrl}/api/direct/contacts`,
-            `${deployedUrl}/api/direct/contacts`,
-            // Health check endpoint to verify API is working
-            `${baseUrl}/api/health`,
-            `${deployedUrl}/api/health`,
-          ];
+      console.log(
+        `Current environment: ${isProduction ? "Production" : "Development"}`
+      );
+      console.log(`Using API base URL: ${apiBase}`);
+
+      // Define endpoints in order of preference
+      const endpoints = [
+        // Admin-specific endpoints first (most direct)
+        `${apiBase}/api/admin/messages`,
+        // Direct database query endpoint
+        `${apiBase}/api/direct/contacts`,
+        // Regular contact endpoints
+        `${apiBase}/api/contact`,
+        `${apiBase}/contact`,
+        // Health check endpoint
+        `${apiBase}/api/health`,
+      ];
+
+      // Log the endpoints we're going to try
+      console.log("Endpoints to try:", endpoints);
 
       // Try each endpoint until one works
       for (const endpoint of endpoints) {
@@ -1058,6 +1049,16 @@ const contactAPI = {
               response.data.includes("<html"))
           ) {
             console.warn(`Endpoint ${endpoint} returned HTML instead of JSON`);
+            console.log(
+              "HTML response:",
+              response.data.substring(0, 200) + "..."
+            );
+            continue; // Skip this endpoint and try the next one
+          }
+
+          // Check if response is empty
+          if (!response.data) {
+            console.warn(`Endpoint ${endpoint} returned empty data`);
             continue; // Skip this endpoint and try the next one
           }
 
@@ -1164,7 +1165,8 @@ const contactAPI = {
 
       try {
         // Try a direct database query using a special endpoint
-        const directEndpoint = `${deployedUrl}/api/direct/contacts?timestamp=${Date.now()}`;
+        // Use the current origin for the direct endpoint to avoid CORS issues
+        const directEndpoint = `${baseUrl}/api/direct/contacts?timestamp=${Date.now()}`;
         console.log(`Trying direct database query: ${directEndpoint}`);
 
         const directResponse = await directApi.get(directEndpoint);
@@ -1174,9 +1176,38 @@ const contactAPI = {
           return {
             data: directResponse.data,
           };
+        } else if (directResponse.data) {
+          console.log(
+            "Direct database query returned non-array data:",
+            directResponse.data
+          );
+          // Try to extract data from the response
+          let extractedData = [];
+
+          if (
+            directResponse.data.data &&
+            Array.isArray(directResponse.data.data)
+          ) {
+            extractedData = directResponse.data.data;
+          } else if (typeof directResponse.data === "object") {
+            // If it's an object but not an array, wrap it in an array
+            extractedData = [directResponse.data];
+          }
+
+          if (extractedData.length > 0) {
+            console.log("Extracted data from direct query:", extractedData);
+            return {
+              data: extractedData,
+            };
+          }
         }
       } catch (directError) {
         console.error("Direct database query failed:", directError);
+        console.log("Error details:", directError.message);
+        if (directError.response) {
+          console.log("Response status:", directError.response.status);
+          console.log("Response data:", directError.response.data);
+        }
       }
 
       // If all else fails, return mock data with a helpful error message
