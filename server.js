@@ -2603,7 +2603,6 @@ app.use(express.static(path.join(__dirname, "client/dist")));
 // Log static file directory for debugging
 console.log("Serving static files from:", path.join(__dirname, "client/dist"));
 // Check if the directory exists
-const fs = require("fs");
 if (fs.existsSync(path.join(__dirname, "client/dist"))) {
   console.log("Static file directory exists");
   // List files in the directory
