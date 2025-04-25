@@ -55,6 +55,9 @@ app.use((req, res, next) => {
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Import MongoDB driver for direct connection
+const { MongoClient } = require("mongodb");
+
 // Configure Mongoose globally to prevent buffering timeout issues
 mongoose.set("bufferTimeoutMS", 60000); // Set globally to 60 seconds
 
@@ -66,6 +69,14 @@ mongoose.connection.on("error", (err) => {
 mongoose.connection.on("disconnected", () => {
   console.log("Mongoose disconnected");
 });
+
+// Direct MongoDB connection client
+let directClient = null;
+let directDb = null;
+
+// Connect to MongoDB with retry logic
+const MAX_RETRIES = 5;
+let retryCount = 0;
 
 // Connect to MongoDB
 const connectDB = async () => {
@@ -91,12 +102,15 @@ const connectDB = async () => {
 
     // Enhanced connection options specifically targeting the buffering timeout issue
     await mongoose.connect(uri, {
-      serverSelectionTimeoutMS: 60000, // 60 seconds timeout for initial connection
-      socketTimeoutMS: 90000, // 90 seconds timeout for queries
-      connectTimeoutMS: 60000, // 60 seconds timeout for initial connection
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+      serverSelectionTimeoutMS: 30000, // 30 seconds timeout for initial connection
+      socketTimeoutMS: 45000, // 45 seconds timeout for queries
+      connectTimeoutMS: 30000, // 30 seconds timeout for initial connection
       retryWrites: true, // Retry write operations
       w: "majority", // Write concern
       maxPoolSize: 10, // Maximum number of connections in the pool
+      minPoolSize: 2, // Minimum number of sockets
     });
 
     // Set the buffer timeout one more time after connection
@@ -115,21 +129,51 @@ const connectDB = async () => {
       models: Object.keys(mongoose.models),
     });
 
-    // Set up connection event listeners
-    mongoose.connection.on("error", (err) => {
-      console.error("MongoDB connection error:", err);
-    });
+    // Reset retry count on successful connection
+    retryCount = 0;
 
-    mongoose.connection.on("disconnected", () => {
-      console.warn("MongoDB disconnected. Attempting to reconnect...");
-      // Attempt to reconnect after a delay
-      setTimeout(() => {
-        connectDB().catch((err) => console.error("Reconnection failed:", err));
-      }, 5000);
-    });
+    // Also establish a direct MongoDB connection as a fallback
+    try {
+      // Direct connection options
+      const options = {
+        useNewUrlParser: true,
+        useUnifiedTopology: true,
+        connectTimeoutMS: 30000,
+        socketTimeoutMS: 45000,
+        serverSelectionTimeoutMS: 30000,
+        maxPoolSize: 5,
+      };
+
+      directClient = new MongoClient(uri, options);
+      await directClient.connect();
+
+      // Get database name from connection string
+      const dbName = uri.split("/").pop().split("?")[0];
+      directDb = directClient.db(dbName);
+
+      console.log(
+        `Direct MongoDB connection successful to database: ${dbName}`
+      );
+    } catch (directError) {
+      console.error("Direct MongoDB connection failed:", directError);
+    }
 
     return true;
   } catch (error) {
+    console.error(
+      `MongoDB Connection failed (Attempt ${retryCount + 1}):`,
+      error.message
+    );
+
+    if (retryCount < MAX_RETRIES) {
+      retryCount++;
+      console.log(
+        `Retrying connection in 5 seconds... (${retryCount}/${MAX_RETRIES})`
+      );
+      await new Promise((resolve) => setTimeout(resolve, 5000));
+      return connectDB();
+    }
+
     console.error("MongoDB Connection failed:", error.message);
     console.log("Please verify:");
     console.log("- IP is whitelisted in Atlas (current IP must be allowed)");
@@ -158,6 +202,11 @@ const connectDB = async () => {
     console.log("Running in offline mode - some features may not work");
     return false;
   }
+};
+
+// Function to get direct MongoDB connection
+const getDirectDb = () => {
+  return directDb;
 };
 
 // Connect to database and test Cloudinary
@@ -594,46 +643,42 @@ app.get("/api/direct/contacts", async (req, res) => {
   // Set proper headers to ensure JSON response
   res.setHeader("Content-Type", "application/json");
 
-  let client = null;
-
   try {
-    // Get the MongoDB URI
-    const uri = process.env.MONGO_URI;
+    // Use the existing direct MongoDB connection
+    if (!directDb) {
+      console.log(
+        "Direct MongoDB connection not available, attempting to connect..."
+      );
 
-    // Log a redacted version of the URI for debugging
-    const redactedUri = uri.replace(
-      /\/\/([^:]+):([^@]+)@/,
-      (_, username) => `\/\/${username}:****@`
-    );
-    console.log("Using connection string:", redactedUri);
+      // Get the MongoDB URI
+      const uri = process.env.MONGO_URI;
 
-    // Direct connection options
-    const options = {
-      serverSelectionTimeoutMS: 60000, // 60 seconds timeout for initial connection
-      socketTimeoutMS: 90000, // 90 seconds timeout for queries
-      connectTimeoutMS: 60000, // 60 seconds timeout for initial connection
-      maxPoolSize: 10,
-    };
+      // Direct connection options
+      const options = {
+        useNewUrlParser: true,
+        useUnifiedTopology: true,
+        connectTimeoutMS: 30000,
+        socketTimeoutMS: 45000,
+        serverSelectionTimeoutMS: 30000,
+        maxPoolSize: 5,
+      };
 
-    // Create a new MongoClient
-    client = new MongoClient(uri, options);
-    console.log("Created new MongoClient for direct/contacts");
+      // Create a new MongoClient
+      directClient = new MongoClient(uri, options);
+      await directClient.connect();
 
-    // Connect to the MongoDB server
-    console.log("Connecting to MongoDB...");
-    await client.connect();
-    console.log("✅ Direct MongoDB connection successful for direct/contacts");
+      // Get database name from connection string
+      const dbName = uri.split("/").pop().split("?")[0];
+      directDb = directClient.db(dbName);
 
-    // Get database name from connection string
-    const dbName = uri.split("/").pop().split("?")[0];
-    console.log(`Using database: ${dbName}`);
-
-    // Get database
-    const db = client.db(dbName);
+      console.log(
+        `Direct MongoDB connection established to database: ${dbName}`
+      );
+    }
 
     // Query the contacts collection
     console.log("Executing direct query on contacts collection");
-    const contactsCollection = db.collection("contacts");
+    const contactsCollection = directDb.collection("contacts");
     const contacts = await contactsCollection
       .find({})
       .sort({ createdAt: -1 })
@@ -648,14 +693,32 @@ app.get("/api/direct/contacts", async (req, res) => {
     console.error("Direct MongoDB contacts query error:", error);
     console.error("Error details:", error.stack);
 
-    // Return empty array to prevent client-side errors
-    return res.status(200).json([]);
-  } finally {
-    // Close the connection
-    if (client) {
-      await client.close();
-      console.log("Closed MongoDB connection for direct/contacts");
-    }
+    // Create mock messages for testing in case of MongoDB connection issues
+    const mockMessages = [
+      {
+        _id: `temp_${Date.now()}_1`,
+        name: "System Message",
+        email: "system@example.com",
+        subject: "Database Connection Issue",
+        message:
+          "The application is currently experiencing issues connecting to the database. This is likely due to a MongoDB connection issue. Please try again later.",
+        status: "unread",
+        createdAt: new Date().toISOString(),
+      },
+      {
+        _id: `temp_${Date.now()}_2`,
+        name: "System Message",
+        email: "system@example.com",
+        subject: "Temporary Data",
+        message:
+          "This is temporary data displayed while the application is unable to connect to the database. Your actual messages will be displayed once the connection is restored.",
+        status: "unread",
+        createdAt: new Date().toISOString(),
+      },
+    ];
+
+    // Return mock data to prevent client-side errors
+    return res.status(200).json(mockMessages);
   }
 });
 
@@ -741,48 +804,44 @@ const { MongoClient } = require("mongodb");
 
 // Test database query endpoint using direct MongoDB driver (bypassing Mongoose)
 app.get("/api/db-test", async (req, res) => {
-  let client = null;
-
   try {
     console.log("Using direct MongoDB driver for db-test");
 
-    // Get the MongoDB URI
-    const uri = process.env.MONGO_URI;
+    // Use the existing direct MongoDB connection
+    if (!directDb) {
+      console.log(
+        "Direct MongoDB connection not available, attempting to connect..."
+      );
 
-    // Log a redacted version of the URI for debugging
-    const redactedUri = uri.replace(
-      /\/\/([^:]+):([^@]+)@/,
-      (_, username) => `\/\/${username}:****@`
-    );
-    console.log("Using connection string:", redactedUri);
+      // Get the MongoDB URI
+      const uri = process.env.MONGO_URI;
 
-    // Direct connection options
-    const options = {
-      serverSelectionTimeoutMS: 60000, // 60 seconds timeout for initial connection
-      socketTimeoutMS: 90000, // 90 seconds timeout for queries
-      connectTimeoutMS: 60000, // 60 seconds timeout for initial connection
-      maxPoolSize: 10,
-    };
+      // Direct connection options
+      const options = {
+        useNewUrlParser: true,
+        useUnifiedTopology: true,
+        connectTimeoutMS: 30000,
+        socketTimeoutMS: 45000,
+        serverSelectionTimeoutMS: 30000,
+        maxPoolSize: 5,
+      };
 
-    // Create a new MongoClient
-    client = new MongoClient(uri, options);
-    console.log("Created new MongoClient");
+      // Create a new MongoClient
+      directClient = new MongoClient(uri, options);
+      await directClient.connect();
 
-    // Connect to the MongoDB server
-    console.log("Connecting to MongoDB...");
-    await client.connect();
-    console.log("✅ Direct MongoDB connection successful");
+      // Get database name from connection string
+      const dbName = uri.split("/").pop().split("?")[0];
+      directDb = directClient.db(dbName);
 
-    // Get database name from connection string
-    const dbName = uri.split("/").pop().split("?")[0];
-    console.log(`Using database: ${dbName}`);
-
-    // Get database
-    const db = client.db(dbName);
+      console.log(
+        `Direct MongoDB connection established to database: ${dbName}`
+      );
+    }
 
     // Test a direct query
     console.log("Executing direct count query on contacts collection");
-    const contactsCollection = db.collection("contacts");
+    const contactsCollection = directDb.collection("contacts");
     const count = await contactsCollection.countDocuments();
     console.log("Successfully counted documents:", count);
 
@@ -806,6 +865,7 @@ app.get("/api/db-test", async (req, res) => {
       message: "Database query successful using direct MongoDB driver",
       method: "direct",
       sampleContact,
+      timestamp: new Date().toISOString(),
     });
   } catch (error) {
     console.error("Direct MongoDB test query error:", error);
@@ -816,6 +876,8 @@ app.get("/api/db-test", async (req, res) => {
       message: error.message,
       name: error.name,
       code: error.code,
+      suggestion:
+        "The operation failed. Try refreshing the page or contact support.",
     };
 
     return res.status(500).json({
@@ -823,13 +885,8 @@ app.get("/api/db-test", async (req, res) => {
       error: error.message,
       errorDetails: errorInfo,
       method: "direct",
+      timestamp: new Date().toISOString(),
     });
-  } finally {
-    // Close the connection
-    if (client) {
-      await client.close();
-      console.log("Closed MongoDB connection");
-    }
   }
 });
 
@@ -842,46 +899,42 @@ app.get(
     // Set proper headers to ensure JSON response
     res.setHeader("Content-Type", "application/json");
 
-    let client = null;
-
     try {
-      // Get the MongoDB URI
-      const uri = process.env.MONGO_URI;
+      // Use the existing direct MongoDB connection
+      if (!directDb) {
+        console.log(
+          "Direct MongoDB connection not available, attempting to connect..."
+        );
 
-      // Log a redacted version of the URI for debugging
-      const redactedUri = uri.replace(
-        /\/\/([^:]+):([^@]+)@/,
-        (_, username) => `\/\/${username}:****@`
-      );
-      console.log("Using connection string:", redactedUri);
+        // Get the MongoDB URI
+        const uri = process.env.MONGO_URI;
 
-      // Direct connection options
-      const options = {
-        serverSelectionTimeoutMS: 60000, // 60 seconds timeout for initial connection
-        socketTimeoutMS: 90000, // 90 seconds timeout for queries
-        connectTimeoutMS: 60000, // 60 seconds timeout for initial connection
-        maxPoolSize: 10,
-      };
+        // Direct connection options
+        const options = {
+          useNewUrlParser: true,
+          useUnifiedTopology: true,
+          connectTimeoutMS: 30000,
+          socketTimeoutMS: 45000,
+          serverSelectionTimeoutMS: 30000,
+          maxPoolSize: 5,
+        };
 
-      // Create a new MongoClient
-      client = new MongoClient(uri, options);
-      console.log("Created new MongoClient for admin/messages");
+        // Create a new MongoClient
+        directClient = new MongoClient(uri, options);
+        await directClient.connect();
 
-      // Connect to the MongoDB server
-      console.log("Connecting to MongoDB...");
-      await client.connect();
-      console.log("✅ Direct MongoDB connection successful for admin/messages");
+        // Get database name from connection string
+        const dbName = uri.split("/").pop().split("?")[0];
+        directDb = directClient.db(dbName);
 
-      // Get database name from connection string
-      const dbName = uri.split("/").pop().split("?")[0];
-      console.log(`Using database: ${dbName}`);
-
-      // Get database
-      const db = client.db(dbName);
+        console.log(
+          `Direct MongoDB connection established to database: ${dbName}`
+        );
+      }
 
       // Query the contacts collection
       console.log("Executing direct query on contacts collection for admin");
-      const contactsCollection = db.collection("contacts");
+      const contactsCollection = directDb.collection("contacts");
       const contacts = await contactsCollection
         .find({})
         .sort({ createdAt: -1 })
@@ -945,12 +998,6 @@ app.get(
         method: "direct",
         isTemporaryData: true,
       });
-    } finally {
-      // Close the connection
-      if (client) {
-        await client.close();
-        console.log("Closed MongoDB connection for admin/messages");
-      }
     }
   }
 );
