@@ -21,7 +21,7 @@ const app = express();
 const routes = require("./server/routes");
 
 // Import custom middleware
-const uploadMiddleware = require("./server/middleware/uploadMiddleware");
+const enhancedUploadMiddleware = require("./server/middleware/uploadMiddleware");
 
 // Middleware
 app.use(
@@ -2509,14 +2509,14 @@ app.delete("/api/direct/products/:id", productController.deleteProduct);
 // Category routes with direct MongoDB driver approach
 app.post(
   "/api/direct/categories",
-  uploadMiddleware,
+  enhancedUploadMiddleware,
   categoryController.createCategory
 );
 app.get("/api/direct/categories", categoryController.getAllCategories);
 app.get("/api/direct/categories/:id", categoryController.getCategoryById);
 app.put(
   "/api/direct/categories/:id",
-  uploadMiddleware,
+  enhancedUploadMiddleware,
   categoryController.updateCategory
 );
 app.delete("/api/direct/categories/:id", categoryController.deleteCategory);
@@ -2531,13 +2531,17 @@ app.delete("/api/products/:id", productController.deleteProduct);
 // Override the existing category routes to use our direct MongoDB driver approach
 app.post(
   "/api/categories",
-  uploadMiddleware,
+  enhancedUploadMiddleware,
   categoryController.createCategory
 );
-app.post("/categories", uploadMiddleware, categoryController.createCategory); // Add additional route for fallback
+app.post(
+  "/categories",
+  enhancedUploadMiddleware,
+  categoryController.createCategory
+); // Add additional route for fallback
 app.post(
   "/api/api/categories",
-  uploadMiddleware,
+  enhancedUploadMiddleware,
   categoryController.createCategory
 ); // Add additional route for fallback
 app.get("/api/categories", categoryController.getAllCategories);
@@ -2624,7 +2628,7 @@ Dist directory: ${JSON.stringify(distDir, null, 2)}
 });
 
 // Import custom error handler middleware
-const errorHandler = require("./middleware/errorHandler");
+const errorHandler = require("./server/middleware/errorHandler");
 
 // Global error handling middleware (must be after all routes)
 app.use(errorHandler);
