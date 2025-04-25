@@ -417,90 +417,173 @@ app.post("/api/contact", async (req, res) => {
   );
   try {
     // Validate required fields
-    if (!req.body.name || !req.body.email || !req.body.message) {
+    if (
+      !req.body.name ||
+      !req.body.email ||
+      !req.body.message ||
+      !req.body.subject
+    ) {
       return res.status(200).json({
         // Using 200 instead of 400 to prevent client crashes
         success: false,
-        message: "Please provide name, email and message",
+        message: "Please provide name, email, subject and message",
       });
     }
 
-    // Try to load the Contact model if it's not available
-    if (!Contact) {
-      Contact = loadModel("Contact");
-      console.log(
-        "Attempted to load Contact model:",
-        Contact ? "Success" : "Failed"
-      );
-    }
+    // Create the contact message data
+    const contactData = {
+      name: req.body.name,
+      email: req.body.email,
+      message: req.body.message,
+      subject: req.body.subject || "No Subject",
+      phone: req.body.phone || "",
+      status: "unread",
+      createdAt: new Date(),
+    };
 
-    // If Contact model is still not available, return a fake success response
-    if (!Contact) {
-      console.warn(
-        "Contact model not available, returning success without saving"
+    // First try to save using direct MongoDB driver
+    try {
+      console.log(
+        "Attempting to save contact message using direct MongoDB driver"
       );
-      return res.status(200).json({
-        success: true,
-        message: "Contact form received (model not available)",
-        receivedData: req.body,
-        data: {
+
+      // Use the existing direct MongoDB connection
+      if (!directDb) {
+        console.log(
+          "Direct MongoDB connection not available, attempting to connect..."
+        );
+
+        // Get the MongoDB URI
+        const uri = process.env.MONGO_URI;
+
+        // Direct connection options
+        const options = {
+          useNewUrlParser: true,
+          useUnifiedTopology: true,
+          connectTimeoutMS: 30000,
+          socketTimeoutMS: 45000,
+          serverSelectionTimeoutMS: 30000,
+          maxPoolSize: 5,
+        };
+
+        // Create a new MongoClient
+        directClient = new MongoClient(uri, options);
+        await directClient.connect();
+
+        // Get database name from connection string
+        const dbName = uri.split("/").pop().split("?")[0];
+        directDb = directClient.db(dbName);
+
+        console.log(
+          `Direct MongoDB connection established to database: ${dbName}`
+        );
+      }
+
+      // Insert the contact message directly into the contacts collection
+      const contactsCollection = directDb.collection("contacts");
+      const result = await contactsCollection.insertOne(contactData);
+
+      if (result.acknowledged) {
+        console.log(
+          "Contact message saved successfully using direct MongoDB driver:",
+          result
+        );
+
+        // Return success response
+        return res.status(201).json({
+          success: true,
+          data: {
+            ...contactData,
+            _id: result.insertedId,
+          },
+          method: "direct",
+        });
+      } else {
+        throw new Error("Insert operation not acknowledged");
+      }
+    } catch (directError) {
+      console.error(
+        "Error saving contact message using direct MongoDB driver:",
+        directError
+      );
+
+      // Fall back to Mongoose approach
+      console.log("Falling back to Mongoose approach");
+
+      // Try to load the Contact model if it's not available
+      if (!Contact) {
+        Contact = loadModel("Contact");
+        console.log(
+          "Attempted to load Contact model:",
+          Contact ? "Success" : "Failed"
+        );
+      }
+
+      // If Contact model is still not available, return a fake success response
+      if (!Contact) {
+        console.warn(
+          "Contact model not available, returning success without saving"
+        );
+        return res.status(200).json({
+          success: true,
+          message: "Contact form received (model not available)",
+          receivedData: req.body,
+          data: {
+            ...req.body,
+            _id: `temp_${Date.now()}`,
+            createdAt: new Date().toISOString(),
+            status: "unread",
+          },
+        });
+      }
+
+      // Try-catch block specifically for the Mongoose database operation
+      try {
+        const contact = await Contact.create(contactData);
+        console.log(
+          "Contact message created successfully using Mongoose:",
+          contact
+        );
+
+        return res.status(201).json({
+          success: true,
+          data: contact,
+          method: "mongoose",
+        });
+      } catch (mongooseError) {
+        console.error(
+          "Mongoose error creating contact message:",
+          mongooseError
+        );
+
+        // For validation errors
+        if (mongooseError.name === "ValidationError") {
+          const validationErrors = {};
+          for (const field in mongooseError.errors) {
+            validationErrors[field] = mongooseError.errors[field].message;
+          }
+          return res.status(200).json({
+            success: false,
+            message: "Validation error",
+            errors: validationErrors,
+          });
+        }
+
+        // Create a fallback contact object for the client
+        const fallbackContact = {
           ...req.body,
           _id: `temp_${Date.now()}`,
           createdAt: new Date().toISOString(),
           status: "unread",
-        },
-      });
-    }
+        };
 
-    // Try-catch block specifically for the database operation
-    try {
-      // Create the contact message
-      const contactData = {
-        name: req.body.name,
-        email: req.body.email,
-        message: req.body.message,
-        subject: req.body.subject || "No Subject",
-        phone: req.body.phone || "",
-        status: "unread",
-      };
-
-      const contact = await Contact.create(contactData);
-      console.log("Contact message created successfully:", contact);
-
-      return res.status(201).json({
-        success: true,
-        data: contact,
-      });
-    } catch (dbError) {
-      console.error("Database error creating contact message:", dbError);
-
-      // For validation errors
-      if (dbError.name === "ValidationError") {
-        const validationErrors = {};
-        for (const field in dbError.errors) {
-          validationErrors[field] = dbError.errors[field].message;
-        }
+        // Return success with fallback data to prevent client-side errors
         return res.status(200).json({
-          success: false,
-          message: "Validation error",
-          errors: validationErrors,
+          success: true,
+          data: fallbackContact,
+          message: "Error saving to database, returning temporary data",
         });
       }
-
-      // Create a fallback contact object for the client
-      const fallbackContact = {
-        ...req.body,
-        _id: `temp_${Date.now()}`,
-        createdAt: new Date().toISOString(),
-        status: "unread",
-      };
-
-      // Return success with fallback data to prevent client-side errors
-      return res.status(200).json({
-        success: true,
-        data: fallbackContact,
-        message: "Error saving to database, returning temporary data",
-      });
     }
   } catch (error) {
     console.error("Unexpected error in contact message route:", error);
@@ -527,111 +610,10 @@ app.post("/api/api/contact", async (req, res) => {
     "Received contact form submission via /api/api/contact route:",
     req.body
   );
-  try {
-    // Validate required fields
-    if (!req.body.name || !req.body.email || !req.body.message) {
-      return res.status(200).json({
-        // Using 200 instead of 400 to prevent client crashes
-        success: false,
-        message: "Please provide name, email and message",
-      });
-    }
-
-    // Try to load the Contact model if it's not available
-    if (!Contact) {
-      Contact = loadModel("Contact");
-      console.log(
-        "Attempted to load Contact model:",
-        Contact ? "Success" : "Failed"
-      );
-    }
-
-    // If Contact model is still not available, return a fake success response
-    if (!Contact) {
-      console.warn(
-        "Contact model not available, returning success without saving"
-      );
-      return res.status(200).json({
-        success: true,
-        message: "Contact form received (model not available)",
-        receivedData: req.body,
-        data: {
-          ...req.body,
-          _id: `temp_${Date.now()}`,
-          createdAt: new Date().toISOString(),
-          status: "unread",
-        },
-      });
-    }
-
-    // Try-catch block specifically for the database operation
-    try {
-      // Create the contact message
-      const contactData = {
-        name: req.body.name,
-        email: req.body.email,
-        message: req.body.message,
-        subject: req.body.subject || "No Subject",
-        phone: req.body.phone || "",
-        status: "unread",
-      };
-
-      const contact = await Contact.create(contactData);
-      console.log("Contact message created successfully:", contact);
-
-      return res.status(201).json({
-        success: true,
-        data: contact,
-      });
-    } catch (dbError) {
-      console.error("Database error creating contact message:", dbError);
-
-      // For validation errors
-      if (dbError.name === "ValidationError") {
-        const validationErrors = {};
-        for (const field in dbError.errors) {
-          validationErrors[field] = dbError.errors[field].message;
-        }
-        return res.status(200).json({
-          success: false,
-          message: "Validation error",
-          errors: validationErrors,
-        });
-      }
-
-      // Create a fallback contact object for the client
-      const fallbackContact = {
-        ...req.body,
-        _id: `temp_${Date.now()}`,
-        createdAt: new Date().toISOString(),
-        status: "unread",
-      };
-
-      // Return success with fallback data to prevent client-side errors
-      return res.status(200).json({
-        success: true,
-        data: fallbackContact,
-        message: "Error saving to database, returning temporary data",
-      });
-    }
-  } catch (error) {
-    console.error("Unexpected error in contact message route:", error);
-
-    // Create a fallback contact object for the client
-    const fallbackContact = {
-      ...req.body,
-      _id: `temp_${Date.now()}`,
-      createdAt: new Date().toISOString(),
-      status: "unread",
-    };
-
-    // Return success with fallback data to prevent client-side errors
-    return res.status(200).json({
-      success: true,
-      data: fallbackContact,
-      message: "Unexpected error, returning temporary data",
-    });
-  }
+  // Redirect to the main contact endpoint
+  return app._router.handle(req, res, () => {
+    console.log("Redirected to main contact endpoint");
+  });
 });
 
 // ===== ADDITIONAL API ROUTES =====
