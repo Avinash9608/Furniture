@@ -70,18 +70,18 @@ const connectDB = async () => {
 
     // Enhanced connection options for better reliability in deployed environments
     await mongoose.connect(uri, {
-      serverSelectionTimeoutMS: 60000, // Significantly increased timeout for server selection (from 30000)
-      socketTimeoutMS: 120000, // Significantly increased timeout for socket operations (from 75000)
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+      serverSelectionTimeoutMS: 30000, // 30 seconds timeout for initial connection
+      socketTimeoutMS: 45000, // 45 seconds timeout for queries
       retryWrites: true, // Retry write operations
       w: "majority", // Write concern
       maxPoolSize: 10, // Maximum number of connections in the pool
-      connectTimeoutMS: 90000, // Significantly increased timeout for initial connection (from 60000)
-      keepAlive: true, // Keep connection alive
-      keepAliveInitialDelay: 300000, // Keep alive initial delay
-      autoIndex: false, // Don't build indexes in production
-      autoCreate: true, // Automatically create collections
-      bufferCommands: false, // Disable command buffering to prevent timeouts
-      family: 4, // Force IPv4 (can help with some connection issues)
+      // Remove potentially unsupported options
+      // keepAlive: true,
+      // keepAliveInitialDelay: 300000,
+      // bufferCommands: false,
+      // family: 4,
     });
 
     // Log connection details for debugging
@@ -635,6 +635,27 @@ app.get("/api/direct/contacts", async (req, res) => {
   }
 });
 
+// Database connection check middleware
+const checkDBConnection = (req, res, next) => {
+  const mongoStatus = mongoose.connection.readyState;
+
+  if (mongoStatus !== 1) {
+    console.warn(`Database not connected. Current state: ${mongoStatus}`);
+    return res.status(503).json({
+      success: false,
+      message: "Database not connected",
+      service: "database",
+      state:
+        ["disconnected", "connected", "connecting", "disconnecting"][
+          mongoStatus
+        ] || "unknown",
+    });
+  }
+
+  // Database is connected, proceed to the route handler
+  next();
+};
+
 // Health check endpoint
 app.get("/api/health", (req, res) => {
   console.log("Health check requested");
@@ -668,9 +689,77 @@ app.get("/api/health", (req, res) => {
   });
 });
 
+// Database status endpoint
+app.get("/api/db-status", (req, res) => {
+  const mongoStatus = mongoose.connection.readyState;
+  const mongoStatusText =
+    {
+      0: "disconnected",
+      1: "connected",
+      2: "connecting",
+      3: "disconnecting",
+    }[mongoStatus] || "unknown";
+
+  return res.status(200).json({
+    connected: mongoStatus === 1,
+    state: mongoStatusText,
+    timestamp: new Date().toISOString(),
+    details: {
+      host: mongoose.connection.host,
+      port: mongoose.connection.port,
+      name: mongoose.connection.name,
+    },
+  });
+});
+
+// Test database query endpoint
+app.get("/api/db-test", async (req, res) => {
+  try {
+    // Verify MongoDB connection first
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({
+        success: false,
+        message: "Database not connected",
+        state:
+          ["disconnected", "connected", "connecting", "disconnecting"][
+            mongoose.connection.readyState
+          ] || "unknown",
+      });
+    }
+
+    // Try to load the Contact model if it's not available
+    if (!Contact) {
+      Contact = loadModel("Contact");
+    }
+
+    if (!Contact) {
+      return res.status(500).json({
+        success: false,
+        message: "Contact model not available",
+      });
+    }
+
+    // Simple count query with timeout
+    const count = await Contact.countDocuments().maxTimeMS(30000);
+
+    return res.status(200).json({
+      success: true,
+      count,
+      message: "Database query successful",
+    });
+  } catch (error) {
+    console.error("Database test query error:", error);
+    return res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+
 // Admin endpoint for contact messages (multiple routes for compatibility)
 app.get(
   ["/api/admin/messages", "/admin/messages", "/api/admin-messages"],
+  checkDBConnection, // Add the DB connection check middleware
   async (req, res) => {
     console.log("Admin: Fetching all contact messages");
 
@@ -704,9 +793,10 @@ app.get(
         if (mongoose.connection.readyState !== 1) {
           console.log("MongoDB not connected, attempting to connect...");
           await mongoose.connect(process.env.MONGO_URI, {
-            serverSelectionTimeoutMS: 10000,
-            socketTimeoutMS: 60000,
-            connectTimeoutMS: 30000,
+            useNewUrlParser: true,
+            useUnifiedTopology: true,
+            serverSelectionTimeoutMS: 30000, // 30 seconds timeout for initial connection
+            socketTimeoutMS: 45000, // 45 seconds timeout for queries
             retryWrites: true,
             w: "majority",
             maxPoolSize: 10,
@@ -714,8 +804,10 @@ app.get(
           console.log("MongoDB connected successfully");
         }
 
-        // Fetch contacts with proper error handling
-        const contacts = await Contact.find().sort({ createdAt: -1 });
+        // Fetch contacts with proper error handling and timeout
+        const contacts = await Contact.find()
+          .sort({ createdAt: -1 })
+          .maxTimeMS(30000); // 30 seconds timeout
         console.log(`Successfully fetched ${contacts.length} contact messages`);
 
         // Log a sample contact for debugging
@@ -761,140 +853,142 @@ app.get(
 );
 
 // Get all contact messages (multiple routes for compatibility)
-app.get(["/api/contact", "/contact", "/api/api/contact"], async (req, res) => {
-  console.log("Fetching all contact messages");
-  try {
-    // Try to load the Contact model if it's not available
-    if (!Contact) {
-      Contact = loadModel("Contact");
-      console.log(
-        "Attempted to load Contact model:",
-        Contact ? "Success" : "Failed"
-      );
-    }
-
-    // If Contact model is still not available, return an empty array
-    if (!Contact) {
-      console.warn("Contact model not available, returning empty array");
-      return res.status(200).json({
-        success: true,
-        count: 0,
-        data: [],
-        message: "Contact model not available, returning empty array",
-      });
-    }
-
-    // Try-catch block specifically for the database operation
+app.get(
+  ["/api/contact", "/contact", "/api/api/contact"],
+  checkDBConnection,
+  async (req, res) => {
+    console.log("Fetching all contact messages");
     try {
-      // Attempt to connect to the database if not connected
-      if (mongoose.connection.readyState !== 1) {
-        console.log("MongoDB not connected, attempting to connect...");
+      // Try to load the Contact model if it's not available
+      if (!Contact) {
+        Contact = loadModel("Contact");
+        console.log(
+          "Attempted to load Contact model:",
+          Contact ? "Success" : "Failed"
+        );
+      }
 
-        // Disconnect first to ensure a fresh connection
-        if (mongoose.connection.readyState !== 0) {
-          await mongoose.disconnect();
-          console.log("Disconnected existing MongoDB connection");
+      // If Contact model is still not available, return an empty array
+      if (!Contact) {
+        console.warn("Contact model not available, returning empty array");
+        return res.status(200).json({
+          success: true,
+          count: 0,
+          data: [],
+          message: "Contact model not available, returning empty array",
+        });
+      }
+
+      // Try-catch block specifically for the database operation
+      try {
+        // Attempt to connect to the database if not connected
+        if (mongoose.connection.readyState !== 1) {
+          console.log("MongoDB not connected, attempting to connect...");
+
+          // Disconnect first to ensure a fresh connection
+          if (mongoose.connection.readyState !== 0) {
+            await mongoose.disconnect();
+            console.log("Disconnected existing MongoDB connection");
+          }
+
+          // Simplified connection options based on MongoDB best practices
+          await mongoose.connect(process.env.MONGO_URI, {
+            useNewUrlParser: true,
+            useUnifiedTopology: true,
+            serverSelectionTimeoutMS: 30000, // 30 seconds timeout for initial connection
+            socketTimeoutMS: 45000, // 45 seconds timeout for queries
+            retryWrites: true,
+            w: "majority",
+            maxPoolSize: 10,
+          });
+          console.log("MongoDB connected successfully with enhanced options");
         }
 
-        // Connect with significantly enhanced options for production environment
-        await mongoose.connect(process.env.MONGO_URI, {
-          serverSelectionTimeoutMS: 60000, // Significantly increased from 30000
-          socketTimeoutMS: 120000, // Significantly increased from 75000
-          connectTimeoutMS: 90000, // Significantly increased from 60000
-          retryWrites: true,
-          w: "majority",
-          maxPoolSize: 10,
-          keepAlive: true,
-          keepAliveInitialDelay: 300000, // 5 minutes
-          bufferCommands: false, // Disable command buffering
-          family: 4, // Force IPv4 (can help with some connection issues)
-        });
-        console.log("MongoDB connected successfully with enhanced options");
-      }
+        // Fetch contacts with proper error handling and timeout
+        const contacts = await Contact.find()
+          .sort({ createdAt: -1 })
+          .maxTimeMS(30000); // 30 seconds timeout
+        console.log(`Successfully fetched ${contacts.length} contact messages`);
 
-      // Fetch contacts with proper error handling
-      const contacts = await Contact.find().sort({ createdAt: -1 });
-      console.log(`Successfully fetched ${contacts.length} contact messages`);
-
-      // Log a sample contact for debugging
-      if (contacts.length > 0) {
-        console.log("Sample contact:", {
-          id: contacts[0]._id,
-          name: contacts[0].name,
-          email: contacts[0].email,
-          createdAt: contacts[0].createdAt,
-        });
-      }
-
-      return res.status(200).json({
-        success: true,
-        count: contacts.length,
-        data: contacts,
-      });
-    } catch (dbError) {
-      console.error("Database error fetching contacts:", dbError);
-
-      // Try one more time with a different approach
-      try {
-        console.log("Making another attempt to connect to MongoDB...");
-
-        // Force a new connection to MongoDB
-        await mongoose.disconnect();
-        console.log("Disconnected from MongoDB to reset connection");
-
-        // Connect with significantly enhanced options for production environment
-        await mongoose.connect(process.env.MONGO_URI, {
-          serverSelectionTimeoutMS: 60000, // Significantly increased from 30000
-          socketTimeoutMS: 120000, // Significantly increased from 75000
-          connectTimeoutMS: 90000, // Significantly increased from 60000
-          retryWrites: true,
-          w: "majority",
-          maxPoolSize: 10,
-          keepAlive: true,
-          keepAliveInitialDelay: 300000, // 5 minutes
-          bufferCommands: false, // Disable command buffering
-          family: 4, // Force IPv4 (can help with some connection issues)
-        });
-
-        console.log("Reconnected to MongoDB successfully");
-
-        // Try fetching contacts again
-        const contacts = await Contact.find().sort({ createdAt: -1 });
-        console.log(
-          `Successfully fetched ${contacts.length} contact messages on second attempt`
-        );
+        // Log a sample contact for debugging
+        if (contacts.length > 0) {
+          console.log("Sample contact:", {
+            id: contacts[0]._id,
+            name: contacts[0].name,
+            email: contacts[0].email,
+            createdAt: contacts[0].createdAt,
+          });
+        }
 
         return res.status(200).json({
           success: true,
           count: contacts.length,
           data: contacts,
         });
-      } catch (retryError) {
-        console.error("Second attempt to fetch contacts failed:", retryError);
+      } catch (dbError) {
+        console.error("Database error fetching contacts:", dbError);
 
-        // Return empty array to prevent client-side errors
-        return res.status(200).json({
-          success: false,
-          count: 0,
-          data: [],
-          message:
-            "Failed to fetch contacts from database after multiple attempts",
-          error: retryError.message,
-        });
+        // Try one more time with a different approach
+        try {
+          console.log("Making another attempt to connect to MongoDB...");
+
+          // Force a new connection to MongoDB
+          await mongoose.disconnect();
+          console.log("Disconnected from MongoDB to reset connection");
+
+          // Simplified connection options based on MongoDB best practices
+          await mongoose.connect(process.env.MONGO_URI, {
+            useNewUrlParser: true,
+            useUnifiedTopology: true,
+            serverSelectionTimeoutMS: 30000, // 30 seconds timeout for initial connection
+            socketTimeoutMS: 45000, // 45 seconds timeout for queries
+            retryWrites: true,
+            w: "majority",
+            maxPoolSize: 10,
+          });
+
+          console.log("Reconnected to MongoDB successfully");
+
+          // Try fetching contacts again with timeout
+          const contacts = await Contact.find()
+            .sort({ createdAt: -1 })
+            .maxTimeMS(30000); // 30 seconds timeout
+          console.log(
+            `Successfully fetched ${contacts.length} contact messages on second attempt`
+          );
+
+          return res.status(200).json({
+            success: true,
+            count: contacts.length,
+            data: contacts,
+          });
+        } catch (retryError) {
+          console.error("Second attempt to fetch contacts failed:", retryError);
+
+          // Return empty array to prevent client-side errors
+          return res.status(200).json({
+            success: false,
+            count: 0,
+            data: [],
+            message:
+              "Failed to fetch contacts from database after multiple attempts",
+            error: retryError.message,
+          });
+        }
       }
-    }
-  } catch (error) {
-    console.error("Unexpected error in contact messages route:", error);
+    } catch (error) {
+      console.error("Unexpected error in contact messages route:", error);
 
-    // Return empty array to prevent client-side errors
-    return res.status(200).json({
-      success: true,
-      count: 0,
-      data: [],
-      message: "Unexpected error, returning empty array",
-    });
+      // Return empty array to prevent client-side errors
+      return res.status(200).json({
+        success: true,
+        count: 0,
+        data: [],
+        message: "Unexpected error, returning empty array",
+      });
+    }
   }
-});
+);
 
 // ===== PRODUCT ROUTES =====
 // Get all products
