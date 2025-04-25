@@ -32,9 +32,18 @@ const AdminMessages = () => {
         // Check for error in the response
         if (response.error) {
           console.error("Error in API response:", response.error);
-          setError(response.error);
-          setMessages([]);
-          return;
+
+          // Check if this is temporary data due to a database timeout
+          if (response.isTemporaryData) {
+            console.warn("Displaying temporary data due to database timeout");
+            // We'll still show the messages but with a warning
+            setError(response.error);
+            // Continue processing the temporary messages
+          } else {
+            setError(response.error);
+            setMessages([]);
+            return;
+          }
         }
 
         // Handle different API response structures

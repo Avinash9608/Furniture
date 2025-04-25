@@ -70,17 +70,18 @@ const connectDB = async () => {
 
     // Enhanced connection options for better reliability in deployed environments
     await mongoose.connect(uri, {
-      serverSelectionTimeoutMS: 30000, // Increased timeout for server selection (from 10000)
-      socketTimeoutMS: 75000, // Increased timeout for socket operations (from 60000)
+      serverSelectionTimeoutMS: 60000, // Significantly increased timeout for server selection (from 30000)
+      socketTimeoutMS: 120000, // Significantly increased timeout for socket operations (from 75000)
       retryWrites: true, // Retry write operations
       w: "majority", // Write concern
       maxPoolSize: 10, // Maximum number of connections in the pool
-      connectTimeoutMS: 60000, // Increased timeout for initial connection (from 30000)
+      connectTimeoutMS: 90000, // Significantly increased timeout for initial connection (from 60000)
       keepAlive: true, // Keep connection alive
       keepAliveInitialDelay: 300000, // Keep alive initial delay
       autoIndex: false, // Don't build indexes in production
       autoCreate: true, // Automatically create collections
       bufferCommands: false, // Disable command buffering to prevent timeouts
+      family: 4, // Force IPv4 (can help with some connection issues)
     });
 
     // Log connection details for debugging
@@ -600,17 +601,18 @@ app.get("/api/direct/contacts", async (req, res) => {
           console.log("Disconnected existing MongoDB connection");
         }
 
-        // Connect with enhanced options for production environment
+        // Connect with significantly enhanced options for production environment
         await mongoose.connect(process.env.MONGO_URI, {
-          serverSelectionTimeoutMS: 30000, // Increased from 10000
-          socketTimeoutMS: 75000, // Increased from 60000
-          connectTimeoutMS: 60000, // Increased from 30000
+          serverSelectionTimeoutMS: 60000, // Significantly increased from 30000
+          socketTimeoutMS: 120000, // Significantly increased from 75000
+          connectTimeoutMS: 90000, // Significantly increased from 60000
           retryWrites: true,
           w: "majority",
           maxPoolSize: 10,
           keepAlive: true,
           keepAliveInitialDelay: 300000, // 5 minutes
           bufferCommands: false, // Disable command buffering
+          family: 4, // Force IPv4 (can help with some connection issues)
         });
         console.log("MongoDB connected successfully with enhanced options");
       }
@@ -794,17 +796,18 @@ app.get(["/api/contact", "/contact", "/api/api/contact"], async (req, res) => {
           console.log("Disconnected existing MongoDB connection");
         }
 
-        // Connect with enhanced options for production environment
+        // Connect with significantly enhanced options for production environment
         await mongoose.connect(process.env.MONGO_URI, {
-          serverSelectionTimeoutMS: 30000, // Increased from 5000
-          socketTimeoutMS: 75000, // Increased from 45000
-          connectTimeoutMS: 60000, // Added
+          serverSelectionTimeoutMS: 60000, // Significantly increased from 30000
+          socketTimeoutMS: 120000, // Significantly increased from 75000
+          connectTimeoutMS: 90000, // Significantly increased from 60000
           retryWrites: true,
           w: "majority",
           maxPoolSize: 10,
           keepAlive: true,
           keepAliveInitialDelay: 300000, // 5 minutes
           bufferCommands: false, // Disable command buffering
+          family: 4, // Force IPv4 (can help with some connection issues)
         });
         console.log("MongoDB connected successfully with enhanced options");
       }
@@ -839,17 +842,18 @@ app.get(["/api/contact", "/contact", "/api/api/contact"], async (req, res) => {
         await mongoose.disconnect();
         console.log("Disconnected from MongoDB to reset connection");
 
-        // Connect with enhanced options for production environment
+        // Connect with significantly enhanced options for production environment
         await mongoose.connect(process.env.MONGO_URI, {
-          serverSelectionTimeoutMS: 30000, // Increased timeout
-          socketTimeoutMS: 75000, // Increased from 60000
-          connectTimeoutMS: 60000, // Increased from 30000
+          serverSelectionTimeoutMS: 60000, // Significantly increased from 30000
+          socketTimeoutMS: 120000, // Significantly increased from 75000
+          connectTimeoutMS: 90000, // Significantly increased from 60000
           retryWrites: true,
           w: "majority",
           maxPoolSize: 10,
           keepAlive: true,
           keepAliveInitialDelay: 300000, // 5 minutes
           bufferCommands: false, // Disable command buffering
+          family: 4, // Force IPv4 (can help with some connection issues)
         });
 
         console.log("Reconnected to MongoDB successfully");

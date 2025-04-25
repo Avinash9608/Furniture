@@ -1179,13 +1179,38 @@ const contactAPI = {
         console.error("Direct database query failed:", directError);
       }
 
-      // If all else fails, return an empty array with a helpful error message
+      // If all else fails, return mock data with a helpful error message
       console.error("All attempts to fetch contact messages failed");
 
+      // Create mock messages for testing in case of MongoDB buffering timeout
+      const mockMessages = [
+        {
+          _id: `temp_${Date.now()}_1`,
+          name: "System Message",
+          email: "system@example.com",
+          subject: "Database Connection Issue",
+          message:
+            "The application is currently experiencing issues connecting to the database. This is likely due to a MongoDB buffering timeout. Please try again later.",
+          status: "unread",
+          createdAt: new Date().toISOString(),
+        },
+        {
+          _id: `temp_${Date.now()}_2`,
+          name: "System Message",
+          email: "system@example.com",
+          subject: "Temporary Data",
+          message:
+            "This is temporary data displayed while the application is unable to connect to the database. Your actual messages will be displayed once the connection is restored.",
+          status: "unread",
+          createdAt: new Date().toISOString(),
+        },
+      ];
+
       return {
-        data: [],
+        data: mockMessages,
         error:
-          "Unable to fetch messages from the database. The server may be experiencing issues or the database connection may be down. Please try again later or contact support.",
+          "Database operation timed out. This is often due to slow network connection to MongoDB. The application is displaying temporary data. Please try again later.",
+        isTemporaryData: true,
       };
     } catch (error) {
       console.error("Error in contactAPI.getAll:", error);
