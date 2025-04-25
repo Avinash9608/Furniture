@@ -1126,9 +1126,288 @@ app.get(
 );
 
 // ===== PRODUCT ROUTES =====
-// Get all products
+// Create product using direct MongoDB driver
+app.post("/api/direct/products", async (req, res) => {
+  console.log("Creating product using direct MongoDB driver");
+
+  // Set proper headers to ensure JSON response
+  res.setHeader("Content-Type", "application/json");
+
+  try {
+    // Validate required fields
+    if (!req.body.name || !req.body.price || !req.body.category) {
+      return res.status(200).json({
+        success: false,
+        message: "Please provide name, price, and category",
+      });
+    }
+
+    // Use the existing direct MongoDB connection
+    if (!directDb) {
+      console.log(
+        "Direct MongoDB connection not available, attempting to connect..."
+      );
+
+      // Get the MongoDB URI
+      const uri = process.env.MONGO_URI;
+
+      // Direct connection options
+      const options = {
+        useNewUrlParser: true,
+        useUnifiedTopology: true,
+        connectTimeoutMS: 30000,
+        socketTimeoutMS: 45000,
+        serverSelectionTimeoutMS: 30000,
+        maxPoolSize: 5,
+      };
+
+      // Create a new MongoClient
+      directClient = new MongoClient(uri, options);
+      await directClient.connect();
+
+      // Get database name from connection string
+      const dbName = uri.split("/").pop().split("?")[0];
+      directDb = directClient.db(dbName);
+
+      console.log(
+        `Direct MongoDB connection established to database: ${dbName}`
+      );
+    }
+
+    // Create the product data
+    const productData = {
+      name: req.body.name,
+      price: parseFloat(req.body.price),
+      description: req.body.description || "",
+      category: req.body.category,
+      image: req.body.image || "",
+      stock: parseInt(req.body.stock) || 0,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    // Insert the product into the products collection
+    console.log("Inserting product into database:", productData);
+    const productsCollection = directDb.collection("products");
+    const result = await productsCollection.insertOne(productData);
+
+    if (result.acknowledged) {
+      console.log(
+        "Product created successfully using direct MongoDB driver:",
+        result
+      );
+
+      // Return success response
+      return res.status(201).json({
+        success: true,
+        data: {
+          ...productData,
+          _id: result.insertedId,
+        },
+        method: "direct",
+      });
+    } else {
+      throw new Error("Insert operation not acknowledged");
+    }
+  } catch (error) {
+    console.error("Direct MongoDB product creation error:", error);
+    console.error("Error details:", error.stack);
+
+    // Return error response
+    return res.status(200).json({
+      success: false,
+      message: "Error creating product",
+      error: error.message,
+    });
+  }
+});
+
+// Direct database query endpoint for products using MongoDB driver
+app.get("/api/direct/products", async (req, res) => {
+  console.log("Direct database query for products using MongoDB driver");
+
+  // Set proper headers to ensure JSON response
+  res.setHeader("Content-Type", "application/json");
+
+  try {
+    // Use the existing direct MongoDB connection
+    if (!directDb) {
+      console.log(
+        "Direct MongoDB connection not available, attempting to connect..."
+      );
+
+      // Get the MongoDB URI
+      const uri = process.env.MONGO_URI;
+
+      // Direct connection options
+      const options = {
+        useNewUrlParser: true,
+        useUnifiedTopology: true,
+        connectTimeoutMS: 30000,
+        socketTimeoutMS: 45000,
+        serverSelectionTimeoutMS: 30000,
+        maxPoolSize: 5,
+      };
+
+      // Create a new MongoClient
+      directClient = new MongoClient(uri, options);
+      await directClient.connect();
+
+      // Get database name from connection string
+      const dbName = uri.split("/").pop().split("?")[0];
+      directDb = directClient.db(dbName);
+
+      console.log(
+        `Direct MongoDB connection established to database: ${dbName}`
+      );
+    }
+
+    // Query the products collection
+    console.log("Executing direct query on products collection");
+    const productsCollection = directDb.collection("products");
+    const products = await productsCollection
+      .find({})
+      .sort({ createdAt: -1 })
+      .toArray();
+    console.log(
+      `Successfully fetched ${products.length} products directly using MongoDB driver`
+    );
+
+    // Try to get category information for each product
+    try {
+      const categoriesCollection = directDb.collection("categories");
+      const categories = await categoriesCollection.find({}).toArray();
+
+      // Create a map of category IDs to category objects
+      const categoryMap = {};
+      categories.forEach((category) => {
+        categoryMap[category._id.toString()] = category;
+      });
+
+      // Add category information to each product
+      const productsWithCategories = products.map((product) => {
+        if (product.category && categoryMap[product.category.toString()]) {
+          return {
+            ...product,
+            categoryInfo: categoryMap[product.category.toString()],
+          };
+        }
+        return product;
+      });
+
+      console.log(
+        `Successfully added category information to ${productsWithCategories.length} products`
+      );
+
+      // Return the products array with categories
+      return res.status(200).json({
+        success: true,
+        count: productsWithCategories.length,
+        data: productsWithCategories,
+        method: "direct",
+      });
+    } catch (categoryError) {
+      console.error("Error fetching categories:", categoryError);
+
+      // Return products without category information
+      return res.status(200).json({
+        success: true,
+        count: products.length,
+        data: products,
+        method: "direct",
+        message: "Products fetched without category information",
+      });
+    }
+  } catch (error) {
+    console.error("Direct MongoDB products query error:", error);
+    console.error("Error details:", error.stack);
+
+    // Return empty array to prevent client-side errors
+    return res.status(200).json({
+      success: false,
+      count: 0,
+      data: [],
+      message: "Error fetching products from database",
+      error: error.message,
+    });
+  }
+});
+
+// Get all products (with fallback to direct MongoDB driver)
 app.get("/api/products", async (req, res) => {
   console.log("Fetching all products");
+
+  // First try using direct MongoDB driver
+  try {
+    // Use the existing direct MongoDB connection
+    if (directDb) {
+      console.log("Using direct MongoDB driver for products");
+
+      // Query the products collection
+      const productsCollection = directDb.collection("products");
+      const products = await productsCollection
+        .find({})
+        .sort({ createdAt: -1 })
+        .toArray();
+      console.log(
+        `Successfully fetched ${products.length} products directly using MongoDB driver`
+      );
+
+      // Try to get category information for each product
+      try {
+        const categoriesCollection = directDb.collection("categories");
+        const categories = await categoriesCollection.find({}).toArray();
+
+        // Create a map of category IDs to category objects
+        const categoryMap = {};
+        categories.forEach((category) => {
+          categoryMap[category._id.toString()] = category;
+        });
+
+        // Add category information to each product
+        const productsWithCategories = products.map((product) => {
+          if (product.category && categoryMap[product.category.toString()]) {
+            return {
+              ...product,
+              categoryInfo: categoryMap[product.category.toString()],
+            };
+          }
+          return product;
+        });
+
+        console.log(
+          `Successfully added category information to ${productsWithCategories.length} products`
+        );
+
+        // Return the products array with categories
+        return res.status(200).json({
+          success: true,
+          count: productsWithCategories.length,
+          data: productsWithCategories,
+          method: "direct",
+        });
+      } catch (categoryError) {
+        console.error("Error fetching categories:", categoryError);
+
+        // Return products without category information
+        return res.status(200).json({
+          success: true,
+          count: products.length,
+          data: products,
+          method: "direct",
+          message: "Products fetched without category information",
+        });
+      }
+    }
+  } catch (directError) {
+    console.error(
+      "Error using direct MongoDB driver for products:",
+      directError
+    );
+    // Fall back to Mongoose approach
+  }
+
+  // Fall back to Mongoose approach
   try {
     // Try to load the Product model if it's not available
     if (!Product) {
@@ -1163,6 +1442,7 @@ app.get("/api/products", async (req, res) => {
           success: true,
           count: products.length,
           data: products,
+          method: "mongoose",
         });
       } catch (populateError) {
         console.error(
@@ -1180,6 +1460,7 @@ app.get("/api/products", async (req, res) => {
           success: true,
           count: products.length,
           data: products,
+          method: "mongoose",
           message: "Fetched without category population due to error",
         });
       }
