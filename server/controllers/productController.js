@@ -140,9 +140,36 @@ const createProduct = async (req, res) => {
     // Log the final image URLs
     console.log("Final image URLs:", imageUrls);
 
+    // Import slugify
+    const slugify = require("slugify");
+
+    // Generate a slug from the product name
+    let productName = req.body.name ? req.body.name.trim() : "";
+    let slug = "";
+
+    if (productName) {
+      // Generate base slug from name using slugify
+      slug = slugify(productName, {
+        lower: true,
+        strict: true, // removes special characters
+        remove: /[*+~.()'"!:@]/g,
+      });
+
+      // If slug is empty after processing, use a fallback
+      if (!slug || slug.trim() === "") {
+        slug = `product-${Date.now()}`;
+      }
+    } else {
+      // If no name provided, generate a random slug
+      slug = `product-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+    }
+
+    console.log(`Generated slug: ${slug} for product: ${productName}`);
+
     // Create the product data
     const productData = {
-      name: req.body.name,
+      name: productName,
+      slug: slug, // Add the generated slug
       price: parseFloat(req.body.price),
       description: req.body.description || "",
       category: req.body.category,
@@ -250,7 +277,44 @@ const createProduct = async (req, res) => {
   } catch (error) {
     console.error("Error creating product:", error);
 
-    // Return error response
+    // Handle duplicate key errors specifically
+    if (error.code === 11000) {
+      console.log("Duplicate key error:", error.keyValue);
+
+      // Check if it's a duplicate slug
+      if (error.keyValue && error.keyValue.slug) {
+        return res.status(200).json({
+          success: false,
+          message:
+            "A product with a similar name already exists. Please try a different name.",
+          error: "Duplicate slug error",
+          code: "DUPLICATE_SLUG",
+        });
+      }
+
+      // Check if it's a duplicate name
+      if (error.keyValue && error.keyValue.name) {
+        return res.status(200).json({
+          success: false,
+          message:
+            "A product with this exact name already exists. Please use a different name.",
+          error: "Duplicate name error",
+          code: "DUPLICATE_NAME",
+        });
+      }
+
+      // Generic duplicate key error
+      return res.status(200).json({
+        success: false,
+        message:
+          "This product conflicts with an existing one. Please check your input.",
+        error: "Duplicate key error",
+        code: "DUPLICATE_KEY",
+        duplicateField: Object.keys(error.keyValue)[0],
+      });
+    }
+
+    // Return error response for other errors
     return res.status(200).json({
       success: false,
       message: error.message || "Error creating product",
@@ -689,8 +753,70 @@ const updateProduct = async (req, res) => {
         },
       };
 
-      // Add fields to update if they exist in the request
-      if (req.body.name) updateData.$set.name = req.body.name;
+      // Generate a new slug if the name is being updated
+      if (req.body.name) {
+        // Import slugify
+        const slugify = require("slugify");
+
+        // Get the new name
+        const newName = req.body.name.trim();
+
+        // Generate a new slug
+        let newSlug = slugify(newName, {
+          lower: true,
+          strict: true,
+          remove: /[*+~.()'"!:@]/g,
+        });
+
+        // If slug is empty after processing, use a fallback
+        if (!newSlug || newSlug.trim() === "") {
+          newSlug = `product-${Date.now()}`;
+        }
+
+        // Check if the new slug is different from the existing one
+        if (newSlug !== existingProduct.slug) {
+          console.log(
+            `Updating slug from ${existingProduct.slug} to ${newSlug}`
+          );
+
+          // Check if the new slug already exists
+          let slugCounter = 1;
+          let finalSlug = newSlug;
+          let slugExists = true;
+
+          while (slugExists) {
+            try {
+              // Check if another product has this slug
+              const productWithSlug = await productsCollection.findOne({
+                slug: finalSlug,
+                _id: { $ne: existingProduct._id },
+              });
+
+              if (!productWithSlug) {
+                // Slug is unique
+                slugExists = false;
+              } else {
+                // Slug exists, try with counter
+                finalSlug = `${newSlug}-${slugCounter}`;
+                slugCounter++;
+              }
+            } catch (err) {
+              console.error("Error checking slug uniqueness:", err);
+              // In case of error, use timestamp to ensure uniqueness
+              finalSlug = `${newSlug}-${Date.now()}`;
+              slugExists = false;
+            }
+          }
+
+          // Set the new slug
+          updateData.$set.slug = finalSlug;
+        }
+
+        // Set the new name
+        updateData.$set.name = newName;
+      }
+
+      // Add other fields to update if they exist in the request
       if (req.body.price) updateData.$set.price = parseFloat(req.body.price);
       if (req.body.description)
         updateData.$set.description = req.body.description;
@@ -766,7 +892,44 @@ const updateProduct = async (req, res) => {
   } catch (error) {
     console.error("Error updating product:", error);
 
-    // Return error response
+    // Handle duplicate key errors specifically
+    if (error.code === 11000) {
+      console.log("Duplicate key error during update:", error.keyValue);
+
+      // Check if it's a duplicate slug
+      if (error.keyValue && error.keyValue.slug) {
+        return res.status(200).json({
+          success: false,
+          message:
+            "A product with a similar name already exists. Please try a different name.",
+          error: "Duplicate slug error",
+          code: "DUPLICATE_SLUG",
+        });
+      }
+
+      // Check if it's a duplicate name
+      if (error.keyValue && error.keyValue.name) {
+        return res.status(200).json({
+          success: false,
+          message:
+            "A product with this exact name already exists. Please use a different name.",
+          error: "Duplicate name error",
+          code: "DUPLICATE_NAME",
+        });
+      }
+
+      // Generic duplicate key error
+      return res.status(200).json({
+        success: false,
+        message:
+          "This update conflicts with an existing product. Please check your input.",
+        error: "Duplicate key error",
+        code: "DUPLICATE_KEY",
+        duplicateField: Object.keys(error.keyValue)[0],
+      });
+    }
+
+    // Return error response for other errors
     return res.status(200).json({
       success: false,
       message: error.message || "Error updating product",

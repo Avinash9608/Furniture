@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const slugify = require("slugify");
 
 const ProductSchema = new mongoose.Schema({
   name: {
@@ -11,6 +12,7 @@ const ProductSchema = new mongoose.Schema({
     type: String,
     unique: true,
     lowercase: true,
+    sparse: true, // This allows multiple documents with null values
   },
   description: {
     type: String,
@@ -114,45 +116,79 @@ const ProductSchema = new mongoose.Schema({
 
 // Create slug from name before saving
 ProductSchema.pre("save", async function (next) {
-  if (!this.isModified("name")) {
-    next();
-    return;
-  }
-
-  // Generate base slug from name
-  let baseSlug = this.name.toLowerCase().replace(/[^a-zA-Z0-9]/g, "-");
-
-  // Check if slug already exists
-  let slug = baseSlug;
-  let counter = 1;
-  let slugExists = true;
-
-  // Keep checking until we find a unique slug
-  while (slugExists) {
-    try {
-      // Check if a product with this slug already exists (excluding this document)
-      const existingProduct = await this.constructor.findOne({
-        slug: slug,
-        _id: { $ne: this._id }, // Exclude current document
-      });
-
-      if (!existingProduct) {
-        // Slug is unique
-        slugExists = false;
-      } else {
-        // Slug exists, try with counter
-        slug = `${baseSlug}-${counter}`;
-        counter++;
-      }
-    } catch (err) {
-      console.error("Error checking slug uniqueness:", err);
-      // In case of error, use timestamp to ensure uniqueness
-      slug = `${baseSlug}-${Date.now()}`;
-      slugExists = false;
+  try {
+    // If name hasn't changed and we already have a slug, skip slug generation
+    if (!this.isModified("name") && this.slug) {
+      return next();
     }
-  }
 
-  this.slug = slug;
+    // Make sure we have a name to work with
+    if (!this.name || this.name.trim() === "") {
+      this.slug = `product-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+      return next();
+    }
+
+    // Generate base slug from name using slugify
+    let baseSlug = slugify(this.name, {
+      lower: true,
+      strict: true, // removes special characters
+      remove: /[*+~.()'"!:@]/g,
+    });
+
+    // If baseSlug is empty after processing, use a fallback
+    if (!baseSlug || baseSlug.trim() === "") {
+      baseSlug = `product-${Date.now()}`;
+    }
+
+    // Check if slug already exists
+    let slug = baseSlug;
+    let counter = 1;
+    let slugExists = true;
+
+    // Keep checking until we find a unique slug
+    while (slugExists) {
+      try {
+        // Check if a product with this slug already exists (excluding this document)
+        const existingProduct = await this.constructor.findOne({
+          slug: slug,
+          _id: { $ne: this._id }, // Exclude current document
+        });
+
+        if (!existingProduct) {
+          // Slug is unique
+          slugExists = false;
+        } else {
+          // Slug exists, try with counter
+          slug = `${baseSlug}-${counter}`;
+          counter++;
+        }
+      } catch (err) {
+        console.error("Error checking slug uniqueness:", err);
+        // In case of error, use timestamp to ensure uniqueness
+        slug = `${baseSlug}-${Date.now()}`;
+        slugExists = false;
+      }
+    }
+
+    this.slug = slug;
+    console.log(`Generated slug: ${this.slug} for product: ${this.name}`);
+    next();
+  } catch (error) {
+    console.error("Error in slug generation:", error);
+    // Ensure we always have a slug, even if there's an error
+    this.slug = `product-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+    next();
+  }
+});
+
+// Additional safety check to ensure we never have null slugs
+ProductSchema.pre("save", function (next) {
+  if (!this.slug) {
+    const timestamp = Date.now();
+    const random = Math.floor(Math.random() * 1000);
+    this.slug = `product-${timestamp}-${random}`;
+    console.log(`Fallback slug generated: ${this.slug}`);
+  }
   next();
 });
 
