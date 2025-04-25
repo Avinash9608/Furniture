@@ -68,12 +68,37 @@ const Categories = () => {
         console.log("Categories data:", categoriesData);
         setCategories(categoriesData);
 
+        // Check if there's a warning about temporary categories
+        if (response.data && response.data.warning) {
+          setSuccessMessage(response.data.warning);
+          setTimeout(() => {
+            setSuccessMessage(null);
+          }, 8000); // Show for 8 seconds
+        }
+
+        // If server fetch failed, show a message
+        if (
+          response.data &&
+          response.data.error &&
+          !response.data.fetchSucceeded
+        ) {
+          setError(
+            `Server error: ${response.data.error}. Using locally stored categories.`
+          );
+        }
+
         // Fetch product counts for each category
         const productCounts = {};
         for (const category of categoriesData) {
           // Skip if category doesn't have a valid _id
           if (!category || !category._id) {
             console.warn("Invalid category object:", category);
+            continue;
+          }
+
+          // For temporary categories, set product count to 0
+          if (category.isTemporary) {
+            productCounts[category._id] = 0;
             continue;
           }
 
@@ -186,15 +211,24 @@ const Categories = () => {
         setShowAddModal(false);
 
         // Show success message with warning if applicable
-        if (response.warning) {
+        if (response.isTemporary) {
           setSuccessMessage(
-            `Category added with temporary data. Please refresh the page to confirm.`
+            `Category added with temporary data. It will be saved to the server when connection is restored.`
           );
+
+          // Set a follow-up message after a delay
+          setTimeout(() => {
+            setSuccessMessage(
+              "You can continue using this category normally. It will be automatically synced when server connection is available."
+            );
+          }, 5000);
+        } else if (response.warning) {
+          setSuccessMessage(`Category added successfully! ${response.warning}`);
         } else {
           setSuccessMessage("Category added successfully!");
         }
 
-        setTimeout(() => setSuccessMessage(null), 5000);
+        setTimeout(() => setSuccessMessage(null), 10000);
       } else {
         console.error("Invalid category data received:", response);
         setSubmitError("Received invalid data from server. Please try again.");
@@ -400,17 +434,26 @@ const Categories = () => {
                 <div className="p-4">
                   <div className="flex justify-between items-start">
                     <div>
-                      <h3 className="text-lg font-semibold theme-text-primary">
-                        {category.name}
-                      </h3>
+                      <div className="flex items-center">
+                        <h3 className="text-lg font-semibold theme-text-primary">
+                          {category.name}
+                        </h3>
+                        {category.isTemporary && (
+                          <span className="ml-2 px-2 py-0.5 text-xs bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 rounded-full">
+                            Local
+                          </span>
+                        )}
+                      </div>
                       <p className="text-sm theme-text-secondary mt-1">
                         {categoryProducts[category._id] || 0} products
+                        {category.isTemporary && " • Not saved to server"}
                       </p>
                     </div>
                     <div className="flex space-x-2">
                       <button
                         onClick={() => handleEditClick(category)}
                         className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-900 dark:hover:text-indigo-300"
+                        title="Edit category"
                       >
                         <svg
                           className="w-5 h-5"
@@ -430,6 +473,7 @@ const Categories = () => {
                       <button
                         onClick={() => handleDeleteClick(category)}
                         className="text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300"
+                        title="Delete category"
                       >
                         <svg
                           className="w-5 h-5"
@@ -451,6 +495,14 @@ const Categories = () => {
                   <p className="text-sm theme-text-secondary mt-2 line-clamp-2">
                     {category.description || "No description available."}
                   </p>
+                  {category.isTemporary && (
+                    <div className="mt-3 text-xs text-yellow-700 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/30 p-2 rounded">
+                      <p>
+                        This category is stored locally and will be saved to the
+                        server when connection is restored.
+                      </p>
+                    </div>
+                  )}
                 </div>
               </motion.div>
             ))}

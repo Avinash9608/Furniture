@@ -484,7 +484,7 @@ const categoriesAPI = {
 
       // Create a direct axios instance
       const directApi = axios.create({
-        timeout: 30000, // Increased timeout
+        timeout: 60000, // Increased timeout to 60 seconds
         headers: {
           "Content-Type": "application/json",
           Accept: "application/json",
@@ -504,6 +504,10 @@ const categoriesAPI = {
       ];
 
       // Try each endpoint until one works
+      let serverCategories = [];
+      let fetchSucceeded = false;
+      let lastError = null;
+
       for (const endpoint of endpoints) {
         try {
           console.log(`Trying to fetch categories from: ${endpoint}`);
@@ -513,53 +517,123 @@ const categoriesAPI = {
           // Ensure the response has the expected structure
           if (response.data && response.data.success !== false) {
             // Handle different response structures
-            let categoriesData = [];
-
             if (response.data.data && Array.isArray(response.data.data)) {
-              categoriesData = response.data.data;
+              serverCategories = response.data.data;
             } else if (Array.isArray(response.data)) {
-              categoriesData = response.data;
+              serverCategories = response.data;
             } else if (response.data.data) {
               // If data.data is not an array but exists, convert to array
-              categoriesData = [response.data.data];
+              serverCategories = [response.data.data];
             } else if (response.data) {
               // If data exists but not in expected format, try to use it
-              categoriesData = [response.data];
+              serverCategories = [response.data];
             }
 
-            console.log("Processed categories data:", categoriesData);
-
-            return {
-              data: {
-                success: true,
-                count: categoriesData.length,
-                data: categoriesData,
-              },
-            };
+            console.log(
+              "Processed categories data from server:",
+              serverCategories
+            );
+            fetchSucceeded = true;
+            break; // Exit the loop since we got data
           }
         } catch (error) {
           console.warn(`Error fetching categories from ${endpoint}:`, error);
+          lastError = error;
           // Continue to the next endpoint
         }
       }
 
-      // If all endpoints fail, return empty array to prevent UI crashes
-      console.warn("All category endpoints failed, returning empty array");
+      // Get any temporary categories from localStorage
+      let tempCategories = [];
+      try {
+        tempCategories = JSON.parse(
+          localStorage.getItem("tempCategories") || "[]"
+        );
+        console.log(
+          "Retrieved temporary categories from localStorage:",
+          tempCategories
+        );
+      } catch (storageError) {
+        console.error(
+          "Error retrieving temporary categories from localStorage:",
+          storageError
+        );
+      }
+
+      // If we successfully fetched from server, merge with temp categories
+      // Otherwise, just use temp categories
+      let allCategories = [];
+
+      if (fetchSucceeded) {
+        // Filter out any temporary categories that might have been saved to the server
+        // (comparing by name since IDs will be different)
+        const serverCategoryNames = serverCategories.map((cat) =>
+          cat.name.toLowerCase()
+        );
+        const filteredTempCategories = tempCategories.filter(
+          (tempCat) => !serverCategoryNames.includes(tempCat.name.toLowerCase())
+        );
+
+        // Combine server categories with remaining temporary ones
+        allCategories = [...serverCategories, ...filteredTempCategories];
+        console.log("Combined categories:", allCategories);
+      } else {
+        // If server fetch failed, just use temporary categories
+        allCategories = tempCategories;
+        console.warn(
+          "Using only temporary categories due to server fetch failure"
+        );
+      }
+
+      // Add a warning message if we're using temporary categories
+      const warning =
+        tempCategories.length > 0
+          ? "Some categories are stored locally and may not be available on other devices."
+          : null;
+
       return {
         data: {
           success: true,
-          count: 0,
-          data: [],
+          count: allCategories.length,
+          data: allCategories,
+          warning: warning,
+          fetchSucceeded: fetchSucceeded,
+          error: lastError ? lastError.message : null,
         },
       };
     } catch (error) {
       console.error("Error in categoriesAPI.getAll:", error);
-      // Return empty array instead of throwing error
+
+      // Try to get temporary categories from localStorage as a fallback
+      try {
+        const tempCategories = JSON.parse(
+          localStorage.getItem("tempCategories") || "[]"
+        );
+        console.log(
+          "Fallback to temporary categories after error:",
+          tempCategories
+        );
+
+        return {
+          data: {
+            success: true,
+            count: tempCategories.length,
+            data: tempCategories,
+            warning: "Using locally stored categories due to server error.",
+            error: error.message,
+          },
+        };
+      } catch (storageError) {
+        console.error("Error retrieving temporary categories:", storageError);
+      }
+
+      // Return empty array as last resort
       return {
         data: {
           success: true,
           count: 0,
           data: [],
+          error: error.message,
         },
       };
     }
@@ -616,15 +690,27 @@ const categoriesAPI = {
   create: async (categoryData) => {
     // Check if categoryData is FormData (for file uploads)
     const isFormData = categoryData instanceof FormData;
+
+    // Extract category name for logging and fallback
+    let categoryName = "";
+    if (isFormData) {
+      categoryName = categoryData.get("name") || "Unnamed Category";
+    } else if (typeof categoryData === "object") {
+      categoryName = categoryData.name || "Unnamed Category";
+    }
+
+    // Generate a unique ID for this category (used for fallback)
+    const tempId = `temp_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
+
     try {
       console.log(
-        "Creating category with data:",
+        `Creating category "${categoryName}" with data:`,
         isFormData ? "FormData (file upload)" : categoryData
       );
 
-      // Create a direct axios instance
+      // Create a direct axios instance with increased timeout
       const directApi = axios.create({
-        timeout: 30000, // Longer timeout for uploads
+        timeout: 60000, // Increased timeout for uploads (60 seconds)
         headers: isFormData
           ? { "Content-Type": "multipart/form-data" }
           : { "Content-Type": "application/json", Accept: "application/json" },
@@ -642,7 +728,22 @@ const categoriesAPI = {
         `${deployedUrl}/api/categories`,
       ];
 
+      // Create a fallback category object that will be used if all endpoints fail
+      const fallbackCategory = {
+        _id: tempId,
+        name: categoryName,
+        description: isFormData
+          ? categoryData.get("description") || ""
+          : categoryData.description || "",
+        image: null, // We can't create a fallback for the image
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        slug: categoryName.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+        isTemporary: true, // Flag to indicate this is a temporary object
+      };
+
       // Try each endpoint until one works
+      let lastError = null;
       for (const endpoint of endpoints) {
         try {
           console.log(`Trying to create category at: ${endpoint}`);
@@ -652,10 +753,8 @@ const categoriesAPI = {
           // Check if the response indicates success
           if (response.data && response.data.success === false) {
             console.warn("Server returned success: false", response.data);
-            return {
-              error: response.data.message || "Failed to create category",
-              data: null,
-            };
+            lastError = response.data.message || "Failed to create category";
+            continue; // Try the next endpoint
           }
 
           // Handle different response structures
@@ -669,69 +768,91 @@ const categoriesAPI = {
 
           // Ensure we have a valid category object with _id
           if (categoryResult && categoryResult._id) {
+            console.log(
+              `Category created successfully with ID: ${categoryResult._id}`
+            );
             return {
               data: categoryResult,
+              success: true,
             };
           } else {
             console.warn("Invalid category data in response:", response.data);
+            // Continue to the next endpoint
           }
         } catch (error) {
           console.warn(`Error creating category at ${endpoint}:`, error);
-          // If we have a response with error message, return it
-          if (error.response && error.response.data) {
-            if (
-              error.response.status === 400 ||
-              error.response.status === 200
-            ) {
-              return {
-                error:
-                  error.response.data.message || "Failed to create category",
-                data: null,
-              };
-            }
-          }
+          lastError =
+            error.response?.data?.message ||
+            error.message ||
+            "Failed to create category";
           // Continue to the next endpoint
         }
       }
 
-      // If all endpoints fail, return a fake success response
+      // If all endpoints fail, return a fake success response with the fallback category
       console.warn(
-        "All category creation endpoints failed, returning fake success"
+        "All category creation endpoints failed, returning fallback category"
       );
 
-      // Create a fallback category object
-      const fallbackCategory = {
-        ...(isFormData
-          ? Object.fromEntries(categoryData.entries())
-          : categoryData),
-        _id: `temp_${Date.now()}`, // Generate a temporary ID
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
+      // Store the fallback category in localStorage for persistence
+      try {
+        // Get existing temporary categories
+        const tempCategories = JSON.parse(
+          localStorage.getItem("tempCategories") || "[]"
+        );
+
+        // Add this category to the list
+        tempCategories.push(fallbackCategory);
+
+        // Save back to localStorage
+        localStorage.setItem("tempCategories", JSON.stringify(tempCategories));
+
+        console.log(
+          "Saved temporary category to localStorage:",
+          fallbackCategory
+        );
+      } catch (storageError) {
+        console.error("Error saving to localStorage:", storageError);
+      }
 
       return {
         data: fallbackCategory,
-        warning:
-          "Created with temporary data. Please refresh to see if it was saved.",
+        warning: lastError
+          ? `Server error: ${lastError}. Created with temporary data.`
+          : "Created with temporary data. Please refresh to see if it was saved.",
+        success: true,
+        isTemporary: true,
       };
     } catch (error) {
       console.warn("Error in categoriesAPI.create:", error);
 
-      // Create a fallback category object
-      const fallbackCategory = {
-        ...(isFormData
-          ? Object.fromEntries(categoryData.entries())
-          : categoryData),
-        _id: `temp_${Date.now()}`, // Generate a temporary ID
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
+      // Store the fallback category in localStorage for persistence
+      try {
+        // Get existing temporary categories
+        const tempCategories = JSON.parse(
+          localStorage.getItem("tempCategories") || "[]"
+        );
 
-      // Return the category data as if it was created successfully
+        // Add this category to the list
+        tempCategories.push(fallbackCategory);
+
+        // Save back to localStorage
+        localStorage.setItem("tempCategories", JSON.stringify(tempCategories));
+
+        console.log(
+          "Saved temporary category to localStorage after error:",
+          fallbackCategory
+        );
+      } catch (storageError) {
+        console.error("Error saving to localStorage:", storageError);
+      }
+
+      // Return the fallback category data as if it was created successfully
       return {
         data: fallbackCategory,
-        warning:
-          "Created with temporary data. Please refresh to see if it was saved.",
+        warning: `Error: ${error.message}. Created with temporary data.`,
+        success: true,
+        isTemporary: true,
       };
     }
   },
