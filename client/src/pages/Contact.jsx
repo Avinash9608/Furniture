@@ -56,7 +56,18 @@ const Contact = () => {
 
       // Submit form data to API
       const response = await contactAPI.create(formData);
-      console.log("Contact form submitted successfully:", response.data);
+      console.log("Contact form API response:", response);
+
+      // Check for errors in the response
+      if (response.error) {
+        setSubmitError(response.error);
+        return;
+      }
+
+      // Check for warnings
+      if (response.warning) {
+        console.warn("Contact form submission warning:", response.warning);
+      }
 
       // Reset form on success
       setFormData({
