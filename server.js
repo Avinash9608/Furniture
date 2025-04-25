@@ -20,6 +20,9 @@ const app = express();
 // Import routes from server directory
 const routes = require("./server/routes");
 
+// Import custom middleware
+const uploadMiddleware = require("./server/middleware/uploadMiddleware");
+
 // Middleware
 app.use(
   cors({
@@ -2504,10 +2507,18 @@ app.put(
 app.delete("/api/direct/products/:id", productController.deleteProduct);
 
 // Category routes with direct MongoDB driver approach
-app.post("/api/direct/categories", categoryController.createCategory);
+app.post(
+  "/api/direct/categories",
+  uploadMiddleware,
+  categoryController.createCategory
+);
 app.get("/api/direct/categories", categoryController.getAllCategories);
 app.get("/api/direct/categories/:id", categoryController.getCategoryById);
-app.put("/api/direct/categories/:id", categoryController.updateCategory);
+app.put(
+  "/api/direct/categories/:id",
+  uploadMiddleware,
+  categoryController.updateCategory
+);
 app.delete("/api/direct/categories/:id", categoryController.deleteCategory);
 
 // Override the existing product routes to use our direct MongoDB driver approach
@@ -2518,9 +2529,17 @@ app.put("/api/products/:id", uploadMiddleware, productController.updateProduct);
 app.delete("/api/products/:id", productController.deleteProduct);
 
 // Override the existing category routes to use our direct MongoDB driver approach
-app.post("/api/categories", categoryController.createCategory);
-app.post("/categories", categoryController.createCategory); // Add additional route for fallback
-app.post("/api/api/categories", categoryController.createCategory); // Add additional route for fallback
+app.post(
+  "/api/categories",
+  uploadMiddleware,
+  categoryController.createCategory
+);
+app.post("/categories", uploadMiddleware, categoryController.createCategory); // Add additional route for fallback
+app.post(
+  "/api/api/categories",
+  uploadMiddleware,
+  categoryController.createCategory
+); // Add additional route for fallback
 app.get("/api/categories", categoryController.getAllCategories);
 app.get("/categories", categoryController.getAllCategories); // Add additional route for fallback
 app.get("/api/api/categories", categoryController.getAllCategories); // Add additional route for fallback
@@ -2604,57 +2623,15 @@ Dist directory: ${JSON.stringify(distDir, null, 2)}
   }
 });
 
+// Import custom error handler middleware
+const errorHandler = require("./middleware/errorHandler");
+
 // Global error handling middleware (must be after all routes)
-app.use((err, req, res, next) => {
-  console.error("Global error handler caught:", err);
-  console.log("Request path:", req.path);
-
-  // Send appropriate response based on error type
-  if (err.name === "ValidationError") {
-    // Mongoose validation error
-    const validationErrors = {};
-    for (const field in err.errors) {
-      validationErrors[field] = err.errors[field].message;
-    }
-
-    return res.status(400).json({
-      success: false,
-      message: "Validation error",
-      errors: validationErrors,
-    });
-  } else if (err.name === "CastError") {
-    // Mongoose cast error (invalid ID, etc.)
-    return res.status(400).json({
-      success: false,
-      message: "Invalid data format",
-      error: err.message,
-    });
-  } else if (err.code === 11000) {
-    // Mongoose duplicate key error
-    return res.status(400).json({
-      success: false,
-      message: "Duplicate data error",
-      error: err.message,
-    });
-  } else {
-    // Generic server error
-    const errorResponse = {
-      success: false,
-      message: "Internal server error",
-      error:
-        process.env.NODE_ENV === "production" ? "Server error" : err.message,
-    };
-
-    res.status(500).json(errorResponse);
-
-    // Pass to next error handler if available
-    return next(err);
-  }
-});
+app.use(errorHandler);
 
 // Start server
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, "0.0.0.0", () => {
+const server = app.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV}`);
   console.log(`Server URL: http://localhost:${PORT}`);
@@ -2667,3 +2644,10 @@ app.listen(PORT, "0.0.0.0", () => {
     `Cloudinary status: ${cloudinary ? "Configured" : "Not configured"}`
   );
 });
+
+// Fix for HTTP/2 protocol errors on Render.com
+// Increase timeouts to prevent ERR_HTTP2_PROTOCOL_ERROR
+server.keepAliveTimeout = 65000; // 65 seconds
+server.headersTimeout = 66000; // 66 seconds (must be greater than keepAliveTimeout)
+console.log(`Server keep-alive timeout set to ${server.keepAliveTimeout}ms`);
+console.log(`Server headers timeout set to ${server.headersTimeout}ms`);
