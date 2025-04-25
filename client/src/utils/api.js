@@ -565,9 +565,22 @@ const categoriesAPI = {
       let allCategories = [];
 
       if (fetchSucceeded) {
+        // Ensure all server categories have valid IDs
+        const validServerCategories = serverCategories.filter(
+          (cat) => cat && cat._id
+        );
+
+        if (validServerCategories.length < serverCategories.length) {
+          console.warn(
+            `Filtered out ${
+              serverCategories.length - validServerCategories.length
+            } invalid server categories`
+          );
+        }
+
         // Filter out any temporary categories that might have been saved to the server
         // (comparing by name since IDs will be different)
-        const serverCategoryNames = serverCategories.map((cat) =>
+        const serverCategoryNames = validServerCategories.map((cat) =>
           cat.name.toLowerCase()
         );
         const filteredTempCategories = tempCategories.filter(
@@ -575,7 +588,7 @@ const categoriesAPI = {
         );
 
         // Combine server categories with remaining temporary ones
-        allCategories = [...serverCategories, ...filteredTempCategories];
+        allCategories = [...validServerCategories, ...filteredTempCategories];
         console.log("Combined categories:", allCategories);
       } else {
         // If server fetch failed, just use temporary categories
@@ -584,6 +597,19 @@ const categoriesAPI = {
           "Using only temporary categories due to server fetch failure"
         );
       }
+
+      // Final validation to ensure all categories have valid IDs
+      const validCategories = allCategories.filter((cat) => cat && cat._id);
+
+      if (validCategories.length < allCategories.length) {
+        console.warn(
+          `Filtered out ${
+            allCategories.length - validCategories.length
+          } categories with missing IDs`
+        );
+      }
+
+      allCategories = validCategories;
 
       // Add a warning message if we're using temporary categories
       const warning =
@@ -730,15 +756,17 @@ const categoriesAPI = {
 
       // Create a fallback category object that will be used if all endpoints fail
       const fallbackCategory = {
-        _id: tempId,
-        name: categoryName,
+        _id: tempId, // Ensure we always have a valid ID
+        name: categoryName || "Unnamed Category",
         description: isFormData
           ? categoryData.get("description") || ""
           : categoryData.description || "",
         image: null, // We can't create a fallback for the image
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-        slug: categoryName.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+        slug: (categoryName || "unnamed-category")
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-"),
         isTemporary: true, // Flag to indicate this is a temporary object
       };
 
@@ -826,6 +854,22 @@ const categoriesAPI = {
     } catch (error) {
       console.warn("Error in categoriesAPI.create:", error);
 
+      // Create a fallback category object for the error case
+      const errorFallbackCategory = {
+        _id: `temp_error_${Date.now()}_${Math.floor(Math.random() * 10000)}`,
+        name: categoryName || "Unnamed Category",
+        description: isFormData
+          ? categoryData.get("description") || ""
+          : categoryData.description || "",
+        image: null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        slug: (categoryName || "unnamed-category")
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-"),
+        isTemporary: true,
+      };
+
       // Store the fallback category in localStorage for persistence
       try {
         // Get existing temporary categories
@@ -834,14 +878,14 @@ const categoriesAPI = {
         );
 
         // Add this category to the list
-        tempCategories.push(fallbackCategory);
+        tempCategories.push(errorFallbackCategory);
 
         // Save back to localStorage
         localStorage.setItem("tempCategories", JSON.stringify(tempCategories));
 
         console.log(
           "Saved temporary category to localStorage after error:",
-          fallbackCategory
+          errorFallbackCategory
         );
       } catch (storageError) {
         console.error("Error saving to localStorage:", storageError);
@@ -849,7 +893,7 @@ const categoriesAPI = {
 
       // Return the fallback category data as if it was created successfully
       return {
-        data: fallbackCategory,
+        data: errorFallbackCategory,
         warning: `Error: ${error.message}. Created with temporary data.`,
         success: true,
         isTemporary: true,
