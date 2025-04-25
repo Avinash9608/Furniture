@@ -2415,6 +2415,7 @@ console.log("- GET /api/orders");
 // Import product and category controllers
 const productController = require("./server/controllers/productController");
 const categoryController = require("./server/controllers/categoryController");
+const upload = require("./server/middleware/upload");
 
 // Product routes with direct MongoDB driver approach
 app.post(
@@ -2533,6 +2534,7 @@ Dist directory: ${JSON.stringify(distDir, null, 2)}
 // Global error handling middleware (must be after all routes)
 app.use((err, req, res, next) => {
   console.error("Global error handler caught:", err);
+  console.log("Request path:", req.path);
 
   // Send appropriate response based on error type
   if (err.name === "ValidationError") {
@@ -2563,12 +2565,17 @@ app.use((err, req, res, next) => {
     });
   } else {
     // Generic server error
-    return res.status(500).json({
+    const errorResponse = {
       success: false,
       message: "Internal server error",
       error:
         process.env.NODE_ENV === "production" ? "Server error" : err.message,
-    });
+    };
+
+    res.status(500).json(errorResponse);
+
+    // Pass to next error handler if available
+    return next(err);
   }
 });
 
