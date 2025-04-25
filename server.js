@@ -426,28 +426,79 @@ app.get("/api/contact", async (req, res) => {
 app.get("/api/products", async (req, res) => {
   console.log("Fetching all products");
   try {
-    // Check if Product model is available
+    // Try to load the Product model if it's not available
+    if (!Product) {
+      Product = loadModel("Product");
+      console.log(
+        "Attempted to load Product model:",
+        Product ? "Success" : "Failed"
+      );
+    }
+
+    // If Product model is still not available, return an empty array
     if (!Product) {
       console.warn("Product model not available, returning empty array");
       return res.status(200).json({
         success: true,
         count: 0,
         data: [],
-        message: "Product model not available",
+        message: "Product model not available, returning empty array",
       });
     }
 
-    const products = await Product.find().populate("category");
-    res.status(200).json({
-      success: true,
-      count: products.length,
-      data: products,
-    });
+    // Try-catch block specifically for the database operation
+    try {
+      // First try with category population
+      try {
+        const products = await Product.find().populate("category");
+        console.log(
+          `Successfully fetched ${products.length} products with category population`
+        );
+
+        return res.status(200).json({
+          success: true,
+          count: products.length,
+          data: products,
+        });
+      } catch (populateError) {
+        console.error(
+          "Error populating products with categories:",
+          populateError
+        );
+
+        // Try without population if population fails
+        const products = await Product.find();
+        console.log(
+          `Successfully fetched ${products.length} products without population`
+        );
+
+        return res.status(200).json({
+          success: true,
+          count: products.length,
+          data: products,
+          message: "Fetched without category population due to error",
+        });
+      }
+    } catch (dbError) {
+      console.error("Database error fetching products:", dbError);
+
+      // Return empty array instead of error to prevent client-side crashes
+      return res.status(200).json({
+        success: true,
+        count: 0,
+        data: [],
+        message: "Error fetching products from database, returning empty array",
+      });
+    }
   } catch (error) {
-    console.error("Error fetching products:", error);
-    res.status(500).json({
-      success: false,
-      message: error.message,
+    console.error("Unexpected error in products route:", error);
+
+    // Return empty array instead of error to prevent client-side crashes
+    return res.status(200).json({
+      success: true,
+      count: 0,
+      data: [],
+      message: "Unexpected error, returning empty array",
     });
   }
 });

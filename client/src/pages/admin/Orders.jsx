@@ -23,10 +23,35 @@ const AdminOrders = () => {
         // Try to get orders from API
         try {
           const response = await ordersAPI.getAll();
-          if (response && response.data && response.data.data) {
-            setOrders(response.data.data);
+          console.log("Orders API response:", response);
+
+          // Handle different response structures
+          let ordersData = [];
+
+          if (
+            response &&
+            response.data &&
+            response.data.data &&
+            Array.isArray(response.data.data)
+          ) {
+            ordersData = response.data.data;
+          } else if (
+            response &&
+            response.data &&
+            Array.isArray(response.data)
+          ) {
+            ordersData = response.data;
+          } else if (response && Array.isArray(response)) {
+            ordersData = response;
+          }
+
+          console.log("Processed orders data:", ordersData);
+
+          if (ordersData && ordersData.length > 0) {
+            setOrders(ordersData);
           } else {
             // If we get an empty response, use mock data
+            console.log("No orders found, using mock data");
             setOrders(getMockOrders());
           }
         } catch (apiError) {

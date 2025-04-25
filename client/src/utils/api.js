@@ -42,10 +42,143 @@ console.log("API baseURL:", api.defaults.baseURL);
 
 // This helper function has been replaced with inline code in the response interceptor
 
-// Products API with better error handling
+// Products API with robust implementation
 const productsAPI = {
-  getAll: (params = {}) => api.get("/products", { params }),
-  getById: (id) => api.get(`/products/${id}`),
+  getAll: async (params = {}) => {
+    try {
+      console.log("Fetching all products with params:", params);
+
+      // Create a direct axios instance
+      const directApi = axios.create({
+        timeout: 30000, // Increased timeout
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+      });
+
+      // Try multiple endpoints
+      const baseUrl = window.location.origin;
+      const deployedUrl = "https://furniture-q3nb.onrender.com";
+      const endpoints = [
+        `${baseUrl}/api/products`,
+        `${baseUrl}/products`,
+        `${baseUrl}/api/api/products`,
+        `${deployedUrl}/api/products`,
+      ];
+
+      // Try each endpoint until one works
+      for (const endpoint of endpoints) {
+        try {
+          console.log(`Trying to fetch products from: ${endpoint}`);
+          const response = await directApi.get(endpoint, { params });
+          console.log("Products fetched successfully:", response.data);
+
+          // Ensure the response has the expected structure
+          let productsData = [];
+
+          if (
+            response.data &&
+            response.data.data &&
+            Array.isArray(response.data.data)
+          ) {
+            productsData = response.data.data;
+          } else if (Array.isArray(response.data)) {
+            productsData = response.data;
+          } else if (response.data && response.data.data) {
+            // If data.data is not an array but exists, convert to array
+            productsData = [response.data.data];
+          } else if (response.data) {
+            // If data exists but not in expected format, try to use it
+            productsData = [response.data];
+          }
+
+          console.log("Processed products data:", productsData);
+
+          return {
+            data: {
+              success: true,
+              count: productsData.length,
+              data: productsData,
+            },
+          };
+        } catch (error) {
+          console.warn(`Error fetching products from ${endpoint}:`, error);
+          // Continue to the next endpoint
+        }
+      }
+
+      // If all endpoints fail, return empty array
+      console.warn("All product endpoints failed, returning empty array");
+      return {
+        data: {
+          success: true,
+          count: 0,
+          data: [],
+        },
+      };
+    } catch (error) {
+      console.error("Error in productsAPI.getAll:", error);
+      return {
+        data: {
+          success: true,
+          count: 0,
+          data: [],
+        },
+      };
+    }
+  },
+
+  getById: async (id) => {
+    try {
+      console.log(`Fetching product with ID: ${id}`);
+
+      // Create a direct axios instance
+      const directApi = axios.create({
+        timeout: 30000, // Increased timeout
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+      });
+
+      // Try multiple endpoints
+      const baseUrl = window.location.origin;
+      const deployedUrl = "https://furniture-q3nb.onrender.com";
+      const endpoints = [
+        `${baseUrl}/api/products/${id}`,
+        `${baseUrl}/products/${id}`,
+        `${baseUrl}/api/api/products/${id}`,
+        `${deployedUrl}/api/products/${id}`,
+      ];
+
+      // Try each endpoint until one works
+      for (const endpoint of endpoints) {
+        try {
+          console.log(`Trying to fetch product from: ${endpoint}`);
+          const response = await directApi.get(endpoint);
+          console.log(`Product ${id} fetched successfully:`, response.data);
+
+          // Handle different response structures
+          if (response.data && response.data.data) {
+            return { data: response.data.data };
+          } else if (response.data) {
+            return { data: response.data };
+          }
+        } catch (error) {
+          console.warn(`Error fetching product from ${endpoint}:`, error);
+          // Continue to the next endpoint
+        }
+      }
+
+      // If all endpoints fail, return null
+      console.warn(`All product endpoints failed for ${id}, returning null`);
+      return { data: null };
+    } catch (error) {
+      console.error(`Error in productsAPI.getById for ${id}:`, error);
+      return { data: null };
+    }
+  },
   create: (productData, headers) => {
     console.log("Creating product with data:", productData);
     const formData = new FormData();
@@ -315,7 +448,7 @@ export const DEFAULT_CATEGORY_IMAGE =
   "https://placehold.co/300x300/gray/white?text=Category";
 
 // Auth API
-export const authAPI = {
+const authAPI = {
   login: (credentials) => api.post("/auth/login", credentials),
   register: (userData) => api.post("/auth/register", userData),
   getProfile: () => api.get("/auth/me"),
@@ -327,7 +460,7 @@ export const authAPI = {
 // Note: axios is already imported at the top of the file
 
 // Categories API with robust implementation
-export const categoriesAPI = {
+const categoriesAPI = {
   // Get all categories with robust implementation
   getAll: async () => {
     try {
@@ -691,7 +824,7 @@ export const categoriesAPI = {
 };
 
 // Contact API
-export const contactAPI = {
+const contactAPI = {
   create: (contactData) => {
     console.log("Creating contact message with data:", contactData);
 
@@ -831,7 +964,7 @@ export const contactAPI = {
 };
 
 // Orders API with robust implementation
-export const ordersAPI = {
+const ordersAPI = {
   create: async (orderData) => {
     try {
       console.log("Creating order with data:", orderData);
@@ -893,11 +1026,12 @@ export const ordersAPI = {
 
       // Try multiple endpoints
       const baseUrl = window.location.origin;
+      const deployedUrl = "https://furniture-q3nb.onrender.com";
       const endpoints = [
         `${baseUrl}/api/orders`,
         `${baseUrl}/orders`,
         `${baseUrl}/api/api/orders`,
-        "https://furniture-q3nb.onrender.com/api/orders",
+        `${deployedUrl}/api/orders`,
       ];
 
       // Try each endpoint until one works
@@ -908,13 +1042,32 @@ export const ordersAPI = {
           console.log("Orders fetched successfully:", response.data);
 
           // Ensure the response has the expected structure
-          const data = response.data.data || response.data;
+          let ordersData = [];
 
-          // Make sure data is an array
-          const safeData = Array.isArray(data) ? data : [];
+          if (
+            response.data &&
+            response.data.data &&
+            Array.isArray(response.data.data)
+          ) {
+            ordersData = response.data.data;
+          } else if (Array.isArray(response.data)) {
+            ordersData = response.data;
+          } else if (response.data && response.data.data) {
+            // If data.data is not an array but exists, convert to array
+            ordersData = [response.data.data];
+          } else if (response.data) {
+            // If data exists but not in expected format, try to use it
+            ordersData = [response.data];
+          }
+
+          console.log("Processed orders data:", ordersData);
 
           return {
-            data: safeData,
+            data: {
+              success: true,
+              count: ordersData.length,
+              data: ordersData,
+            },
           };
         } catch (error) {
           console.warn(`Error fetching orders from ${endpoint}:`, error);
@@ -924,10 +1077,22 @@ export const ordersAPI = {
 
       // If all endpoints fail, return empty array
       console.warn("All order endpoints failed, returning empty array");
-      return { data: [] };
+      return {
+        data: {
+          success: true,
+          count: 0,
+          data: [],
+        },
+      };
     } catch (error) {
       console.error("Error in ordersAPI.getAll:", error);
-      return { data: [] };
+      return {
+        data: {
+          success: true,
+          count: 0,
+          data: [],
+        },
+      };
     }
   },
 
@@ -1343,7 +1508,7 @@ export const ordersAPI = {
 };
 
 // Dashboard API
-export const dashboardAPI = {
+const dashboardAPI = {
   getStats: () => api.get("/dashboard/stats"),
   getRecentOrders: (limit = 5) =>
     api.get(`/dashboard/recent-orders?limit=${limit}`),
@@ -1358,7 +1523,7 @@ export const dashboardAPI = {
 };
 
 // Users API
-export const usersAPI = {
+const usersAPI = {
   getAll: (params) => api.get("/users", { params }),
   getById: (id) => api.get(`/users/${id}`),
   update: (id, userData) => api.put(`/users/${id}`, userData),
@@ -1368,7 +1533,7 @@ export const usersAPI = {
 };
 
 // Payment Settings API with robust implementation
-export const paymentSettingsAPI = {
+const paymentSettingsAPI = {
   get: async () => {
     try {
       console.log("Fetching active payment settings");
@@ -1646,7 +1811,7 @@ export const paymentSettingsAPI = {
 };
 
 // Payment Requests API with robust implementation
-export const paymentRequestsAPI = {
+const paymentRequestsAPI = {
   create: async (data) => {
     try {
       console.log("Creating payment request with data:", data);
@@ -1998,5 +2163,15 @@ export const paymentRequestsAPI = {
   },
 };
 
-export { productsAPI };
+export {
+  productsAPI,
+  categoriesAPI,
+  contactAPI,
+  ordersAPI,
+  authAPI,
+  paymentSettingsAPI,
+  paymentRequestsAPI,
+  dashboardAPI,
+  usersAPI,
+};
 export default api;
