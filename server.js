@@ -2415,7 +2415,6 @@ console.log("- GET /api/orders");
 // Import product and category controllers
 const productController = require("./server/controllers/productController");
 const categoryController = require("./server/controllers/categoryController");
-const { MongoClient } = require("mongodb");
 
 // Product routes with direct MongoDB driver approach
 app.post(
