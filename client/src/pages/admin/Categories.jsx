@@ -1,6 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { categoriesAPI, productsAPI } from "../../utils/api";
+import {
+  categoriesAPI,
+  productsAPI,
+  getImageUrl,
+  DEFAULT_CATEGORY_IMAGE,
+} from "../../utils/api";
 import AdminLayout from "../../components/admin/AdminLayout";
 import Button from "../../components/Button";
 import Loading from "../../components/Loading";
@@ -77,8 +82,23 @@ const Categories = () => {
           categoriesData = validCategories;
         }
 
-        console.log("Categories data:", categoriesData);
-        setCategories(categoriesData);
+        // Process image URLs to ensure they work in all environments
+        const processedCategories = categoriesData
+          .map((category) => {
+            if (!category) return null;
+
+            return {
+              ...category,
+              // Use our helper function to get the correct image URL
+              image: category.image
+                ? getImageUrl(category.image)
+                : DEFAULT_CATEGORY_IMAGE,
+            };
+          })
+          .filter((cat) => cat !== null);
+
+        console.log("Processed categories data:", processedCategories);
+        setCategories(processedCategories);
 
         // Fetch product counts for each category
         const productCounts = {};
@@ -410,29 +430,13 @@ const Categories = () => {
                   <div className="h-48 overflow-hidden">
                     {category.image ? (
                       <img
-                        src={
-                          category.image.startsWith("http") ||
-                          category.image.startsWith("data:")
-                            ? category.image
-                            : category.image.startsWith("/")
-                            ? `${window.location.origin}${category.image}`
-                            : `${window.location.origin}/${category.image}`
-                        }
+                        src={getImageUrl(category.image)}
                         alt={category.name}
                         className="w-full h-full object-cover"
                         onError={(e) => {
                           console.log("Image load error for:", category.name);
                           e.target.onerror = null;
-                          // Use the DEFAULT_CATEGORY_IMAGE from api.js
-                          import("../../utils/api")
-                            .then((api) => {
-                              e.target.src = api.DEFAULT_CATEGORY_IMAGE;
-                            })
-                            .catch(() => {
-                              // Fallback to data URI if import fails
-                              e.target.src =
-                                "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMzAwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iI2YwZjBmMCIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMjQiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRkbGUiIGZpbGw9IiM5OTkiPk5vIEltYWdlPC90ZXh0Pjwvc3ZnPg==";
-                            });
+                          e.target.src = DEFAULT_CATEGORY_IMAGE;
                         }}
                       />
                     ) : (

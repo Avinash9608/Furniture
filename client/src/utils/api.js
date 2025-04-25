@@ -463,6 +463,43 @@ export const DEFAULT_PRODUCT_IMAGE =
 export const DEFAULT_CATEGORY_IMAGE =
   "https://placehold.co/300x300/gray/white?text=Category";
 
+// Helper function to get the correct image URL based on environment
+export const getImageUrl = (imagePath) => {
+  if (!imagePath) return DEFAULT_CATEGORY_IMAGE;
+
+  // If it's already an absolute URL or data URI, return as is
+  if (imagePath.startsWith("http") || imagePath.startsWith("data:")) {
+    return imagePath;
+  }
+
+  // Get the current hostname
+  const hostname = window.location.hostname;
+
+  // Check if we're on Render's domain
+  if (
+    hostname.includes("render.com") ||
+    hostname === "furniture-q3nb.onrender.com"
+  ) {
+    // For Render deployment, use the current origin
+    return `${window.location.origin}${
+      imagePath.startsWith("/") ? "" : "/"
+    }${imagePath}`;
+  }
+
+  // In production but not on Render, use the current origin
+  if (import.meta.env.PROD) {
+    return `${window.location.origin}${
+      imagePath.startsWith("/") ? "" : "/"
+    }${imagePath}`;
+  }
+
+  // In development, use the deployed Render URL instead of localhost
+  // This fixes the "connection refused" errors when trying to load images from localhost:5000
+  return `https://furniture-q3nb.onrender.com${
+    imagePath.startsWith("/") ? "" : "/"
+  }${imagePath}`;
+};
+
 // Helper function to create a fallback category object
 const createFallbackCategory = (categoryData, isFormData, isError = false) => {
   const prefix = isError ? "temp_error_" : "temp_";
