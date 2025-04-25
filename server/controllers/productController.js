@@ -140,8 +140,37 @@ const createProduct = async (req, res) => {
     // Log the final image URLs
     console.log("Final image URLs:", imageUrls);
 
-    // Import slugify
-    const slugify = require("slugify");
+    // Try to import slugify, but provide a fallback if it's not available
+    let slugify;
+    try {
+      slugify = require("slugify");
+    } catch (error) {
+      console.warn(
+        "Slugify package not found in controller, using fallback implementation"
+      );
+      // Simple fallback implementation of slugify
+      slugify = (text, options = {}) => {
+        if (!text) return "";
+
+        // Convert to lowercase if specified in options
+        let result = options.lower ? text.toLowerCase() : text;
+
+        // Replace spaces with hyphens
+        result = result.replace(/\s+/g, "-");
+
+        // Remove special characters if strict mode is enabled
+        if (options.strict) {
+          result = result.replace(/[^a-zA-Z0-9-]/g, "");
+        }
+
+        // Remove specific characters if provided in options
+        if (options.remove && options.remove instanceof RegExp) {
+          result = result.replace(options.remove, "");
+        }
+
+        return result;
+      };
+    }
 
     // Generate a slug from the product name
     let productName = req.body.name ? req.body.name.trim() : "";
@@ -755,8 +784,37 @@ const updateProduct = async (req, res) => {
 
       // Generate a new slug if the name is being updated
       if (req.body.name) {
-        // Import slugify
-        const slugify = require("slugify");
+        // Try to import slugify, but provide a fallback if it's not available
+        let slugify;
+        try {
+          slugify = require("slugify");
+        } catch (error) {
+          console.warn(
+            "Slugify package not found in update method, using fallback implementation"
+          );
+          // Simple fallback implementation of slugify
+          slugify = (text, options = {}) => {
+            if (!text) return "";
+
+            // Convert to lowercase if specified in options
+            let result = options.lower ? text.toLowerCase() : text;
+
+            // Replace spaces with hyphens
+            result = result.replace(/\s+/g, "-");
+
+            // Remove special characters if strict mode is enabled
+            if (options.strict) {
+              result = result.replace(/[^a-zA-Z0-9-]/g, "");
+            }
+
+            // Remove specific characters if provided in options
+            if (options.remove && options.remove instanceof RegExp) {
+              result = result.replace(options.remove, "");
+            }
+
+            return result;
+          };
+        }
 
         // Get the new name
         const newName = req.body.name.trim();

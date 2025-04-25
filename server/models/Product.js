@@ -1,5 +1,34 @@
 const mongoose = require("mongoose");
-const slugify = require("slugify");
+
+// Try to require slugify, but provide a fallback if it's not available
+let slugify;
+try {
+  slugify = require("slugify");
+} catch (error) {
+  console.warn("Slugify package not found, using fallback implementation");
+  // Simple fallback implementation of slugify
+  slugify = (text, options = {}) => {
+    if (!text) return "";
+
+    // Convert to lowercase if specified in options
+    let result = options.lower ? text.toLowerCase() : text;
+
+    // Replace spaces with hyphens
+    result = result.replace(/\s+/g, "-");
+
+    // Remove special characters if strict mode is enabled
+    if (options.strict) {
+      result = result.replace(/[^a-zA-Z0-9-]/g, "");
+    }
+
+    // Remove specific characters if provided in options
+    if (options.remove && options.remove instanceof RegExp) {
+      result = result.replace(options.remove, "");
+    }
+
+    return result;
+  };
+}
 
 const ProductSchema = new mongoose.Schema({
   name: {
