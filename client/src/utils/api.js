@@ -1007,15 +1007,22 @@ const contactAPI = {
         },
       });
 
-      // Try multiple endpoints
+      // Try regular contact endpoints first since they're more likely to work
       const baseUrl = window.location.origin;
       const deployedUrl = "https://furniture-q3nb.onrender.com";
       const endpoints = [
+        // Regular contact endpoints first
         `${baseUrl}/api/contact`,
+        `${deployedUrl}/api/contact`,
         `${baseUrl}/contact`,
         `${baseUrl}/api/api/contact`,
-        `${deployedUrl}/api/contact`,
         `${deployedUrl}/contact`,
+        // Admin-specific endpoints as fallback
+        `${baseUrl}/api/admin/messages`,
+        `${deployedUrl}/api/admin/messages`,
+        // Health check endpoint to verify API is working
+        `${baseUrl}/api/health`,
+        `${deployedUrl}/api/health`,
       ];
 
       // Try each endpoint until one works
@@ -1023,6 +1030,17 @@ const contactAPI = {
         try {
           console.log(`Trying to fetch all contact messages from: ${endpoint}`);
           const response = await directApi.get(endpoint);
+
+          // Check if response is HTML (contains DOCTYPE or html tags)
+          if (
+            typeof response.data === "string" &&
+            (response.data.includes("<!DOCTYPE") ||
+              response.data.includes("<html"))
+          ) {
+            console.warn(`Endpoint ${endpoint} returned HTML instead of JSON`);
+            continue; // Skip this endpoint and try the next one
+          }
+
           console.log("Contact messages fetched successfully:", response.data);
 
           // Ensure the response has the expected structure
@@ -1039,7 +1057,7 @@ const contactAPI = {
           } else if (response.data && response.data.data) {
             // If data.data is not an array but exists, convert to array
             messagesData = [response.data.data];
-          } else if (response.data) {
+          } else if (response.data && typeof response.data === "object") {
             // If data exists but not in expected format, try to use it
             messagesData = [response.data];
           }
@@ -1055,63 +1073,107 @@ const contactAPI = {
             console.warn(`No messages found in response from ${endpoint}`);
           }
         } catch (error) {
-          console.warn(
-            `Error fetching contact messages from ${endpoint}:`,
-            error
-          );
+          // Check if it's a 404 error
+          if (error.response && error.response.status === 404) {
+            console.warn(`Endpoint ${endpoint} not found (404)`);
+          } else {
+            console.warn(
+              `Error fetching contact messages from ${endpoint}:`,
+              error
+            );
+          }
           // Continue to the next endpoint
         }
       }
 
-      // If all endpoints fail, try a direct connection to MongoDB Atlas
-      console.warn(
-        "All contact message endpoints failed, attempting direct database connection"
-      );
-
-      // Try one more time with a longer timeout and different approach
+      // Try with a different approach - using fetch instead of axios
       try {
-        console.log(
-          "Making final attempt to fetch contact messages with extended timeout"
-        );
-        const finalAttemptApi = axios.create({
-          timeout: 60000, // Extended timeout (60 seconds)
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-          },
-        });
+        console.log("Trying with fetch API instead of axios");
 
-        // Try the deployed URL with a different path format
-        const finalEndpoint = `${deployedUrl}/api/contact?timestamp=${Date.now()}`;
-        console.log(`Final attempt endpoint: ${finalEndpoint}`);
+        // Try each endpoint with fetch
+        for (const endpoint of endpoints) {
+          try {
+            console.log(
+              `Trying to fetch with native fetch API from: ${endpoint}`
+            );
+            const response = await fetch(endpoint, {
+              method: "GET",
+              headers: {
+                Accept: "application/json",
+                "Content-Type": "application/json",
+              },
+            });
 
-        const finalResponse = await finalAttemptApi.get(finalEndpoint);
-        console.log("Final attempt response:", finalResponse.data);
+            // Check if response is JSON
+            const contentType = response.headers.get("content-type");
+            if (!contentType || !contentType.includes("application/json")) {
+              console.warn(
+                `Endpoint ${endpoint} did not return JSON (content-type: ${contentType})`
+              );
+              continue;
+            }
 
-        if (
-          finalResponse.data &&
-          finalResponse.data.data &&
-          Array.isArray(finalResponse.data.data)
-        ) {
-          console.log("Successfully retrieved messages in final attempt");
-          return {
-            data: finalResponse.data.data,
-          };
+            const data = await response.json();
+            console.log("Fetch API response:", data);
+
+            // Process the data
+            let messagesData = [];
+            if (data && data.data && Array.isArray(data.data)) {
+              messagesData = data.data;
+            } else if (Array.isArray(data)) {
+              messagesData = data;
+            }
+
+            if (messagesData && messagesData.length > 0) {
+              return {
+                data: messagesData,
+              };
+            }
+          } catch (fetchError) {
+            console.warn(`Fetch API error from ${endpoint}:`, fetchError);
+          }
         }
-      } catch (finalError) {
-        console.error("Final attempt to fetch messages failed:", finalError);
+      } catch (fetchApiError) {
+        console.error("Error using fetch API:", fetchApiError);
       }
 
-      // If all attempts fail, return empty array with error message
+      // If all attempts fail, try a direct database query
+      console.warn(
+        "All contact message endpoints failed, attempting direct database query"
+      );
+
+      try {
+        // Try a direct database query using a special endpoint
+        const directEndpoint = `${deployedUrl}/api/direct/contacts?timestamp=${Date.now()}`;
+        console.log(`Trying direct database query: ${directEndpoint}`);
+
+        const directResponse = await directApi.get(directEndpoint);
+
+        if (directResponse.data && Array.isArray(directResponse.data)) {
+          console.log("Direct database query successful:", directResponse.data);
+          return {
+            data: directResponse.data,
+          };
+        }
+      } catch (directError) {
+        console.error("Direct database query failed:", directError);
+      }
+
+      // If all else fails, return an empty array with a helpful error message
       console.error("All attempts to fetch contact messages failed");
+
       return {
         data: [],
         error:
-          "Failed to fetch messages from database. Please try refreshing the page.",
+          "Unable to fetch messages from the database. The server may be experiencing issues or the database connection may be down. Please try again later or contact support.",
       };
     } catch (error) {
       console.error("Error in contactAPI.getAll:", error);
-      return { data: [] };
+      return {
+        data: [],
+        error:
+          "Failed to fetch messages. Please check your network connection and server configuration.",
+      };
     }
   },
   getById: (id) => api.get(`/contact/${id}`),

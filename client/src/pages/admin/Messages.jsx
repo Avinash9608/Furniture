@@ -73,6 +73,13 @@ const AdminMessages = () => {
               message.subject = "No Subject";
             }
 
+            // Ensure message has an _id
+            if (!message._id) {
+              message._id = `temp_${Date.now()}_${Math.random()
+                .toString(36)
+                .substring(2, 9)}`;
+            }
+
             return message;
           });
 
@@ -82,18 +89,37 @@ const AdminMessages = () => {
           setMessages(processedMessages);
         } else {
           console.log("No messages found or invalid data format");
-          setError(
-            "No messages found in the database. Try submitting a contact form first."
-          );
+
+          // Check if there's an error message in the response
+          if (response.error) {
+            setError(response.error);
+          } else {
+            setError(
+              "No messages found in the database. Try submitting a contact form first."
+            );
+          }
+
           setMessages([]);
         }
       } catch (error) {
         console.error("Error fetching messages:", error);
-        setError(
-          `Failed to load messages: ${
-            error.message || "Unknown error"
-          }. Please check your database connection.`
-        );
+
+        // Check if error message contains HTML
+        if (
+          error.message &&
+          (error.message.includes("<!DOCTYPE") ||
+            error.message.includes("<html"))
+        ) {
+          setError(
+            "Server returned HTML instead of JSON. Please check your API configuration."
+          );
+        } else {
+          setError(
+            `Failed to load messages: ${
+              error.message || "Unknown error"
+            }. Please check your database connection.`
+          );
+        }
         setMessages([]);
       } finally {
         setLoading(false);

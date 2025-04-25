@@ -564,6 +564,188 @@ app.post("/api/api/contact", async (req, res) => {
 
 // ===== ADDITIONAL API ROUTES =====
 
+// Direct database query endpoint for contacts
+app.get("/api/direct/contacts", async (req, res) => {
+  console.log("Direct database query for contacts");
+
+  // Set proper headers to ensure JSON response
+  res.setHeader("Content-Type", "application/json");
+
+  try {
+    // Try to load the Contact model if it's not available
+    if (!Contact) {
+      Contact = loadModel("Contact");
+      console.log(
+        "Attempted to load Contact model:",
+        Contact ? "Success" : "Failed"
+      );
+    }
+
+    // If Contact model is still not available, return an empty array
+    if (!Contact) {
+      console.warn("Contact model not available, returning empty array");
+      return res.status(200).json([]);
+    }
+
+    // Try-catch block specifically for the database operation
+    try {
+      // Attempt to connect to the database if not connected
+      if (mongoose.connection.readyState !== 1) {
+        console.log("MongoDB not connected, attempting to connect...");
+        await mongoose.connect(process.env.MONGO_URI, {
+          serverSelectionTimeoutMS: 10000,
+          socketTimeoutMS: 60000,
+          connectTimeoutMS: 30000,
+          retryWrites: true,
+          w: "majority",
+          maxPoolSize: 10,
+        });
+        console.log("MongoDB connected successfully");
+      }
+
+      // Fetch contacts with proper error handling
+      const contacts = await Contact.find().sort({ createdAt: -1 });
+      console.log(
+        `Successfully fetched ${contacts.length} contact messages directly`
+      );
+
+      // Return just the array of contacts for simplicity
+      return res.status(200).json(contacts);
+    } catch (dbError) {
+      console.error("Database error in direct contacts query:", dbError);
+      return res.status(200).json([]);
+    }
+  } catch (error) {
+    console.error("Unexpected error in direct contacts query:", error);
+    return res.status(200).json([]);
+  }
+});
+
+// Health check endpoint
+app.get("/api/health", (req, res) => {
+  console.log("Health check requested");
+
+  // Check MongoDB connection
+  const mongoStatus = mongoose.connection.readyState;
+  const mongoStatusText =
+    {
+      0: "disconnected",
+      1: "connected",
+      2: "connecting",
+      3: "disconnecting",
+    }[mongoStatus] || "unknown";
+
+  // Return health status
+  return res.status(200).json({
+    status: "ok",
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    services: {
+      mongodb: {
+        status: mongoStatusText,
+        details: {
+          host: mongoose.connection.host,
+          port: mongoose.connection.port,
+          name: mongoose.connection.name,
+          readyState: mongoStatus,
+        },
+      },
+    },
+  });
+});
+
+// Admin endpoint for contact messages (multiple routes for compatibility)
+app.get(
+  ["/api/admin/messages", "/admin/messages", "/api/admin-messages"],
+  async (req, res) => {
+    console.log("Admin: Fetching all contact messages");
+
+    // Set proper headers to ensure JSON response
+    res.setHeader("Content-Type", "application/json");
+
+    try {
+      // Try to load the Contact model if it's not available
+      if (!Contact) {
+        Contact = loadModel("Contact");
+        console.log(
+          "Attempted to load Contact model:",
+          Contact ? "Success" : "Failed"
+        );
+      }
+
+      // If Contact model is still not available, return an empty array
+      if (!Contact) {
+        console.warn("Contact model not available, returning empty array");
+        return res.status(200).json({
+          success: true,
+          count: 0,
+          data: [],
+          message: "Contact model not available, returning empty array",
+        });
+      }
+
+      // Try-catch block specifically for the database operation
+      try {
+        // Attempt to connect to the database if not connected
+        if (mongoose.connection.readyState !== 1) {
+          console.log("MongoDB not connected, attempting to connect...");
+          await mongoose.connect(process.env.MONGO_URI, {
+            serverSelectionTimeoutMS: 10000,
+            socketTimeoutMS: 60000,
+            connectTimeoutMS: 30000,
+            retryWrites: true,
+            w: "majority",
+            maxPoolSize: 10,
+          });
+          console.log("MongoDB connected successfully");
+        }
+
+        // Fetch contacts with proper error handling
+        const contacts = await Contact.find().sort({ createdAt: -1 });
+        console.log(`Successfully fetched ${contacts.length} contact messages`);
+
+        // Log a sample contact for debugging
+        if (contacts.length > 0) {
+          console.log("Sample contact:", {
+            id: contacts[0]._id,
+            name: contacts[0].name,
+            email: contacts[0].email,
+            createdAt: contacts[0].createdAt,
+          });
+        }
+
+        return res.status(200).json({
+          success: true,
+          count: contacts.length,
+          data: contacts,
+        });
+      } catch (dbError) {
+        console.error("Database error fetching contacts:", dbError);
+
+        // Return empty array to prevent client-side errors
+        return res.status(200).json({
+          success: false,
+          count: 0,
+          data: [],
+          message: "Database error fetching contacts",
+          error: dbError.message,
+        });
+      }
+    } catch (error) {
+      console.error("Unexpected error in admin messages route:", error);
+
+      // Return empty array to prevent client-side errors
+      return res.status(200).json({
+        success: false,
+        count: 0,
+        data: [],
+        message: "Unexpected error in admin messages route",
+        error: error.message,
+      });
+    }
+  }
+);
+
 // Get all contact messages
 app.get("/api/contact", async (req, res) => {
   console.log("Fetching all contact messages");
