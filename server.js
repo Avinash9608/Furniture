@@ -62,7 +62,7 @@ app.use(express.urlencoded({ extended: true }));
 // Ensure uploads directory exists
 const { uploadsDir, imagesDir } = require("./server/utils/ensureUploads");
 
-// Serve static files from the uploads directory with CORS headers
+// Serve static files from the uploads directory with CORS headers and caching
 app.use(
   "/uploads",
   (req, res, next) => {
@@ -70,11 +70,44 @@ app.use(
     res.header("Access-Control-Allow-Origin", "*");
     res.header("Access-Control-Allow-Methods", "GET");
     res.header("Access-Control-Allow-Headers", "Content-Type");
+
+    // Add caching headers for images
+    if (req.path.match(/\.(jpg|jpeg|png|gif|webp)$/i)) {
+      res.setHeader("Cache-Control", "public, max-age=31536000"); // 1 year
+      res.setHeader(
+        "Expires",
+        new Date(Date.now() + 31536000000).toUTCString()
+      );
+    }
+
     next();
   },
-  express.static(uploadsDir)
+  express.static(uploadsDir, {
+    maxAge: "1d", // Default max age for non-image files
+    etag: true,
+    lastModified: true,
+  })
 );
 console.log("Serving static files from uploads directory:", uploadsDir);
+
+// Add a test endpoint to verify uploads
+app.get("/api/test-uploads", (req, res) => {
+  try {
+    const files = fs.existsSync(uploadsDir) ? fs.readdirSync(uploadsDir) : [];
+    res.json({
+      message: "Uploads endpoint working",
+      uploadsDirectory: uploadsDir,
+      exists: fs.existsSync(uploadsDir),
+      files: files,
+      baseUrl: `${req.protocol}://${req.get("host")}/uploads/`,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Error checking uploads directory",
+      error: error.message,
+    });
+  }
+});
 
 // Create uploads directory if it doesn't exist
 if (!fs.existsSync(uploadsDir)) {

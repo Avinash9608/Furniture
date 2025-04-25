@@ -472,32 +472,25 @@ export const getImageUrl = (imagePath) => {
     return imagePath;
   }
 
-  // Get the current hostname
-  const hostname = window.location.hostname;
+  // Use environment variable if available
+  const baseUrl =
+    import.meta.env.VITE_API_URL ||
+    (import.meta.env.PROD
+      ? window.location.origin
+      : "https://furniture-q3nb.onrender.com");
 
-  // Check if we're on Render's domain
-  if (
-    hostname.includes("render.com") ||
-    hostname === "furniture-q3nb.onrender.com"
-  ) {
-    // For Render deployment, use the current origin
-    return `${window.location.origin}${
-      imagePath.startsWith("/") ? "" : "/"
-    }${imagePath}`;
+  // Ensure the path starts with a slash but doesn't have double slashes
+  const normalizedPath = imagePath.startsWith("/")
+    ? imagePath
+    : `/${imagePath}`;
+
+  // In development, always use the deployed Render URL instead of localhost
+  // This fixes the "connection refused" errors when trying to load images from localhost
+  if (!import.meta.env.PROD && window.location.hostname === "localhost") {
+    return `https://furniture-q3nb.onrender.com${normalizedPath}`;
   }
 
-  // In production but not on Render, use the current origin
-  if (import.meta.env.PROD) {
-    return `${window.location.origin}${
-      imagePath.startsWith("/") ? "" : "/"
-    }${imagePath}`;
-  }
-
-  // In development, use the deployed Render URL instead of localhost
-  // This fixes the "connection refused" errors when trying to load images from localhost:5000
-  return `https://furniture-q3nb.onrender.com${
-    imagePath.startsWith("/") ? "" : "/"
-  }${imagePath}`;
+  return `${baseUrl}${normalizedPath}`;
 };
 
 // Helper function to create a fallback category object

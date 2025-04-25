@@ -48,7 +48,15 @@ const Categories = () => {
         setLoading(true);
         setError(null);
 
+        console.log("Fetching categories...");
         const response = await categoriesAPI.getAll();
+
+        if (!response || !response.data) {
+          console.error("Invalid response from server:", response);
+          throw new Error("Invalid response from server");
+        }
+
+        console.log("Raw categories response:", response);
 
         // Ensure we have a valid array of categories
         let categoriesData = [];
@@ -70,14 +78,30 @@ const Categories = () => {
           categoriesData = [response.data];
         }
 
-        // Filter out any invalid categories (missing _id)
-        const validCategories = categoriesData.filter((cat) => cat && cat._id);
+        console.log("Extracted categories data:", categoriesData);
+
+        // Filter out any invalid categories (missing _id or invalid _id type)
+        const validCategories = categoriesData.filter(
+          (cat) =>
+            cat &&
+            cat._id &&
+            (typeof cat._id === "string" || typeof cat._id === "object")
+        );
 
         if (validCategories.length < categoriesData.length) {
           console.warn(
             `Filtered out ${
               categoriesData.length - validCategories.length
             } invalid categories`
+          );
+          console.warn(
+            "Invalid categories:",
+            categoriesData.filter(
+              (cat) =>
+                !cat ||
+                !cat._id ||
+                (typeof cat._id !== "string" && typeof cat._id !== "object")
+            )
           );
           categoriesData = validCategories;
         }
@@ -87,22 +111,27 @@ const Categories = () => {
           .map((category) => {
             if (!category) return null;
 
+            // Create a new object to avoid modifying the original
             return {
               ...category,
+              // Ensure _id is always present and valid
+              _id: category._id ? category._id.toString() : null,
               // Use our helper function to get the correct image URL
               image: category.image
                 ? getImageUrl(category.image)
                 : DEFAULT_CATEGORY_IMAGE,
             };
           })
-          .filter((cat) => cat !== null);
+          .filter((cat) => cat !== null && cat._id !== null);
 
         console.log("Processed categories data:", processedCategories);
         setCategories(processedCategories);
 
         // Fetch product counts for each category
         const productCounts = {};
-        for (const category of categoriesData) {
+
+        // Use the processed categories to ensure we only fetch for valid categories
+        for (const category of processedCategories) {
           // Skip if category doesn't have a valid _id
           if (!category || !category._id) {
             console.warn("Invalid category object:", category);
@@ -110,11 +139,23 @@ const Categories = () => {
           }
 
           try {
+            console.log(
+              `Fetching product count for category: ${category.name} (${category._id})`
+            );
             const productsResponse = await productsAPI.getAll({
               category: category._id,
               limit: 1,
             });
-            productCounts[category._id] = productsResponse.data.count || 0;
+
+            if (productsResponse && productsResponse.data) {
+              productCounts[category._id] = productsResponse.data.count || 0;
+            } else {
+              console.warn(
+                `Invalid response for category ${category._id}:`,
+                productsResponse
+              );
+              productCounts[category._id] = 0;
+            }
           } catch (error) {
             console.error(
               `Error fetching products for category ${category._id}:`,
@@ -123,6 +164,8 @@ const Categories = () => {
             productCounts[category._id] = 0;
           }
         }
+
+        console.log("Category product counts:", productCounts);
         setCategoryProducts(productCounts);
       } catch (error) {
         console.error("Error fetching categories:", error);
@@ -437,6 +480,8 @@ const Categories = () => {
                           console.log("Image load error for:", category.name);
                           e.target.onerror = null;
                           e.target.src = DEFAULT_CATEGORY_IMAGE;
+                          e.target.className =
+                            "w-full h-full object-contain p-4";
                         }}
                       />
                     ) : (
@@ -753,6 +798,7 @@ const Categories = () => {
             ?
             {categoryToDelete &&
               categoryToDelete._id &&
+              categoryProducts &&
               categoryProducts[categoryToDelete._id] > 0 && (
                 <span className="text-red-600 dark:text-red-400 block mt-2">
                   This category has {categoryProducts[categoryToDelete._id]}{" "}
@@ -779,7 +825,9 @@ const Categories = () => {
               disabled={
                 isDeleting ||
                 !categoryToDelete ||
-                (categoryToDelete._id &&
+                !categoryToDelete._id ||
+                (categoryProducts &&
+                  categoryToDelete._id &&
                   categoryProducts[categoryToDelete._id] > 0)
               }
             >
