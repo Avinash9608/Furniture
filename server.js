@@ -459,6 +459,14 @@ app.get("/api/categories", async (req, res) => {
   try {
     // Check if Category model is available
     if (!Category) {
+      Category = loadModel("Category");
+      console.log(
+        "Attempted to load Category model:",
+        Category ? "Success" : "Failed"
+      );
+    }
+
+    if (!Category) {
       console.warn("Category model not available, returning empty array");
       return res.status(200).json({
         success: true,
@@ -1194,6 +1202,97 @@ app.get("/api/payment-requests/:id", async (req, res) => {
   }
 });
 
+// Add direct route for orders
+app.get("/api/orders", async (req, res) => {
+  console.log("Fetching all orders");
+  try {
+    // Try to load the Order model if it's not available
+    if (!Order) {
+      Order = loadModel("Order");
+      console.log(
+        "Attempted to load Order model:",
+        Order ? "Success" : "Failed"
+      );
+    }
+
+    // If Order model is still not available, return an empty array
+    if (!Order) {
+      console.warn("Order model not available, returning empty array");
+      return res.status(200).json({
+        success: true,
+        count: 0,
+        data: [],
+        message: "Order model not available, returning empty array",
+      });
+    }
+
+    // Try-catch block specifically for the database operation
+    try {
+      // First try with full population
+      try {
+        // Make sure the User model is loaded
+        const User = loadModel("User");
+
+        console.log("Models for population:", {
+          User: !!User,
+          Order: !!Order,
+        });
+
+        const orders = await Order.find()
+          .populate("user", "name email")
+          .sort({ createdAt: -1 });
+
+        console.log(
+          `Successfully fetched ${orders.length} orders with population`
+        );
+
+        return res.status(200).json({
+          success: true,
+          count: orders.length,
+          data: orders,
+        });
+      } catch (populateError) {
+        console.error("Error populating orders:", populateError);
+
+        // Try without population if population fails
+        const orders = await Order.find().sort({
+          createdAt: -1,
+        });
+        console.log(
+          `Successfully fetched ${orders.length} orders without population`
+        );
+
+        return res.status(200).json({
+          success: true,
+          count: orders.length,
+          data: orders,
+          message: "Fetched without population due to error",
+        });
+      }
+    } catch (dbError) {
+      console.error("Database error fetching orders:", dbError);
+
+      // Return empty array instead of error to prevent client-side crashes
+      return res.status(200).json({
+        success: true,
+        count: 0,
+        data: [],
+        message: "Error fetching orders from database, returning empty array",
+      });
+    }
+  } catch (error) {
+    console.error("Unexpected error in orders route:", error);
+
+    // Return empty array instead of error to prevent client-side crashes
+    return res.status(200).json({
+      success: true,
+      count: 0,
+      data: [],
+      message: "Unexpected error, returning empty array",
+    });
+  }
+});
+
 // Log all direct API routes for debugging
 console.log("Direct API routes registered:");
 console.log("- POST /contact");
@@ -1211,6 +1310,7 @@ console.log("- GET /api/payment-requests");
 console.log("- POST /api/payment-requests");
 console.log("- PUT /api/payment-requests/:id/status");
 console.log("- GET /api/payment-requests/:id");
+console.log("- GET /api/orders");
 
 // Use routes from server
 app.use("/api", routes);

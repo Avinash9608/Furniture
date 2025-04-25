@@ -335,7 +335,7 @@ export const categoriesAPI = {
 
       // Create a direct axios instance
       const directApi = axios.create({
-        timeout: 15000,
+        timeout: 30000, // Increased timeout
         headers: {
           "Content-Type": "application/json",
           Accept: "application/json",
@@ -344,39 +344,55 @@ export const categoriesAPI = {
 
       // Try multiple endpoints
       const baseUrl = window.location.origin;
+      const deployedUrl = "https://furniture-q3nb.onrender.com";
       const endpoints = [
         `${baseUrl}/api/categories`,
         `${baseUrl}/categories`,
         `${baseUrl}/api/api/categories`,
-        "https://furniture-q3nb.onrender.com/api/categories",
+        `${deployedUrl}/api/categories`,
       ];
 
       // Try each endpoint until one works
-      let lastError = null;
       for (const endpoint of endpoints) {
         try {
           console.log(`Trying to fetch categories from: ${endpoint}`);
           const response = await directApi.get(endpoint);
           console.log("Categories fetched successfully:", response.data);
 
-          // Format the response to match the expected structure
-          return {
-            data: {
-              success: true,
-              count:
-                response.data.count ||
-                (response.data.data ? response.data.data.length : 0),
-              data: response.data.data || response.data,
-            },
-          };
+          // Ensure the response has the expected structure
+          if (response.data && response.data.success !== false) {
+            // Handle different response structures
+            let categoriesData = [];
+
+            if (response.data.data && Array.isArray(response.data.data)) {
+              categoriesData = response.data.data;
+            } else if (Array.isArray(response.data)) {
+              categoriesData = response.data;
+            } else if (response.data.data) {
+              // If data.data is not an array but exists, convert to array
+              categoriesData = [response.data.data];
+            } else if (response.data) {
+              // If data exists but not in expected format, try to use it
+              categoriesData = [response.data];
+            }
+
+            console.log("Processed categories data:", categoriesData);
+
+            return {
+              data: {
+                success: true,
+                count: categoriesData.length,
+                data: categoriesData,
+              },
+            };
+          }
         } catch (error) {
           console.warn(`Error fetching categories from ${endpoint}:`, error);
-          lastError = error;
           // Continue to the next endpoint
         }
       }
 
-      // If all endpoints fail, return empty array
+      // If all endpoints fail, return empty array to prevent UI crashes
       console.warn("All category endpoints failed, returning empty array");
       return {
         data: {
@@ -386,8 +402,8 @@ export const categoriesAPI = {
         },
       };
     } catch (error) {
-      console.warn("Error in categoriesAPI.getAll:", error);
-      // Return empty array as fallback
+      console.error("Error in categoriesAPI.getAll:", error);
+      // Return empty array instead of throwing error
       return {
         data: {
           success: true,
@@ -745,11 +761,12 @@ export const contactAPI = {
 
       // Try multiple endpoints
       const baseUrl = window.location.origin;
+      const deployedUrl = "https://furniture-q3nb.onrender.com";
       const endpoints = [
         `${baseUrl}/api/contact`,
         `${baseUrl}/contact`,
         `${baseUrl}/api/api/contact`,
-        "https://furniture-q3nb.onrender.com/api/contact",
+        `${deployedUrl}/api/contact`,
       ];
 
       // Try each endpoint until one works
@@ -760,13 +777,28 @@ export const contactAPI = {
           console.log("Contact messages fetched successfully:", response.data);
 
           // Ensure the response has the expected structure
-          const data = response.data.data || response.data;
+          let messagesData = [];
 
-          // Make sure data is an array
-          const safeData = Array.isArray(data) ? data : [];
+          if (
+            response.data &&
+            response.data.data &&
+            Array.isArray(response.data.data)
+          ) {
+            messagesData = response.data.data;
+          } else if (Array.isArray(response.data)) {
+            messagesData = response.data;
+          } else if (response.data && response.data.data) {
+            // If data.data is not an array but exists, convert to array
+            messagesData = [response.data.data];
+          } else if (response.data) {
+            // If data exists but not in expected format, try to use it
+            messagesData = [response.data];
+          }
+
+          console.log("Processed contact messages data:", messagesData);
 
           return {
-            data: safeData,
+            data: messagesData,
           };
         } catch (error) {
           console.warn(
