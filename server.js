@@ -59,8 +59,18 @@ app.use(express.urlencoded({ extended: true }));
 // Ensure uploads directory exists
 const { uploadsDir, imagesDir } = require("./server/utils/ensureUploads");
 
-// Serve static files from the uploads directory
-app.use("/uploads", express.static(uploadsDir));
+// Serve static files from the uploads directory with CORS headers
+app.use(
+  "/uploads",
+  (req, res, next) => {
+    // Set CORS headers
+    res.header("Access-Control-Allow-Origin", "*");
+    res.header("Access-Control-Allow-Methods", "GET");
+    res.header("Access-Control-Allow-Headers", "Content-Type");
+    next();
+  },
+  express.static(uploadsDir)
+);
 console.log("Serving static files from uploads directory:", uploadsDir);
 
 // Create uploads directory if it doesn't exist
@@ -2417,17 +2427,45 @@ const productController = require("./server/controllers/productController");
 const categoryController = require("./server/controllers/categoryController");
 const upload = require("./server/middleware/upload");
 
+// Create a middleware to handle both "image" and "images" fields
+const uploadMiddleware = (req, res, next) => {
+  // Try to use the "images" field first
+  upload.array("images", 5)(req, res, (err) => {
+    if (err) {
+      console.log(
+        "Error with 'images' field, trying 'image' field:",
+        err.message
+      );
+      // If there's an error, try the "image" field
+      upload.array("image", 5)(req, res, (err2) => {
+        if (err2) {
+          console.log(
+            "Error with both 'images' and 'image' fields:",
+            err2.message
+          );
+          // If both fail, just continue without files
+          next();
+        } else {
+          next();
+        }
+      });
+    } else {
+      next();
+    }
+  });
+};
+
 // Product routes with direct MongoDB driver approach
 app.post(
   "/api/direct/products",
-  upload.array("image", 5),
+  uploadMiddleware,
   productController.createProduct
 );
 app.get("/api/direct/products", productController.getAllProducts);
 app.get("/api/direct/products/:id", productController.getProductById);
 app.put(
   "/api/direct/products/:id",
-  upload.array("image", 5),
+  uploadMiddleware,
   productController.updateProduct
 );
 app.delete("/api/direct/products/:id", productController.deleteProduct);
@@ -2440,18 +2478,10 @@ app.put("/api/direct/categories/:id", categoryController.updateCategory);
 app.delete("/api/direct/categories/:id", categoryController.deleteCategory);
 
 // Override the existing product routes to use our direct MongoDB driver approach
-app.post(
-  "/api/products",
-  upload.array("image", 5),
-  productController.createProduct
-);
+app.post("/api/products", uploadMiddleware, productController.createProduct);
 app.get("/api/products", productController.getAllProducts);
 app.get("/api/products/:id", productController.getProductById);
-app.put(
-  "/api/products/:id",
-  upload.array("image", 5),
-  productController.updateProduct
-);
+app.put("/api/products/:id", uploadMiddleware, productController.updateProduct);
 app.delete("/api/products/:id", productController.deleteProduct);
 
 // Override the existing category routes to use our direct MongoDB driver approach

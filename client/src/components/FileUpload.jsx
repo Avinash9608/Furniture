@@ -229,7 +229,7 @@ const FileUpload = ({
                             ? `${
                                 window.location.hostname === "localhost"
                                   ? "http://localhost:5000"
-                                  : ""
+                                  : window.location.origin
                               }${file}`
                             : file
                           : file)
