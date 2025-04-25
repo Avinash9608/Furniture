@@ -44,11 +44,39 @@ const Categories = () => {
         setError(null);
 
         const response = await categoriesAPI.getAll();
-        setCategories(response.data.data);
+
+        // Ensure we have a valid array of categories
+        let categoriesData = [];
+
+        // Handle different response structures
+        if (
+          response.data &&
+          response.data.data &&
+          Array.isArray(response.data.data)
+        ) {
+          categoriesData = response.data.data;
+        } else if (response.data && Array.isArray(response.data)) {
+          categoriesData = response.data;
+        } else if (response.data && response.data.data) {
+          // If data.data is not an array but exists, convert to array
+          categoriesData = [response.data.data];
+        } else if (response.data) {
+          // If data exists but not in expected format, try to use it
+          categoriesData = [response.data];
+        }
+
+        console.log("Categories data:", categoriesData);
+        setCategories(categoriesData);
 
         // Fetch product counts for each category
         const productCounts = {};
-        for (const category of response.data.data) {
+        for (const category of categoriesData) {
+          // Skip if category doesn't have a valid _id
+          if (!category || !category._id) {
+            console.warn("Invalid category object:", category);
+            continue;
+          }
+
           try {
             const productsResponse = await productsAPI.getAll({
               category: category._id,
@@ -122,19 +150,36 @@ const Categories = () => {
 
       const response = await categoriesAPI.create(formData, config);
 
-      setCategories([...categories, response.data.data]);
-      setCategoryProducts({
-        ...categoryProducts,
-        [response.data.data._id]: 0,
-      });
+      // Handle different response structures
+      let newCategoryData = null;
 
-      // Reset form and close modal
-      setNewCategory({ name: "", description: "", image: null });
-      setImagePreview(null);
-      setShowAddModal(false);
-      setSuccessMessage("Category added successfully!");
+      if (response.data && response.data.data) {
+        newCategoryData = response.data.data;
+      } else if (response.data) {
+        newCategoryData = response.data;
+      }
 
-      setTimeout(() => setSuccessMessage(null), 3000);
+      // Ensure we have a valid category object
+      if (newCategoryData && newCategoryData._id) {
+        console.log("New category created:", newCategoryData);
+
+        setCategories([...categories, newCategoryData]);
+        setCategoryProducts({
+          ...categoryProducts,
+          [newCategoryData._id]: 0,
+        });
+
+        // Reset form and close modal
+        setNewCategory({ name: "", description: "", image: null });
+        setImagePreview(null);
+        setShowAddModal(false);
+        setSuccessMessage("Category added successfully!");
+
+        setTimeout(() => setSuccessMessage(null), 3000);
+      } else {
+        console.error("Invalid category data received:", response);
+        setSubmitError("Received invalid data from server. Please try again.");
+      }
     } catch (error) {
       console.error("Error adding category:", error);
       setSubmitError(

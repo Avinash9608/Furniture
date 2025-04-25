@@ -8,7 +8,7 @@ const path = require("path");
 dotenv.config();
 
 // Ensure uploads directory exists
-require("./ensure-uploads");
+require("./utils/ensureUploads");
 
 // Environment configuration
 if (process.env.NODE_ENV !== "production") {

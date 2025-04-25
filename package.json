@@ -12,11 +12,10 @@
     "data:destroy": "node server/utils/seeder -d",
     "categories:seed": "node server/utils/seedCategories",
     "categories:update-slugs": "node server/utils/updateCategorySlugs",
-    "install-all": "npm install && cd client && npm install && cd ../server && npm install",
-    "build": "node build.js",
-    "build:client": "cd client && npm install --include=dev && npm run build",
-    "vercel-build": "npm install && cd client && npm install --include=dev && NODE_ENV=production npm run build",
-    "render-build": "npm install && cd client && npm install --include=dev && npm run build",
+    "install-all": "npm install && cd client && npm install",
+    "build": "npm install && cd client && npm install && npm run build",
+    "build:client": "cd client && npm run build",
+    "render-build": "npm install && cd client && npm install && npm run build",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [

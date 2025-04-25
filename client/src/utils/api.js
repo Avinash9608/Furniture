@@ -1630,11 +1630,12 @@ export const paymentRequestsAPI = {
 
       // Try multiple endpoints
       const baseUrl = window.location.origin;
+      const deployedUrl = "https://furniture-q3nb.onrender.com";
       const endpoints = [
         `${baseUrl}/api/payment-requests`,
         `${baseUrl}/payment-requests`,
         `${baseUrl}/api/api/payment-requests`,
-        "https://furniture-q3nb.onrender.com/api/payment-requests",
+        `${deployedUrl}/api/payment-requests`,
       ];
 
       // Try each endpoint until one works
@@ -1643,7 +1644,15 @@ export const paymentRequestsAPI = {
           console.log(`Trying to create payment request at: ${endpoint}`);
           const response = await directApi.post(endpoint, data);
           console.log("Payment request created successfully:", response.data);
-          return response;
+
+          // Check if we have a valid response
+          if (response.data && response.data.success !== false) {
+            return {
+              data: response.data.data || response.data,
+            };
+          } else {
+            console.warn(`Invalid response from ${endpoint}:`, response.data);
+          }
         } catch (error) {
           console.warn(`Error creating payment request at ${endpoint}:`, error);
           // Continue to the next endpoint
@@ -1675,11 +1684,12 @@ export const paymentRequestsAPI = {
 
       // Try multiple endpoints
       const baseUrl = window.location.origin;
+      const deployedUrl = "https://furniture-q3nb.onrender.com";
       const endpoints = [
         `${baseUrl}/api/payment-requests`,
         `${baseUrl}/payment-requests`,
         `${baseUrl}/api/api/payment-requests`,
-        "https://furniture-q3nb.onrender.com/api/payment-requests",
+        `${deployedUrl}/api/payment-requests`,
       ];
 
       // Try each endpoint until one works
@@ -1736,11 +1746,12 @@ export const paymentRequestsAPI = {
 
       // Try multiple endpoints
       const baseUrl = window.location.origin;
+      const deployedUrl = "https://furniture-q3nb.onrender.com";
       const endpoints = [
         `${baseUrl}/api/payment-requests/all`,
         `${baseUrl}/payment-requests/all`,
         `${baseUrl}/api/api/payment-requests/all`,
-        "https://furniture-q3nb.onrender.com/api/payment-requests/all",
+        `${deployedUrl}/api/payment-requests/all`,
       ];
 
       // Try each endpoint until one works
@@ -1797,11 +1808,12 @@ export const paymentRequestsAPI = {
 
       // Try multiple endpoints
       const baseUrl = window.location.origin;
+      const deployedUrl = "https://furniture-q3nb.onrender.com";
       const endpoints = [
         `${baseUrl}/api/payment-requests/${id}`,
         `${baseUrl}/payment-requests/${id}`,
         `${baseUrl}/api/api/payment-requests/${id}`,
-        `https://furniture-q3nb.onrender.com/api/payment-requests/${id}`,
+        `${deployedUrl}/api/payment-requests/${id}`,
       ];
 
       // Try each endpoint until one works
@@ -1813,7 +1825,11 @@ export const paymentRequestsAPI = {
             `Payment request ${id} fetched successfully:`,
             response.data
           );
-          return response;
+
+          // Return the data in a consistent format
+          return {
+            data: response.data.data || response.data,
+          };
         } catch (error) {
           console.warn(
             `Error fetching payment request from ${endpoint}:`,
@@ -1848,11 +1864,12 @@ export const paymentRequestsAPI = {
 
       // Try multiple endpoints
       const baseUrl = window.location.origin;
+      const deployedUrl = "https://furniture-q3nb.onrender.com";
       const endpoints = [
         `${baseUrl}/api/payment-requests/${id}/status`,
         `${baseUrl}/payment-requests/${id}/status`,
         `${baseUrl}/api/api/payment-requests/${id}/status`,
-        `https://furniture-q3nb.onrender.com/api/payment-requests/${id}/status`,
+        `${deployedUrl}/api/payment-requests/${id}/status`,
       ];
 
       // Try each endpoint until one works
@@ -1866,7 +1883,11 @@ export const paymentRequestsAPI = {
             `Payment request ${id} status updated successfully:`,
             response.data
           );
-          return response;
+
+          // Return the data in a consistent format
+          return {
+            data: response.data.data || response.data,
+          };
         } catch (error) {
           console.warn(
             `Error updating payment request status at ${endpoint}:`,
@@ -1903,11 +1924,12 @@ export const paymentRequestsAPI = {
 
       // Try multiple endpoints
       const baseUrl = window.location.origin;
+      const deployedUrl = "https://furniture-q3nb.onrender.com";
       const endpoints = [
         `${baseUrl}/api/payment-requests/${id}/proof`,
         `${baseUrl}/payment-requests/${id}/proof`,
         `${baseUrl}/api/api/payment-requests/${id}/proof`,
-        `https://furniture-q3nb.onrender.com/api/payment-requests/${id}/proof`,
+        `${deployedUrl}/api/payment-requests/${id}/proof`,
       ];
 
       // Try each endpoint until one works
@@ -1919,7 +1941,11 @@ export const paymentRequestsAPI = {
             `Payment proof for ${id} uploaded successfully:`,
             response.data
           );
-          return response;
+
+          // Return the data in a consistent format
+          return {
+            data: response.data.data || response.data,
+          };
         } catch (error) {
           console.warn(`Error uploading payment proof at ${endpoint}:`, error);
           // Continue to the next endpoint

@@ -3,9 +3,9 @@
  * This utility handles loading models with proper error handling and path resolution
  */
 
-const path = require('path');
-const fs = require('fs');
-const mongoose = require('mongoose');
+const path = require("path");
+const fs = require("fs");
+const mongoose = require("mongoose");
 
 // Cache for loaded models
 const modelCache = {};
@@ -26,21 +26,58 @@ function loadModel(modelName) {
   // Try different paths to load the model
   const possiblePaths = [
     // Standard path
-    path.join(__dirname, '..', 'models', `${modelName}.js`),
+    path.join(__dirname, "..", "models", `${modelName}.js`),
     // Path with lowercase first letter
-    path.join(__dirname, '..', 'models', `${modelName.charAt(0).toLowerCase() + modelName.slice(1)}.js`),
+    path.join(
+      __dirname,
+      "..",
+      "models",
+      `${modelName.charAt(0).toLowerCase() + modelName.slice(1)}.js`
+    ),
     // Path with 's' at the end
-    path.join(__dirname, '..', 'models', `${modelName}s.js`),
+    path.join(__dirname, "..", "models", `${modelName}s.js`),
     // Path without 's' at the end
-    path.join(__dirname, '..', 'models', `${modelName.replace(/s$/, '')}.js`),
+    path.join(__dirname, "..", "models", `${modelName.replace(/s$/, "")}.js`),
     // Root server directory
-    path.join(__dirname, '..', '..', 'server', 'models', `${modelName}.js`),
+    path.join(__dirname, "..", "..", "server", "models", `${modelName}.js`),
     // Root server directory with lowercase first letter
-    path.join(__dirname, '..', '..', 'server', 'models', `${modelName.charAt(0).toLowerCase() + modelName.slice(1)}.js`),
+    path.join(
+      __dirname,
+      "..",
+      "..",
+      "server",
+      "models",
+      `${modelName.charAt(0).toLowerCase() + modelName.slice(1)}.js`
+    ),
     // Root server directory with 's' at the end
-    path.join(__dirname, '..', '..', 'server', 'models', `${modelName}s.js`),
+    path.join(__dirname, "..", "..", "server", "models", `${modelName}s.js`),
     // Root server directory without 's' at the end
-    path.join(__dirname, '..', '..', 'server', 'models', `${modelName.replace(/s$/, '')}.js`),
+    path.join(
+      __dirname,
+      "..",
+      "..",
+      "server",
+      "models",
+      `${modelName.replace(/s$/, "")}.js`
+    ),
+    // Special case for PaymentSetting/PaymentSettings
+    path.join(__dirname, "..", "models", "PaymentSetting.js"),
+    path.join(__dirname, "..", "models", "PaymentSettings.js"),
+    path.join(__dirname, "..", "models", "paymentSetting.js"),
+    path.join(__dirname, "..", "models", "paymentSettings.js"),
+    path.join(__dirname, "..", "..", "server", "models", "PaymentSetting.js"),
+    path.join(__dirname, "..", "..", "server", "models", "PaymentSettings.js"),
+    path.join(__dirname, "..", "..", "server", "models", "paymentSetting.js"),
+    path.join(__dirname, "..", "..", "server", "models", "paymentSettings.js"),
+    // Special case for PaymentRequest/PaymentRequests
+    path.join(__dirname, "..", "models", "PaymentRequest.js"),
+    path.join(__dirname, "..", "models", "PaymentRequests.js"),
+    path.join(__dirname, "..", "models", "paymentRequest.js"),
+    path.join(__dirname, "..", "models", "paymentRequests.js"),
+    path.join(__dirname, "..", "..", "server", "models", "PaymentRequest.js"),
+    path.join(__dirname, "..", "..", "server", "models", "PaymentRequests.js"),
+    path.join(__dirname, "..", "..", "server", "models", "paymentRequest.js"),
+    path.join(__dirname, "..", "..", "server", "models", "paymentRequests.js"),
   ];
 
   // Try each path
@@ -49,7 +86,7 @@ function loadModel(modelName) {
       // Check if file exists
       if (fs.existsSync(modelPath)) {
         console.log(`Found model file at: ${modelPath}`);
-        
+
         // Try to require the model
         try {
           const model = require(modelPath);
@@ -57,11 +94,17 @@ function loadModel(modelName) {
           console.log(`Successfully loaded model: ${modelName}`);
           return model;
         } catch (requireError) {
-          console.error(`Error requiring model from ${modelPath}:`, requireError.message);
+          console.error(
+            `Error requiring model from ${modelPath}:`,
+            requireError.message
+          );
         }
       }
     } catch (fsError) {
-      console.error(`Error checking file existence for ${modelPath}:`, fsError.message);
+      console.error(
+        `Error checking file existence for ${modelPath}:`,
+        fsError.message
+      );
     }
   }
 
@@ -73,7 +116,10 @@ function loadModel(modelName) {
       return mongoose.models[modelName];
     }
   } catch (mongooseError) {
-    console.error(`Error checking mongoose models for ${modelName}:`, mongooseError.message);
+    console.error(
+      `Error checking mongoose models for ${modelName}:`,
+      mongooseError.message
+    );
   }
 
   console.error(`Failed to load model: ${modelName}`);
@@ -94,16 +140,16 @@ function getLoadedModels() {
  */
 function loadAllModels() {
   const modelNames = [
-    'Category',
-    'Contact',
-    'Order',
-    'PaymentRequest',
-    'PaymentSetting',
-    'Product',
-    'User'
+    "Category",
+    "Contact",
+    "Order",
+    "PaymentRequest",
+    "PaymentSetting",
+    "Product",
+    "User",
   ];
 
-  modelNames.forEach(modelName => {
+  modelNames.forEach((modelName) => {
     loadModel(modelName);
   });
 
@@ -113,5 +159,5 @@ function loadAllModels() {
 module.exports = {
   loadModel,
   getLoadedModels,
-  loadAllModels
+  loadAllModels,
 };
