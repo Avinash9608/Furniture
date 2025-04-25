@@ -1020,13 +1020,15 @@ const contactAPI = {
       );
       console.log(`Using API base URL: ${apiBase}`);
 
-      // Define endpoints in order of preference
+      // Define endpoints in order of preference - prioritize direct MongoDB driver endpoints
       const endpoints = [
-        // Admin-specific endpoints first (most direct)
-        `${apiBase}/api/admin/messages`,
-        // Direct database query endpoint
+        // Direct database query endpoint (using MongoDB driver directly)
         `${apiBase}/api/direct/contacts`,
-        // Regular contact endpoints
+        // Admin-specific endpoints (also using MongoDB driver directly)
+        `${apiBase}/api/admin/messages`,
+        // Database test endpoint (using MongoDB driver directly)
+        `${apiBase}/api/db-test`,
+        // Regular contact endpoints (using Mongoose)
         `${apiBase}/api/contact`,
         `${apiBase}/contact`,
         // Health check endpoint

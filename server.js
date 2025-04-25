@@ -587,73 +587,75 @@ app.post("/api/api/contact", async (req, res) => {
 
 // ===== ADDITIONAL API ROUTES =====
 
-// Direct database query endpoint for contacts
+// Direct database query endpoint for contacts using MongoDB driver directly
 app.get("/api/direct/contacts", async (req, res) => {
-  console.log("Direct database query for contacts");
+  console.log("Direct database query for contacts using MongoDB driver");
 
   // Set proper headers to ensure JSON response
   res.setHeader("Content-Type", "application/json");
 
+  let client = null;
+
   try {
-    // Try to load the Contact model if it's not available
-    if (!Contact) {
-      Contact = loadModel("Contact");
-      console.log(
-        "Attempted to load Contact model:",
-        Contact ? "Success" : "Failed"
-      );
-    }
+    // Get the MongoDB URI
+    const uri = process.env.MONGO_URI;
 
-    // If Contact model is still not available, return an empty array
-    if (!Contact) {
-      console.warn("Contact model not available, returning empty array");
-      return res.status(200).json([]);
-    }
+    // Log a redacted version of the URI for debugging
+    const redactedUri = uri.replace(
+      /\/\/([^:]+):([^@]+)@/,
+      (_, username) => `\/\/${username}:****@`
+    );
+    console.log("Using connection string:", redactedUri);
 
-    // Try-catch block specifically for the database operation
-    try {
-      // Attempt to connect to the database if not connected
-      if (mongoose.connection.readyState !== 1) {
-        console.log("MongoDB not connected, attempting to connect...");
+    // Direct connection options
+    const options = {
+      serverSelectionTimeoutMS: 60000, // 60 seconds timeout for initial connection
+      socketTimeoutMS: 90000, // 90 seconds timeout for queries
+      connectTimeoutMS: 60000, // 60 seconds timeout for initial connection
+      maxPoolSize: 10,
+    };
 
-        // Disconnect first to ensure a fresh connection
-        if (mongoose.connection.readyState !== 0) {
-          await mongoose.disconnect();
-          console.log("Disconnected existing MongoDB connection");
-        }
+    // Create a new MongoClient
+    client = new MongoClient(uri, options);
+    console.log("Created new MongoClient for direct/contacts");
 
-        // Set the buffering timeout BEFORE connecting
-        mongoose.set("bufferTimeoutMS", 60000); // Increase from default 10000ms to 60000ms (1 minute)
+    // Connect to the MongoDB server
+    console.log("Connecting to MongoDB...");
+    await client.connect();
+    console.log("✅ Direct MongoDB connection successful for direct/contacts");
 
-        // Enhanced connection options specifically targeting the buffering timeout issue
-        await mongoose.connect(process.env.MONGO_URI, {
-          serverSelectionTimeoutMS: 60000, // 60 seconds timeout for initial connection
-          socketTimeoutMS: 90000, // 90 seconds timeout for queries
-          connectTimeoutMS: 60000, // 60 seconds timeout for initial connection
-          retryWrites: true,
-          w: "majority",
-          maxPoolSize: 10,
-        });
-        console.log("MongoDB connected successfully with enhanced options");
-      }
+    // Get database name from connection string
+    const dbName = uri.split("/").pop().split("?")[0];
+    console.log(`Using database: ${dbName}`);
 
-      // Fetch contacts with proper error handling and increased timeout
-      const contacts = await Contact.find()
-        .sort({ createdAt: -1 })
-        .maxTimeMS(60000); // 60 seconds timeout to match the buffer timeout
-      console.log(
-        `Successfully fetched ${contacts.length} contact messages directly`
-      );
+    // Get database
+    const db = client.db(dbName);
 
-      // Return just the array of contacts for simplicity
-      return res.status(200).json(contacts);
-    } catch (dbError) {
-      console.error("Database error in direct contacts query:", dbError);
-      return res.status(200).json([]);
-    }
+    // Query the contacts collection
+    console.log("Executing direct query on contacts collection");
+    const contactsCollection = db.collection("contacts");
+    const contacts = await contactsCollection
+      .find({})
+      .sort({ createdAt: -1 })
+      .toArray();
+    console.log(
+      `Successfully fetched ${contacts.length} contact messages directly using MongoDB driver`
+    );
+
+    // Return the contacts array
+    return res.status(200).json(contacts);
   } catch (error) {
-    console.error("Unexpected error in direct contacts query:", error);
+    console.error("Direct MongoDB contacts query error:", error);
+    console.error("Error details:", error.stack);
+
+    // Return empty array to prevent client-side errors
     return res.status(200).json([]);
+  } finally {
+    // Close the connection
+    if (client) {
+      await client.close();
+      console.log("Closed MongoDB connection for direct/contacts");
+    }
   }
 });
 
@@ -734,74 +736,79 @@ app.get("/api/db-status", (req, res) => {
   });
 });
 
-// Test database query endpoint
+// Import MongoDB driver
+const { MongoClient } = require("mongodb");
+
+// Test database query endpoint using direct MongoDB driver (bypassing Mongoose)
 app.get("/api/db-test", async (req, res) => {
+  let client = null;
+
   try {
-    // Verify MongoDB connection first
-    if (mongoose.connection.readyState !== 1) {
-      return res.status(503).json({
-        success: false,
-        message: "Database not connected",
-        state:
-          ["disconnected", "connected", "connecting", "disconnecting"][
-            mongoose.connection.readyState
-          ] || "unknown",
-      });
-    }
+    console.log("Using direct MongoDB driver for db-test");
 
-    // Force disconnect and reconnect to ensure a fresh connection
-    console.log("Disconnecting from MongoDB to reset connection for db-test");
-    await mongoose.disconnect();
-
-    // Set the buffering timeout BEFORE connecting
-    mongoose.set("bufferTimeoutMS", 60000); // Ensure it's set to 60 seconds
-
-    // Reconnect with enhanced options
+    // Get the MongoDB URI
     const uri = process.env.MONGO_URI;
-    console.log("Reconnecting to MongoDB for db-test...");
-    await mongoose.connect(uri, {
+
+    // Log a redacted version of the URI for debugging
+    const redactedUri = uri.replace(
+      /\/\/([^:]+):([^@]+)@/,
+      (_, username) => `\/\/${username}:****@`
+    );
+    console.log("Using connection string:", redactedUri);
+
+    // Direct connection options
+    const options = {
       serverSelectionTimeoutMS: 60000, // 60 seconds timeout for initial connection
       socketTimeoutMS: 90000, // 90 seconds timeout for queries
       connectTimeoutMS: 60000, // 60 seconds timeout for initial connection
-      retryWrites: true,
-      w: "majority",
       maxPoolSize: 10,
-    });
+    };
 
-    // Set the buffer timeout again after connection
-    mongoose.set("bufferTimeoutMS", 60000);
+    // Create a new MongoClient
+    client = new MongoClient(uri, options);
+    console.log("Created new MongoClient");
 
-    // Verify the buffer timeout setting
-    console.log(
-      "Mongoose buffer timeout for db-test:",
-      mongoose.get("bufferTimeoutMS")
-    );
+    // Connect to the MongoDB server
+    console.log("Connecting to MongoDB...");
+    await client.connect();
+    console.log("✅ Direct MongoDB connection successful");
 
-    // Try to load the Contact model if it's not available
-    if (!Contact) {
-      Contact = loadModel("Contact");
-    }
+    // Get database name from connection string
+    const dbName = uri.split("/").pop().split("?")[0];
+    console.log(`Using database: ${dbName}`);
 
-    if (!Contact) {
-      return res.status(500).json({
-        success: false,
-        message: "Contact model not available",
-      });
-    }
+    // Get database
+    const db = client.db(dbName);
 
-    // Simple count query with increased timeout
-    console.log("Executing countDocuments with maxTimeMS(60000)");
-    const count = await Contact.countDocuments().maxTimeMS(60000); // 60 seconds timeout to match the buffer timeout
+    // Test a direct query
+    console.log("Executing direct count query on contacts collection");
+    const contactsCollection = db.collection("contacts");
+    const count = await contactsCollection.countDocuments();
     console.log("Successfully counted documents:", count);
+
+    // Get a sample contact for verification
+    const contacts = await contactsCollection.find({}).limit(1).toArray();
+    let sampleContact = null;
+
+    if (contacts.length > 0) {
+      sampleContact = {
+        id: contacts[0]._id,
+        name: contacts[0].name,
+        email: contacts[0].email,
+        subject: contacts[0].subject,
+      };
+      console.log("Sample contact:", sampleContact);
+    }
 
     return res.status(200).json({
       success: true,
       count,
-      message: "Database query successful",
-      bufferTimeout: mongoose.get("bufferTimeoutMS"),
+      message: "Database query successful using direct MongoDB driver",
+      method: "direct",
+      sampleContact,
     });
   } catch (error) {
-    console.error("Database test query error:", error);
+    console.error("Direct MongoDB test query error:", error);
     console.error("Error details:", error.stack);
 
     // Try to provide more helpful error information
@@ -811,116 +818,139 @@ app.get("/api/db-test", async (req, res) => {
       code: error.code,
     };
 
-    if (
-      error.name === "MongooseError" &&
-      error.message.includes("buffering timed out")
-    ) {
-      errorInfo.suggestion =
-        "The operation timed out while buffering. Try increasing bufferTimeoutMS.";
-    }
-
     return res.status(500).json({
       success: false,
       error: error.message,
       errorDetails: errorInfo,
+      method: "direct",
     });
+  } finally {
+    // Close the connection
+    if (client) {
+      await client.close();
+      console.log("Closed MongoDB connection");
+    }
   }
 });
 
-// Admin endpoint for contact messages (multiple routes for compatibility)
+// Admin endpoint for contact messages using direct MongoDB driver
 app.get(
   ["/api/admin/messages", "/admin/messages", "/api/admin-messages"],
-  checkDBConnection, // Add the DB connection check middleware
   async (req, res) => {
-    console.log("Admin: Fetching all contact messages");
+    console.log("Admin: Fetching all contact messages using MongoDB driver");
 
     // Set proper headers to ensure JSON response
     res.setHeader("Content-Type", "application/json");
 
+    let client = null;
+
     try {
-      // Try to load the Contact model if it's not available
-      if (!Contact) {
-        Contact = loadModel("Contact");
-        console.log(
-          "Attempted to load Contact model:",
-          Contact ? "Success" : "Failed"
-        );
-      }
+      // Get the MongoDB URI
+      const uri = process.env.MONGO_URI;
 
-      // If Contact model is still not available, return an empty array
-      if (!Contact) {
-        console.warn("Contact model not available, returning empty array");
-        return res.status(200).json({
-          success: true,
-          count: 0,
-          data: [],
-          message: "Contact model not available, returning empty array",
+      // Log a redacted version of the URI for debugging
+      const redactedUri = uri.replace(
+        /\/\/([^:]+):([^@]+)@/,
+        (_, username) => `\/\/${username}:****@`
+      );
+      console.log("Using connection string:", redactedUri);
+
+      // Direct connection options
+      const options = {
+        serverSelectionTimeoutMS: 60000, // 60 seconds timeout for initial connection
+        socketTimeoutMS: 90000, // 90 seconds timeout for queries
+        connectTimeoutMS: 60000, // 60 seconds timeout for initial connection
+        maxPoolSize: 10,
+      };
+
+      // Create a new MongoClient
+      client = new MongoClient(uri, options);
+      console.log("Created new MongoClient for admin/messages");
+
+      // Connect to the MongoDB server
+      console.log("Connecting to MongoDB...");
+      await client.connect();
+      console.log("✅ Direct MongoDB connection successful for admin/messages");
+
+      // Get database name from connection string
+      const dbName = uri.split("/").pop().split("?")[0];
+      console.log(`Using database: ${dbName}`);
+
+      // Get database
+      const db = client.db(dbName);
+
+      // Query the contacts collection
+      console.log("Executing direct query on contacts collection for admin");
+      const contactsCollection = db.collection("contacts");
+      const contacts = await contactsCollection
+        .find({})
+        .sort({ createdAt: -1 })
+        .toArray();
+      console.log(
+        `Successfully fetched ${contacts.length} contact messages for admin using MongoDB driver`
+      );
+
+      // Log a sample contact for debugging
+      if (contacts.length > 0) {
+        console.log("Sample contact:", {
+          id: contacts[0]._id,
+          name: contacts[0].name,
+          email: contacts[0].email,
+          createdAt: contacts[0].createdAt,
         });
       }
 
-      // Try-catch block specifically for the database operation
-      try {
-        // Attempt to connect to the database if not connected
-        if (mongoose.connection.readyState !== 1) {
-          console.log("MongoDB not connected, attempting to connect...");
-          // Set the buffering timeout BEFORE connecting
-          mongoose.set("bufferTimeoutMS", 60000); // Increase from default 10000ms to 60000ms (1 minute)
-
-          await mongoose.connect(process.env.MONGO_URI, {
-            serverSelectionTimeoutMS: 60000, // 60 seconds timeout for initial connection
-            socketTimeoutMS: 90000, // 90 seconds timeout for queries
-            connectTimeoutMS: 60000, // 60 seconds timeout for initial connection
-            retryWrites: true,
-            w: "majority",
-            maxPoolSize: 10,
-          });
-          console.log("MongoDB connected successfully");
-        }
-
-        // Fetch contacts with proper error handling and increased timeout
-        const contacts = await Contact.find()
-          .sort({ createdAt: -1 })
-          .maxTimeMS(60000); // 60 seconds timeout to match the buffer timeout
-        console.log(`Successfully fetched ${contacts.length} contact messages`);
-
-        // Log a sample contact for debugging
-        if (contacts.length > 0) {
-          console.log("Sample contact:", {
-            id: contacts[0]._id,
-            name: contacts[0].name,
-            email: contacts[0].email,
-            createdAt: contacts[0].createdAt,
-          });
-        }
-
-        return res.status(200).json({
-          success: true,
-          count: contacts.length,
-          data: contacts,
-        });
-      } catch (dbError) {
-        console.error("Database error fetching contacts:", dbError);
-
-        // Return empty array to prevent client-side errors
-        return res.status(200).json({
-          success: false,
-          count: 0,
-          data: [],
-          message: "Database error fetching contacts",
-          error: dbError.message,
-        });
-      }
+      // Return the contacts in the expected format
+      return res.status(200).json({
+        success: true,
+        count: contacts.length,
+        data: contacts,
+        method: "direct",
+      });
     } catch (error) {
-      console.error("Unexpected error in admin messages route:", error);
+      console.error("Direct MongoDB admin messages query error:", error);
+      console.error("Error details:", error.stack);
 
-      // Return empty array to prevent client-side errors
+      // Create mock messages for testing in case of MongoDB connection issues
+      const mockMessages = [
+        {
+          _id: `temp_${Date.now()}_1`,
+          name: "System Message",
+          email: "system@example.com",
+          subject: "Database Connection Issue",
+          message:
+            "The application is currently experiencing issues connecting to the database. This is likely due to a MongoDB connection issue. Please try again later.",
+          status: "unread",
+          createdAt: new Date().toISOString(),
+        },
+        {
+          _id: `temp_${Date.now()}_2`,
+          name: "System Message",
+          email: "system@example.com",
+          subject: "Temporary Data",
+          message:
+            "This is temporary data displayed while the application is unable to connect to the database. Your actual messages will be displayed once the connection is restored.",
+          status: "unread",
+          createdAt: new Date().toISOString(),
+        },
+      ];
+
+      // Return mock data to prevent client-side errors
       return res.status(200).json({
         success: false,
-        count: 0,
-        data: [],
-        message: "Unexpected error in admin messages route",
+        count: mockMessages.length,
+        data: mockMessages,
+        message: "Database error fetching contacts. Displaying temporary data.",
         error: error.message,
+        method: "direct",
+        isTemporaryData: true,
       });
+    } finally {
+      // Close the connection
+      if (client) {
+        await client.close();
+        console.log("Closed MongoDB connection for admin/messages");
+      }
     }
   }
 );
