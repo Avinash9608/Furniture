@@ -55,6 +55,13 @@ app.use((req, res, next) => {
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Ensure uploads directory exists
+const { uploadsDir, imagesDir } = require("./server/utils/ensureUploads");
+
+// Serve static files from the uploads directory
+app.use("/uploads", express.static(uploadsDir));
+console.log("Serving static files from uploads directory:", uploadsDir);
+
 // Import MongoDB driver for direct connection
 const { MongoClient } = require("mongodb");
 
@@ -2378,6 +2385,106 @@ console.log("- POST /api/payment-requests");
 console.log("- PUT /api/payment-requests/:id/status");
 console.log("- GET /api/payment-requests/:id");
 console.log("- GET /api/orders");
+
+// Add a direct product creation endpoint
+app.post("/api/products", async (req, res) => {
+  console.log("Creating product with data:", req.body);
+
+  try {
+    // Validate required fields
+    if (!req.body.name || !req.body.price || !req.body.category) {
+      return res.status(200).json({
+        success: false,
+        message: "Please provide name, price, and category",
+      });
+    }
+
+    // First try using direct MongoDB driver
+    try {
+      // Use the existing direct MongoDB connection
+      if (directDb) {
+        console.log("Using direct MongoDB driver for product creation");
+
+        // Create the product data
+        const productData = {
+          name: req.body.name,
+          price: parseFloat(req.body.price),
+          description: req.body.description || "",
+          category: req.body.category,
+          image: req.body.image || "",
+          stock: parseInt(req.body.stock) || 0,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+
+        // Insert the product into the products collection
+        console.log("Inserting product into database:", productData);
+        const productsCollection = directDb.collection("products");
+        const result = await productsCollection.insertOne(productData);
+
+        if (result.acknowledged) {
+          console.log(
+            "Product created successfully using direct MongoDB driver:",
+            result
+          );
+
+          // Return success response
+          return res.status(201).json({
+            success: true,
+            data: {
+              ...productData,
+              _id: result.insertedId,
+            },
+            method: "direct",
+          });
+        }
+      }
+    } catch (directError) {
+      console.error(
+        "Error using direct MongoDB driver for product creation:",
+        directError
+      );
+      // Fall back to Mongoose approach
+    }
+
+    // Fall back to Mongoose approach
+    // Try to load the Product model if it's not available
+    if (!Product) {
+      Product = loadModel("Product");
+      console.log(
+        "Attempted to load Product model:",
+        Product ? "Success" : "Failed"
+      );
+    }
+
+    // If Product model is still not available, return an error
+    if (!Product) {
+      console.warn("Product model not available, returning error");
+      return res.status(200).json({
+        success: false,
+        message: "Product model not available",
+      });
+    }
+
+    // Create the product
+    const product = await Product.create(req.body);
+    console.log("Product created successfully using Mongoose:", product);
+
+    return res.status(201).json({
+      success: true,
+      data: product,
+      method: "mongoose",
+    });
+  } catch (error) {
+    console.error("Error creating product:", error);
+
+    // Return error response
+    return res.status(200).json({
+      success: false,
+      message: error.message || "Error creating product",
+    });
+  }
+});
 
 // Use routes from server
 app.use("/api", routes);
