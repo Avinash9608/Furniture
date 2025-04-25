@@ -68,20 +68,17 @@ const connectDB = async () => {
     );
     console.log("Using connection string:", redactedUri);
 
-    // Enhanced connection options for better reliability in deployed environments
+    // Set the buffering timeout BEFORE connecting
+    mongoose.set("bufferTimeoutMS", 60000); // Increase from default 10000ms to 60000ms (1 minute)
+
+    // Enhanced connection options specifically targeting the buffering timeout issue
     await mongoose.connect(uri, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-      serverSelectionTimeoutMS: 30000, // 30 seconds timeout for initial connection
-      socketTimeoutMS: 45000, // 45 seconds timeout for queries
+      serverSelectionTimeoutMS: 60000, // 60 seconds timeout for initial connection
+      socketTimeoutMS: 90000, // 90 seconds timeout for queries
+      connectTimeoutMS: 60000, // 60 seconds timeout for initial connection
       retryWrites: true, // Retry write operations
       w: "majority", // Write concern
       maxPoolSize: 10, // Maximum number of connections in the pool
-      // Remove potentially unsupported options
-      // keepAlive: true,
-      // keepAliveInitialDelay: 300000,
-      // bufferCommands: false,
-      // family: 4,
     });
 
     // Log connection details for debugging
@@ -601,24 +598,25 @@ app.get("/api/direct/contacts", async (req, res) => {
           console.log("Disconnected existing MongoDB connection");
         }
 
-        // Connect with significantly enhanced options for production environment
+        // Set the buffering timeout BEFORE connecting
+        mongoose.set("bufferTimeoutMS", 60000); // Increase from default 10000ms to 60000ms (1 minute)
+
+        // Enhanced connection options specifically targeting the buffering timeout issue
         await mongoose.connect(process.env.MONGO_URI, {
-          serverSelectionTimeoutMS: 60000, // Significantly increased from 30000
-          socketTimeoutMS: 120000, // Significantly increased from 75000
-          connectTimeoutMS: 90000, // Significantly increased from 60000
+          serverSelectionTimeoutMS: 60000, // 60 seconds timeout for initial connection
+          socketTimeoutMS: 90000, // 90 seconds timeout for queries
+          connectTimeoutMS: 60000, // 60 seconds timeout for initial connection
           retryWrites: true,
           w: "majority",
           maxPoolSize: 10,
-          keepAlive: true,
-          keepAliveInitialDelay: 300000, // 5 minutes
-          bufferCommands: false, // Disable command buffering
-          family: 4, // Force IPv4 (can help with some connection issues)
         });
         console.log("MongoDB connected successfully with enhanced options");
       }
 
-      // Fetch contacts with proper error handling
-      const contacts = await Contact.find().sort({ createdAt: -1 });
+      // Fetch contacts with proper error handling and increased timeout
+      const contacts = await Contact.find()
+        .sort({ createdAt: -1 })
+        .maxTimeMS(60000); // 60 seconds timeout to match the buffer timeout
       console.log(
         `Successfully fetched ${contacts.length} contact messages directly`
       );
@@ -727,6 +725,9 @@ app.get("/api/db-test", async (req, res) => {
       });
     }
 
+    // Set the buffering timeout for this operation
+    mongoose.set("bufferTimeoutMS", 60000); // Increase from default 10000ms to 60000ms (1 minute)
+
     // Try to load the Contact model if it's not available
     if (!Contact) {
       Contact = loadModel("Contact");
@@ -739,8 +740,8 @@ app.get("/api/db-test", async (req, res) => {
       });
     }
 
-    // Simple count query with timeout
-    const count = await Contact.countDocuments().maxTimeMS(30000);
+    // Simple count query with increased timeout
+    const count = await Contact.countDocuments().maxTimeMS(60000); // 60 seconds timeout to match the buffer timeout
 
     return res.status(200).json({
       success: true,
@@ -792,11 +793,13 @@ app.get(
         // Attempt to connect to the database if not connected
         if (mongoose.connection.readyState !== 1) {
           console.log("MongoDB not connected, attempting to connect...");
+          // Set the buffering timeout BEFORE connecting
+          mongoose.set("bufferTimeoutMS", 60000); // Increase from default 10000ms to 60000ms (1 minute)
+
           await mongoose.connect(process.env.MONGO_URI, {
-            useNewUrlParser: true,
-            useUnifiedTopology: true,
-            serverSelectionTimeoutMS: 30000, // 30 seconds timeout for initial connection
-            socketTimeoutMS: 45000, // 45 seconds timeout for queries
+            serverSelectionTimeoutMS: 60000, // 60 seconds timeout for initial connection
+            socketTimeoutMS: 90000, // 90 seconds timeout for queries
+            connectTimeoutMS: 60000, // 60 seconds timeout for initial connection
             retryWrites: true,
             w: "majority",
             maxPoolSize: 10,
@@ -804,10 +807,10 @@ app.get(
           console.log("MongoDB connected successfully");
         }
 
-        // Fetch contacts with proper error handling and timeout
+        // Fetch contacts with proper error handling and increased timeout
         const contacts = await Contact.find()
           .sort({ createdAt: -1 })
-          .maxTimeMS(30000); // 30 seconds timeout
+          .maxTimeMS(60000); // 60 seconds timeout to match the buffer timeout
         console.log(`Successfully fetched ${contacts.length} contact messages`);
 
         // Log a sample contact for debugging
@@ -891,12 +894,14 @@ app.get(
             console.log("Disconnected existing MongoDB connection");
           }
 
-          // Simplified connection options based on MongoDB best practices
+          // Set the buffering timeout BEFORE connecting
+          mongoose.set("bufferTimeoutMS", 60000); // Increase from default 10000ms to 60000ms (1 minute)
+
+          // Enhanced connection options specifically targeting the buffering timeout issue
           await mongoose.connect(process.env.MONGO_URI, {
-            useNewUrlParser: true,
-            useUnifiedTopology: true,
-            serverSelectionTimeoutMS: 30000, // 30 seconds timeout for initial connection
-            socketTimeoutMS: 45000, // 45 seconds timeout for queries
+            serverSelectionTimeoutMS: 60000, // 60 seconds timeout for initial connection
+            socketTimeoutMS: 90000, // 90 seconds timeout for queries
+            connectTimeoutMS: 60000, // 60 seconds timeout for initial connection
             retryWrites: true,
             w: "majority",
             maxPoolSize: 10,
@@ -904,10 +909,10 @@ app.get(
           console.log("MongoDB connected successfully with enhanced options");
         }
 
-        // Fetch contacts with proper error handling and timeout
+        // Fetch contacts with proper error handling and increased timeout
         const contacts = await Contact.find()
           .sort({ createdAt: -1 })
-          .maxTimeMS(30000); // 30 seconds timeout
+          .maxTimeMS(60000); // 60 seconds timeout to match the buffer timeout
         console.log(`Successfully fetched ${contacts.length} contact messages`);
 
         // Log a sample contact for debugging
@@ -936,12 +941,14 @@ app.get(
           await mongoose.disconnect();
           console.log("Disconnected from MongoDB to reset connection");
 
-          // Simplified connection options based on MongoDB best practices
+          // Set the buffering timeout BEFORE connecting
+          mongoose.set("bufferTimeoutMS", 60000); // Increase from default 10000ms to 60000ms (1 minute)
+
+          // Enhanced connection options specifically targeting the buffering timeout issue
           await mongoose.connect(process.env.MONGO_URI, {
-            useNewUrlParser: true,
-            useUnifiedTopology: true,
-            serverSelectionTimeoutMS: 30000, // 30 seconds timeout for initial connection
-            socketTimeoutMS: 45000, // 45 seconds timeout for queries
+            serverSelectionTimeoutMS: 60000, // 60 seconds timeout for initial connection
+            socketTimeoutMS: 90000, // 90 seconds timeout for queries
+            connectTimeoutMS: 60000, // 60 seconds timeout for initial connection
             retryWrites: true,
             w: "majority",
             maxPoolSize: 10,
@@ -949,10 +956,10 @@ app.get(
 
           console.log("Reconnected to MongoDB successfully");
 
-          // Try fetching contacts again with timeout
+          // Try fetching contacts again with increased timeout
           const contacts = await Contact.find()
             .sort({ createdAt: -1 })
-            .maxTimeMS(30000); // 30 seconds timeout
+            .maxTimeMS(60000); // 60 seconds timeout to match the buffer timeout
           console.log(
             `Successfully fetched ${contacts.length} contact messages on second attempt`
           );
