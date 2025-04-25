@@ -62,6 +62,31 @@ const { uploadsDir, imagesDir } = require("./server/utils/ensureUploads");
 app.use("/uploads", express.static(uploadsDir));
 console.log("Serving static files from uploads directory:", uploadsDir);
 
+// Create uploads directory if it doesn't exist
+if (!fs.existsSync(uploadsDir)) {
+  console.log(`Creating uploads directory: ${uploadsDir}`);
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+// Create images directory if it doesn't exist
+if (!fs.existsSync(imagesDir)) {
+  console.log(`Creating images directory: ${imagesDir}`);
+  fs.mkdirSync(imagesDir, { recursive: true });
+}
+
+// Log the contents of the uploads directory
+try {
+  const uploadsFiles = fs.readdirSync(uploadsDir);
+  console.log("Files in uploads directory:", uploadsFiles);
+
+  if (fs.existsSync(imagesDir)) {
+    const imagesFiles = fs.readdirSync(imagesDir);
+    console.log("Files in images directory:", imagesFiles);
+  }
+} catch (error) {
+  console.error("Error reading uploads directory:", error);
+}
+
 // Import MongoDB driver for direct connection
 const { MongoClient } = require("mongodb");
 
@@ -2386,9 +2411,12 @@ console.log("- PUT /api/payment-requests/:id/status");
 console.log("- GET /api/payment-requests/:id");
 console.log("- GET /api/orders");
 
-// Add a direct product creation endpoint
+// Add a direct product creation endpoint with guaranteed persistence
 app.post("/api/products", async (req, res) => {
   console.log("Creating product with data:", req.body);
+
+  // Set proper headers to ensure JSON response
+  res.setHeader("Content-Type", "application/json");
 
   try {
     // Validate required fields
@@ -2399,81 +2427,159 @@ app.post("/api/products", async (req, res) => {
       });
     }
 
-    // First try using direct MongoDB driver
+    // Create the product data
+    const productData = {
+      name: req.body.name,
+      price: parseFloat(req.body.price),
+      description: req.body.description || "",
+      category: req.body.category,
+      image: req.body.image || "",
+      stock: parseInt(req.body.stock) || 0,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    console.log("Product data to be saved:", productData);
+
+    // Create a new direct MongoDB connection specifically for this operation
+    let newClient = null;
+    let savedProduct = null;
+    let saveMethod = null;
+
     try {
-      // Use the existing direct MongoDB connection
-      if (directDb) {
-        console.log("Using direct MongoDB driver for product creation");
+      console.log(
+        "Attempting to save product using fresh direct MongoDB connection"
+      );
 
-        // Create the product data
-        const productData = {
-          name: req.body.name,
-          price: parseFloat(req.body.price),
-          description: req.body.description || "",
-          category: req.body.category,
-          image: req.body.image || "",
-          stock: parseInt(req.body.stock) || 0,
-          createdAt: new Date(),
-          updatedAt: new Date(),
+      // Get the MongoDB URI
+      const uri = process.env.MONGO_URI;
+
+      // Direct connection options
+      const options = {
+        useNewUrlParser: true,
+        useUnifiedTopology: true,
+        connectTimeoutMS: 30000,
+        socketTimeoutMS: 45000,
+        serverSelectionTimeoutMS: 30000,
+        maxPoolSize: 5,
+      };
+
+      // Create a new MongoClient
+      newClient = new MongoClient(uri, options);
+      await newClient.connect();
+
+      // Get database name from connection string
+      const dbName = uri.split("/").pop().split("?")[0];
+      const db = newClient.db(dbName);
+
+      console.log(
+        `Fresh MongoDB connection established to database: ${dbName}`
+      );
+
+      // Insert the product into the products collection
+      console.log("Inserting product into database using fresh connection");
+      const productsCollection = db.collection("products");
+      const result = await productsCollection.insertOne(productData);
+
+      if (result.acknowledged) {
+        console.log(
+          "Product created successfully using fresh MongoDB connection:",
+          result
+        );
+
+        savedProduct = {
+          ...productData,
+          _id: result.insertedId,
         };
+        saveMethod = "fresh-direct";
+      } else {
+        throw new Error("Insert operation not acknowledged");
+      }
+    } catch (freshError) {
+      console.error("Error using fresh MongoDB connection:", freshError);
 
-        // Insert the product into the products collection
-        console.log("Inserting product into database:", productData);
-        const productsCollection = directDb.collection("products");
-        const result = await productsCollection.insertOne(productData);
-
-        if (result.acknowledged) {
+      // Try using the existing direct MongoDB connection
+      try {
+        if (directDb) {
           console.log(
-            "Product created successfully using direct MongoDB driver:",
-            result
+            "Attempting to save product using existing direct MongoDB connection"
           );
 
-          // Return success response
-          return res.status(201).json({
-            success: true,
-            data: {
+          // Insert the product into the products collection
+          const productsCollection = directDb.collection("products");
+          const result = await productsCollection.insertOne(productData);
+
+          if (result.acknowledged) {
+            console.log(
+              "Product created successfully using existing direct MongoDB connection:",
+              result
+            );
+
+            savedProduct = {
               ...productData,
               _id: result.insertedId,
-            },
-            method: "direct",
-          });
+            };
+            saveMethod = "existing-direct";
+          } else {
+            throw new Error("Insert operation not acknowledged");
+          }
+        } else {
+          throw new Error("Existing direct MongoDB connection not available");
+        }
+      } catch (existingDirectError) {
+        console.error(
+          "Error using existing direct MongoDB connection:",
+          existingDirectError
+        );
+
+        // Fall back to Mongoose approach
+        try {
+          console.log("Attempting to save product using Mongoose");
+
+          // Try to load the Product model if it's not available
+          if (!Product) {
+            Product = loadModel("Product");
+            console.log(
+              "Attempted to load Product model:",
+              Product ? "Success" : "Failed"
+            );
+          }
+
+          // If Product model is still not available, throw an error
+          if (!Product) {
+            throw new Error("Product model not available");
+          }
+
+          // Create the product
+          const product = await Product.create(productData);
+          console.log("Product created successfully using Mongoose:", product);
+
+          savedProduct = product;
+          saveMethod = "mongoose";
+        } catch (mongooseError) {
+          console.error("Error using Mongoose:", mongooseError);
+          throw new Error(`All save methods failed: ${mongooseError.message}`);
         }
       }
-    } catch (directError) {
-      console.error(
-        "Error using direct MongoDB driver for product creation:",
-        directError
-      );
-      // Fall back to Mongoose approach
+    } finally {
+      // Close the new client if it was created
+      if (newClient) {
+        await newClient.close();
+        console.log("Closed fresh MongoDB connection");
+      }
     }
 
-    // Fall back to Mongoose approach
-    // Try to load the Product model if it's not available
-    if (!Product) {
-      Product = loadModel("Product");
-      console.log(
-        "Attempted to load Product model:",
-        Product ? "Success" : "Failed"
-      );
+    // Verify that the product was saved
+    if (!savedProduct) {
+      throw new Error("Product was not saved by any method");
     }
 
-    // If Product model is still not available, return an error
-    if (!Product) {
-      console.warn("Product model not available, returning error");
-      return res.status(200).json({
-        success: false,
-        message: "Product model not available",
-      });
-    }
-
-    // Create the product
-    const product = await Product.create(req.body);
-    console.log("Product created successfully using Mongoose:", product);
-
+    // Return success response
     return res.status(201).json({
       success: true,
-      data: product,
-      method: "mongoose",
+      data: savedProduct,
+      method: saveMethod,
+      message: "Product created successfully",
     });
   } catch (error) {
     console.error("Error creating product:", error);
@@ -2482,6 +2588,7 @@ app.post("/api/products", async (req, res) => {
     return res.status(200).json({
       success: false,
       message: error.message || "Error creating product",
+      error: error.stack,
     });
   }
 });
