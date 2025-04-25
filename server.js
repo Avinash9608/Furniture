@@ -55,6 +55,18 @@ app.use((req, res, next) => {
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Configure Mongoose globally to prevent buffering timeout issues
+mongoose.set("bufferTimeoutMS", 60000); // Set globally to 60 seconds
+
+// Add event listeners for connection issues
+mongoose.connection.on("error", (err) => {
+  console.error("Mongoose connection error:", err);
+});
+
+mongoose.connection.on("disconnected", () => {
+  console.log("Mongoose disconnected");
+});
+
 // Connect to MongoDB
 const connectDB = async () => {
   try {
@@ -68,8 +80,14 @@ const connectDB = async () => {
     );
     console.log("Using connection string:", redactedUri);
 
-    // Set the buffering timeout BEFORE connecting
-    mongoose.set("bufferTimeoutMS", 60000); // Increase from default 10000ms to 60000ms (1 minute)
+    // Force disconnect if already connected
+    if (mongoose.connection.readyState !== 0) {
+      await mongoose.disconnect();
+      console.log("Disconnected existing MongoDB connection");
+    }
+
+    // Set the buffering timeout again right before connecting
+    mongoose.set("bufferTimeoutMS", 60000); // Ensure it's set to 60 seconds
 
     // Enhanced connection options specifically targeting the buffering timeout issue
     await mongoose.connect(uri, {
@@ -80,6 +98,12 @@ const connectDB = async () => {
       w: "majority", // Write concern
       maxPoolSize: 10, // Maximum number of connections in the pool
     });
+
+    // Set the buffer timeout one more time after connection
+    mongoose.set("bufferTimeoutMS", 60000);
+
+    // Verify the buffer timeout setting
+    console.log("Mongoose buffer timeout:", mongoose.get("bufferTimeoutMS"));
 
     // Log connection details for debugging
     console.log("MongoDB Atlas connected successfully");
@@ -725,8 +749,33 @@ app.get("/api/db-test", async (req, res) => {
       });
     }
 
-    // Set the buffering timeout for this operation
-    mongoose.set("bufferTimeoutMS", 60000); // Increase from default 10000ms to 60000ms (1 minute)
+    // Force disconnect and reconnect to ensure a fresh connection
+    console.log("Disconnecting from MongoDB to reset connection for db-test");
+    await mongoose.disconnect();
+
+    // Set the buffering timeout BEFORE connecting
+    mongoose.set("bufferTimeoutMS", 60000); // Ensure it's set to 60 seconds
+
+    // Reconnect with enhanced options
+    const uri = process.env.MONGO_URI;
+    console.log("Reconnecting to MongoDB for db-test...");
+    await mongoose.connect(uri, {
+      serverSelectionTimeoutMS: 60000, // 60 seconds timeout for initial connection
+      socketTimeoutMS: 90000, // 90 seconds timeout for queries
+      connectTimeoutMS: 60000, // 60 seconds timeout for initial connection
+      retryWrites: true,
+      w: "majority",
+      maxPoolSize: 10,
+    });
+
+    // Set the buffer timeout again after connection
+    mongoose.set("bufferTimeoutMS", 60000);
+
+    // Verify the buffer timeout setting
+    console.log(
+      "Mongoose buffer timeout for db-test:",
+      mongoose.get("bufferTimeoutMS")
+    );
 
     // Try to load the Contact model if it's not available
     if (!Contact) {
@@ -741,18 +790,39 @@ app.get("/api/db-test", async (req, res) => {
     }
 
     // Simple count query with increased timeout
+    console.log("Executing countDocuments with maxTimeMS(60000)");
     const count = await Contact.countDocuments().maxTimeMS(60000); // 60 seconds timeout to match the buffer timeout
+    console.log("Successfully counted documents:", count);
 
     return res.status(200).json({
       success: true,
       count,
       message: "Database query successful",
+      bufferTimeout: mongoose.get("bufferTimeoutMS"),
     });
   } catch (error) {
     console.error("Database test query error:", error);
+    console.error("Error details:", error.stack);
+
+    // Try to provide more helpful error information
+    let errorInfo = {
+      message: error.message,
+      name: error.name,
+      code: error.code,
+    };
+
+    if (
+      error.name === "MongooseError" &&
+      error.message.includes("buffering timed out")
+    ) {
+      errorInfo.suggestion =
+        "The operation timed out while buffering. Try increasing bufferTimeoutMS.";
+    }
+
     return res.status(500).json({
       success: false,
       error: error.message,
+      errorDetails: errorInfo,
     });
   }
 });
