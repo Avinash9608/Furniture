@@ -463,6 +463,29 @@ export const DEFAULT_PRODUCT_IMAGE =
 export const DEFAULT_CATEGORY_IMAGE =
   "https://placehold.co/300x300/gray/white?text=Category";
 
+// Helper function to create a fallback category object
+const createFallbackCategory = (categoryData, isFormData, isError = false) => {
+  const prefix = isError ? "temp_error_" : "temp_";
+  const categoryName = isFormData
+    ? categoryData.get("name") || "Unnamed Category"
+    : categoryData.name || "Unnamed Category";
+
+  const description = isFormData
+    ? categoryData.get("description") || ""
+    : categoryData.description || "";
+
+  return {
+    _id: `${prefix}${Date.now()}_${Math.floor(Math.random() * 10000)}`,
+    name: categoryName,
+    description: description,
+    slug: categoryName.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+    image: DEFAULT_CATEGORY_IMAGE,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    isTemporary: true,
+  };
+};
+
 // Auth API
 const authAPI = {
   login: (credentials) => api.post("/auth/login", credentials),
@@ -651,18 +674,76 @@ const categoriesAPI = {
           let responseData;
 
           try {
-            // Try with axios first
-            const response = await directApi.post(endpoint, categoryData);
-            responseData = response.data;
-            console.log(
-              "Category created successfully with axios:",
-              responseData
-            );
-          } catch (axiosError) {
-            console.warn(`Axios error at ${endpoint}:`, axiosError);
+            // Check if this is a retry after a protocol error
+            const isRetry = endpoint.includes("retry=true");
 
-            // If axios fails, try with fetch API as fallback
-            console.log(`Falling back to fetch API for ${endpoint}`);
+            // If this is not a retry, try with axios first
+            if (!isRetry) {
+              try {
+                const response = await directApi.post(endpoint, categoryData);
+                responseData = response.data;
+                console.log(
+                  "Category created successfully with axios:",
+                  responseData
+                );
+
+                // Return the response data instead of just exiting
+                // Make sure we have a valid category object with _id
+                let categoryResult = null;
+
+                if (responseData && responseData.data) {
+                  categoryResult = responseData.data;
+                } else if (responseData) {
+                  categoryResult = responseData;
+                }
+
+                // Ensure we have a valid category object with _id
+                if (categoryResult && categoryResult._id) {
+                  console.log(
+                    `Category created successfully with ID: ${categoryResult._id}`
+                  );
+                  return {
+                    data: categoryResult,
+                  };
+                } else {
+                  console.warn(
+                    "Invalid category data in response:",
+                    responseData
+                  );
+                  // Create a fallback category with a temporary ID
+                  const tempCategory = createFallbackCategory(
+                    categoryData,
+                    isFormData
+                  );
+                  return {
+                    data: tempCategory,
+                    warning:
+                      "Created with temporary data. Please refresh to see if it was saved.",
+                  };
+                }
+              } catch (axiosError) {
+                // Check if it's an HTTP/2 protocol error
+                if (
+                  axiosError.message &&
+                  (axiosError.message.includes("ERR_HTTP2_PROTOCOL_ERROR") ||
+                    axiosError.message.includes("ERR_QUIC_PROTOCOL_ERROR"))
+                ) {
+                  console.warn(
+                    "HTTP/2 protocol error detected, falling back to fetch API"
+                  );
+                  // Continue to fetch fallback
+                } else {
+                  // For other axios errors, rethrow
+                  throw axiosError;
+                }
+              }
+            }
+
+            // If axios fails with protocol error or this is a retry, use fetch API
+            console.log(`Using fetch API for ${endpoint}`);
+
+            // Add a small delay to prevent overwhelming the server
+            await new Promise((resolve) => setTimeout(resolve, 500));
 
             // Prepare the request based on whether we're using FormData or JSON
             let fetchOptions = {
@@ -672,9 +753,21 @@ const categoriesAPI = {
             };
 
             if (isFormData) {
-              // For FormData, just pass the FormData object directly
-              fetchOptions.body = categoryData;
-              // Let the browser set the Content-Type header automatically for FormData
+              // For FormData, we need to create a new FormData object
+              // because the original might have been consumed
+              const newFormData = new FormData();
+
+              // If we have the original FormData entries
+              if (categoryData instanceof FormData) {
+                for (const [key, value] of categoryData.entries()) {
+                  newFormData.append(key, value);
+                }
+                fetchOptions.body = newFormData;
+              } else {
+                // Fallback if we don't have FormData
+                fetchOptions.body = JSON.stringify(categoryData);
+                fetchOptions.headers["Content-Type"] = "application/json";
+              }
             } else {
               // For JSON data, stringify the body and set the Content-Type header
               fetchOptions.body = JSON.stringify(categoryData);
@@ -694,6 +787,62 @@ const categoriesAPI = {
               "Category created successfully with fetch:",
               responseData
             );
+          } catch (error) {
+            // Add retry parameter and try again if this is the first attempt
+            if (!endpoint.includes("retry=true")) {
+              const retryEndpoint = endpoint.includes("?")
+                ? `${endpoint}&retry=true`
+                : `${endpoint}?retry=true`;
+
+              console.log(`Retrying with modified endpoint: ${retryEndpoint}`);
+
+              // Wait a bit before retrying
+              await new Promise((resolve) => setTimeout(resolve, 1000));
+
+              try {
+                const fetchOptions = {
+                  method: "POST",
+                  credentials: "include",
+                  headers: {},
+                  // Use a smaller timeout for the retry
+                  timeout: 10000,
+                };
+
+                if (isFormData) {
+                  // Create a new FormData for the retry
+                  const retryFormData = new FormData();
+                  if (categoryData instanceof FormData) {
+                    for (const [key, value] of categoryData.entries()) {
+                      retryFormData.append(key, value);
+                    }
+                  }
+                  fetchOptions.body = retryFormData;
+                } else {
+                  fetchOptions.body = JSON.stringify(categoryData);
+                  fetchOptions.headers["Content-Type"] = "application/json";
+                }
+
+                const retryResponse = await fetch(retryEndpoint, fetchOptions);
+
+                if (!retryResponse.ok) {
+                  throw new Error(
+                    `Retry failed with status ${retryResponse.status}`
+                  );
+                }
+
+                responseData = await retryResponse.json();
+                console.log(
+                  "Category created successfully on retry:",
+                  responseData
+                );
+              } catch (retryError) {
+                console.error("Retry also failed:", retryError);
+                throw error; // Throw the original error
+              }
+            } else {
+              // If this was already a retry, rethrow the error
+              throw error;
+            }
           }
 
           // Check if the response indicates success

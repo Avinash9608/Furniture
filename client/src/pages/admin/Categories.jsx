@@ -213,8 +213,26 @@ const Categories = () => {
       }
     } catch (error) {
       console.error("Error adding category:", error);
+
+      // More detailed error logging
+      if (error.response) {
+        // The request was made and the server responded with a status code
+        // that falls out of the range of 2xx
+        console.error("Response data:", error.response.data);
+        console.error("Response status:", error.response.status);
+        console.error("Response headers:", error.response.headers);
+      } else if (error.request) {
+        // The request was made but no response was received
+        console.error("No response received:", error.request);
+      } else {
+        // Something happened in setting up the request that triggered an Error
+        console.error("Error message:", error.message);
+      }
+
+      // Set a more descriptive error message
       setSubmitError(
         error.response?.data?.message ||
+          error.message ||
           "Failed to add category. Please try again."
       );
     } finally {
@@ -393,18 +411,28 @@ const Categories = () => {
                     {category.image ? (
                       <img
                         src={
-                          category.image.startsWith("http")
+                          category.image.startsWith("http") ||
+                          category.image.startsWith("data:")
                             ? category.image
-                            : `${window.location.origin}${category.image}`
+                            : category.image.startsWith("/")
+                            ? `${window.location.origin}${category.image}`
+                            : `${window.location.origin}/${category.image}`
                         }
                         alt={category.name}
                         className="w-full h-full object-cover"
                         onError={(e) => {
                           console.log("Image load error for:", category.name);
                           e.target.onerror = null;
-                          // Use a data URI for a simple placeholder image
-                          e.target.src =
-                            "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMzAwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iI2YwZjBmMCIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMjQiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRkbGUiIGZpbGw9IiM5OTkiPk5vIEltYWdlPC90ZXh0Pjwvc3ZnPg==";
+                          // Use the DEFAULT_CATEGORY_IMAGE from api.js
+                          import("../../utils/api")
+                            .then((api) => {
+                              e.target.src = api.DEFAULT_CATEGORY_IMAGE;
+                            })
+                            .catch(() => {
+                              // Fallback to data URI if import fails
+                              e.target.src =
+                                "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMzAwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iI2YwZjBmMCIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMjQiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRkbGUiIGZpbGw9IiM5OTkiPk5vIEltYWdlPC90ZXh0Pjwvc3ZnPg==";
+                            });
                         }}
                       />
                     ) : (
@@ -547,7 +575,6 @@ const Categories = () => {
               file:bg-primary file:text-white
               hover:file:bg-primary-dark"
               onChange={handleImageChange}
-              required
             />
             {imagePreview && (
               <div className="mt-2">
