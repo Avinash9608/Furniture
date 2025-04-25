@@ -136,7 +136,7 @@ const Categories = () => {
 
       const formData = new FormData();
       formData.append("name", newCategory.name);
-      formData.append("description", newCategory.description);
+      formData.append("description", newCategory.description || "");
 
       if (newCategory.image) {
         formData.append("image", newCategory.image);
@@ -149,13 +149,23 @@ const Categories = () => {
       };
 
       const response = await categoriesAPI.create(formData, config);
+      console.log("Category creation response:", response);
+
+      // Check for errors in the response
+      if (response.error) {
+        setSubmitError(response.error);
+        return;
+      }
+
+      // Check for warnings
+      if (response.warning) {
+        console.warn("Category creation warning:", response.warning);
+      }
 
       // Handle different response structures
       let newCategoryData = null;
 
-      if (response.data && response.data.data) {
-        newCategoryData = response.data.data;
-      } else if (response.data) {
+      if (response.data) {
         newCategoryData = response.data;
       }
 
@@ -163,6 +173,7 @@ const Categories = () => {
       if (newCategoryData && newCategoryData._id) {
         console.log("New category created:", newCategoryData);
 
+        // Add the new category to the list
         setCategories([...categories, newCategoryData]);
         setCategoryProducts({
           ...categoryProducts,
@@ -173,9 +184,17 @@ const Categories = () => {
         setNewCategory({ name: "", description: "", image: null });
         setImagePreview(null);
         setShowAddModal(false);
-        setSuccessMessage("Category added successfully!");
 
-        setTimeout(() => setSuccessMessage(null), 3000);
+        // Show success message with warning if applicable
+        if (response.warning) {
+          setSuccessMessage(
+            `Category added with temporary data. Please refresh the page to confirm.`
+          );
+        } else {
+          setSuccessMessage("Category added successfully!");
+        }
+
+        setTimeout(() => setSuccessMessage(null), 5000);
       } else {
         console.error("Invalid category data received:", response);
         setSubmitError("Received invalid data from server. Please try again.");

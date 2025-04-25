@@ -69,16 +69,65 @@ const AdminProducts = () => {
 
         // Fetch products
         try {
+          console.log("Fetching products...");
           const productsResponse = await productsAPI.getAll();
+          console.log("Products API response:", productsResponse);
+
+          // Handle different response structures
+          let productsData = [];
+
           if (
             productsResponse &&
             productsResponse.data &&
-            productsResponse.data.data
+            productsResponse.data.data &&
+            Array.isArray(productsResponse.data.data)
           ) {
-            setProducts(productsResponse.data.data);
-            setFilteredProducts(productsResponse.data.data);
+            productsData = productsResponse.data.data;
+          } else if (
+            productsResponse &&
+            productsResponse.data &&
+            Array.isArray(productsResponse.data)
+          ) {
+            productsData = productsResponse.data;
+          } else if (productsResponse && Array.isArray(productsResponse)) {
+            productsData = productsResponse;
+          }
+
+          console.log("Processed products data:", productsData);
+
+          if (productsData && productsData.length > 0) {
+            // Process products to ensure they have all required fields
+            const processedProducts = productsData.map((product) => {
+              // Ensure product has a category object
+              if (!product.category || typeof product.category !== "object") {
+                product.category = { _id: "unknown", name: "Unknown" };
+              }
+
+              // Ensure product has images array
+              if (
+                !product.images ||
+                !Array.isArray(product.images) ||
+                product.images.length === 0
+              ) {
+                product.images = [
+                  "https://placehold.co/300x300/gray/white?text=Product",
+                ];
+              }
+
+              // Ensure product has stock value
+              if (product.stock === undefined || product.stock === null) {
+                product.stock = 0;
+              }
+
+              return product;
+            });
+
+            setProducts(processedProducts);
+            setFilteredProducts(processedProducts);
           } else {
-            // If we get an empty response, use mock data
+            console.log(
+              "No products found or invalid data format, using mock data"
+            );
             const mockProducts = getMockProducts();
             setProducts(mockProducts);
             setFilteredProducts(mockProducts);

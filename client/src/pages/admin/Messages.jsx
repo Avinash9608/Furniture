@@ -27,21 +27,53 @@ const AdminMessages = () => {
 
         console.log("Fetching contact messages from API...");
         const response = await contactAPI.getAll();
+        console.log("Contact API response:", response);
 
-        if (response && response.data) {
-          // Handle different API response formats
-          const messagesData = response.data.data || response.data;
+        // Handle different API response structures
+        let messagesData = [];
 
-          if (Array.isArray(messagesData)) {
-            console.log(`Successfully fetched ${messagesData.length} messages`);
-            setMessages(messagesData);
-          } else {
-            console.error("Unexpected API response format:", response.data);
-            setError("Received invalid data format from server");
-            setMessages([]);
-          }
+        if (response && response.data && Array.isArray(response.data)) {
+          messagesData = response.data;
+        } else if (
+          response &&
+          response.data &&
+          response.data.data &&
+          Array.isArray(response.data.data)
+        ) {
+          messagesData = response.data.data;
+        } else if (response && Array.isArray(response)) {
+          messagesData = response;
+        }
+
+        console.log("Processed messages data:", messagesData);
+
+        if (messagesData && messagesData.length > 0) {
+          // Process messages to ensure they have all required fields
+          const processedMessages = messagesData.map((message) => {
+            // Ensure message has a status
+            if (!message.status) {
+              message.status = "unread";
+            }
+
+            // Ensure message has a createdAt date
+            if (!message.createdAt) {
+              message.createdAt = new Date().toISOString();
+            }
+
+            // Ensure message has a subject
+            if (!message.subject) {
+              message.subject = "No Subject";
+            }
+
+            return message;
+          });
+
+          console.log(
+            `Successfully processed ${processedMessages.length} messages`
+          );
+          setMessages(processedMessages);
         } else {
-          console.error("Empty response from API");
+          console.log("No messages found or invalid data format");
           setError("No messages found");
           setMessages([]);
         }

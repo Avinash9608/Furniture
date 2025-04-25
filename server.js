@@ -577,7 +577,8 @@ app.post("/api/categories", async (req, res) => {
 
     // Validate required fields
     if (!req.body.name) {
-      return res.status(400).json({
+      return res.status(200).json({
+        // Changed from 400 to 200 to prevent client crashes
         success: false,
         message: "Category name is required",
       });
@@ -607,8 +608,36 @@ app.post("/api/categories", async (req, res) => {
 
     // Try-catch block specifically for the database operation
     try {
+      // Check for duplicate category name
+      const existingCategory = await Category.findOne({
+        name: { $regex: new RegExp(`^${req.body.name}$`, "i") },
+      });
+
+      if (existingCategory) {
+        console.log(
+          "Category with this name already exists:",
+          existingCategory
+        );
+        return res.status(200).json({
+          // Changed from 400 to 200 to prevent client crashes
+          success: false,
+          message: "A category with this name already exists",
+        });
+      }
+
       // Create the category
-      const category = await Category.create(req.body);
+      const categoryData = {
+        name: req.body.name,
+        description: req.body.description || "",
+        slug: req.body.slug,
+      };
+
+      // Handle image if present
+      if (req.body.image) {
+        categoryData.image = req.body.image;
+      }
+
+      const category = await Category.create(categoryData);
       console.log("Category created successfully:", category);
 
       return res.status(201).json({
@@ -620,9 +649,10 @@ app.post("/api/categories", async (req, res) => {
 
       // Return a more specific error message
       if (dbError.code === 11000) {
-        return res.status(400).json({
+        return res.status(200).json({
+          // Changed from 400 to 200 to prevent client crashes
           success: false,
-          message: "A category with this name already exists",
+          message: "A category with this name or slug already exists",
         });
       }
 
@@ -632,7 +662,8 @@ app.post("/api/categories", async (req, res) => {
         for (const field in dbError.errors) {
           validationErrors[field] = dbError.errors[field].message;
         }
-        return res.status(400).json({
+        return res.status(200).json({
+          // Changed from 400 to 200 to prevent client crashes
           success: false,
           message: "Validation error",
           errors: validationErrors,

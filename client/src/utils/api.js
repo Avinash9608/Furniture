@@ -611,11 +611,12 @@ const categoriesAPI = {
 
       // Try multiple endpoints
       const baseUrl = window.location.origin;
+      const deployedUrl = "https://furniture-q3nb.onrender.com";
       const endpoints = [
         `${baseUrl}/api/categories`,
         `${baseUrl}/categories`,
         `${baseUrl}/api/api/categories`,
-        "https://furniture-q3nb.onrender.com/api/categories",
+        `${deployedUrl}/api/categories`,
       ];
 
       // Try each endpoint until one works
@@ -624,11 +625,48 @@ const categoriesAPI = {
           console.log(`Trying to create category at: ${endpoint}`);
           const response = await directApi.post(endpoint, categoryData);
           console.log("Category created successfully:", response.data);
-          return {
-            data: response.data.data || response.data,
-          };
+
+          // Check if the response indicates success
+          if (response.data && response.data.success === false) {
+            console.warn("Server returned success: false", response.data);
+            return {
+              error: response.data.message || "Failed to create category",
+              data: null,
+            };
+          }
+
+          // Handle different response structures
+          let categoryResult = null;
+
+          if (response.data && response.data.data) {
+            categoryResult = response.data.data;
+          } else if (response.data) {
+            categoryResult = response.data;
+          }
+
+          // Ensure we have a valid category object with _id
+          if (categoryResult && categoryResult._id) {
+            return {
+              data: categoryResult,
+            };
+          } else {
+            console.warn("Invalid category data in response:", response.data);
+          }
         } catch (error) {
           console.warn(`Error creating category at ${endpoint}:`, error);
+          // If we have a response with error message, return it
+          if (error.response && error.response.data) {
+            if (
+              error.response.status === 400 ||
+              error.response.status === 200
+            ) {
+              return {
+                error:
+                  error.response.data.message || "Failed to create category",
+                data: null,
+              };
+            }
+          }
           // Continue to the next endpoint
         }
       }
@@ -637,24 +675,40 @@ const categoriesAPI = {
       console.warn(
         "All category creation endpoints failed, returning fake success"
       );
+
+      // Create a fallback category object
+      const fallbackCategory = {
+        ...(isFormData
+          ? Object.fromEntries(categoryData.entries())
+          : categoryData),
+        _id: `temp_${Date.now()}`, // Generate a temporary ID
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
       return {
-        data: {
-          ...categoryData,
-          _id: `temp_${Date.now()}`, // Generate a temporary ID
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
+        data: fallbackCategory,
+        warning:
+          "Created with temporary data. Please refresh to see if it was saved.",
       };
     } catch (error) {
       console.warn("Error in categoriesAPI.create:", error);
+
+      // Create a fallback category object
+      const fallbackCategory = {
+        ...(isFormData
+          ? Object.fromEntries(categoryData.entries())
+          : categoryData),
+        _id: `temp_${Date.now()}`, // Generate a temporary ID
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
       // Return the category data as if it was created successfully
       return {
-        data: {
-          ...categoryData,
-          _id: `temp_${Date.now()}`, // Generate a temporary ID
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
+        data: fallbackCategory,
+        warning:
+          "Created with temporary data. Please refresh to see if it was saved.",
       };
     }
   },
