@@ -226,7 +226,11 @@ const FileUpload = ({
                           ? file.startsWith("http")
                             ? file
                             : file.startsWith("/uploads")
-                            ? `http://localhost:5000${file}`
+                            ? `${
+                                window.location.hostname === "localhost"
+                                  ? "http://localhost:5000"
+                                  : ""
+                              }${file}`
                             : file
                           : file)
                       }
@@ -234,6 +238,44 @@ const FileUpload = ({
                       className="object-cover w-full h-full"
                       onError={(e) => {
                         console.error("Image load error:", e);
+                        // Try alternative URL format if the first one fails
+                        if (!e.target.dataset.retried) {
+                          e.target.dataset.retried = true;
+
+                          // If it's a local path that failed, try with the full production URL
+                          if (
+                            typeof file === "string" &&
+                            file.startsWith("/uploads")
+                          ) {
+                            const productionUrl = `https://furniture-q3nb.onrender.com${file}`;
+                            console.log(
+                              "Retrying with production URL:",
+                              productionUrl
+                            );
+                            e.target.src = productionUrl;
+                            return;
+                          }
+
+                          // If it's a Cloudinary URL that failed, try with a different format
+                          if (
+                            typeof file === "string" &&
+                            file.includes("cloudinary.com")
+                          ) {
+                            // Try a different transformation or format
+                            const cloudinaryUrl = file.replace(
+                              "/upload/",
+                              "/upload/w_300,h_300,c_fill/"
+                            );
+                            console.log(
+                              "Retrying with transformed Cloudinary URL:",
+                              cloudinaryUrl
+                            );
+                            e.target.src = cloudinaryUrl;
+                            return;
+                          }
+                        }
+
+                        // If all retries fail, show placeholder
                         e.target.src =
                           "https://via.placeholder.com/300x300?text=Image+Error";
                       }}

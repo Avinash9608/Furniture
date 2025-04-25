@@ -7,12 +7,26 @@ const getBaseURL = () => {
     return import.meta.env.VITE_API_URL;
   }
 
-  // In production, use relative URL
+  // Get the current hostname
+  const hostname = window.location.hostname;
+
+  // Check if we're on Render's domain
+  if (
+    hostname.includes("render.com") ||
+    hostname === "furniture-q3nb.onrender.com"
+  ) {
+    console.log("Detected Render deployment, using relative API URL");
+    return "/api";
+  }
+
+  // In production but not on Render, use the current origin
   if (import.meta.env.PROD) {
+    console.log("Detected production environment, using relative API URL");
     return "/api";
   }
 
   // In development, use localhost
+  console.log("Detected development environment, using localhost API URL");
   return "http://localhost:5000/api";
 };
 
@@ -61,9 +75,11 @@ const productsAPI = {
       const baseUrl = window.location.origin;
       const deployedUrl = "https://furniture-q3nb.onrender.com";
       const endpoints = [
+        `${baseUrl}/api/direct/products`,
         `${baseUrl}/api/products`,
         `${baseUrl}/products`,
         `${baseUrl}/api/api/products`,
+        `${deployedUrl}/api/direct/products`,
         `${deployedUrl}/api/products`,
       ];
 
@@ -479,9 +495,11 @@ const categoriesAPI = {
       const baseUrl = window.location.origin;
       const deployedUrl = "https://furniture-q3nb.onrender.com";
       const endpoints = [
+        `${baseUrl}/api/direct/categories`,
         `${baseUrl}/api/categories`,
         `${baseUrl}/categories`,
         `${baseUrl}/api/api/categories`,
+        `${deployedUrl}/api/direct/categories`,
         `${deployedUrl}/api/categories`,
       ];
 

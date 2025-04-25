@@ -2412,187 +2412,54 @@ console.log("- PUT /api/payment-requests/:id/status");
 console.log("- GET /api/payment-requests/:id");
 console.log("- GET /api/orders");
 
-// Add a direct product creation endpoint with guaranteed persistence
-app.post("/api/products", async (req, res) => {
-  console.log("Creating product with data:", req.body);
+// Import product and category controllers
+const productController = require("./server/controllers/productController");
+const categoryController = require("./server/controllers/categoryController");
+const { MongoClient } = require("mongodb");
 
-  // Set proper headers to ensure JSON response
-  res.setHeader("Content-Type", "application/json");
+// Product routes with direct MongoDB driver approach
+app.post(
+  "/api/direct/products",
+  upload.array("image", 5),
+  productController.createProduct
+);
+app.get("/api/direct/products", productController.getAllProducts);
+app.get("/api/direct/products/:id", productController.getProductById);
+app.put(
+  "/api/direct/products/:id",
+  upload.array("image", 5),
+  productController.updateProduct
+);
+app.delete("/api/direct/products/:id", productController.deleteProduct);
 
-  try {
-    // Validate required fields
-    if (!req.body.name || !req.body.price || !req.body.category) {
-      return res.status(200).json({
-        success: false,
-        message: "Please provide name, price, and category",
-      });
-    }
+// Category routes with direct MongoDB driver approach
+app.post("/api/direct/categories", categoryController.createCategory);
+app.get("/api/direct/categories", categoryController.getAllCategories);
+app.get("/api/direct/categories/:id", categoryController.getCategoryById);
+app.put("/api/direct/categories/:id", categoryController.updateCategory);
+app.delete("/api/direct/categories/:id", categoryController.deleteCategory);
 
-    // Create the product data
-    const productData = {
-      name: req.body.name,
-      price: parseFloat(req.body.price),
-      description: req.body.description || "",
-      category: req.body.category,
-      image: req.body.image || "",
-      stock: parseInt(req.body.stock) || 0,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
+// Override the existing product routes to use our direct MongoDB driver approach
+app.post(
+  "/api/products",
+  upload.array("image", 5),
+  productController.createProduct
+);
+app.get("/api/products", productController.getAllProducts);
+app.get("/api/products/:id", productController.getProductById);
+app.put(
+  "/api/products/:id",
+  upload.array("image", 5),
+  productController.updateProduct
+);
+app.delete("/api/products/:id", productController.deleteProduct);
 
-    console.log("Product data to be saved:", productData);
-
-    // Create a new direct MongoDB connection specifically for this operation
-    let newClient = null;
-    let savedProduct = null;
-    let saveMethod = null;
-
-    try {
-      console.log(
-        "Attempting to save product using fresh direct MongoDB connection"
-      );
-
-      // Get the MongoDB URI
-      const uri = process.env.MONGO_URI;
-
-      // Direct connection options
-      const options = {
-        useNewUrlParser: true,
-        useUnifiedTopology: true,
-        connectTimeoutMS: 30000,
-        socketTimeoutMS: 45000,
-        serverSelectionTimeoutMS: 30000,
-        maxPoolSize: 5,
-      };
-
-      // Create a new MongoClient
-      newClient = new MongoClient(uri, options);
-      await newClient.connect();
-
-      // Get database name from connection string
-      const dbName = uri.split("/").pop().split("?")[0];
-      const db = newClient.db(dbName);
-
-      console.log(
-        `Fresh MongoDB connection established to database: ${dbName}`
-      );
-
-      // Insert the product into the products collection
-      console.log("Inserting product into database using fresh connection");
-      const productsCollection = db.collection("products");
-      const result = await productsCollection.insertOne(productData);
-
-      if (result.acknowledged) {
-        console.log(
-          "Product created successfully using fresh MongoDB connection:",
-          result
-        );
-
-        savedProduct = {
-          ...productData,
-          _id: result.insertedId,
-        };
-        saveMethod = "fresh-direct";
-      } else {
-        throw new Error("Insert operation not acknowledged");
-      }
-    } catch (freshError) {
-      console.error("Error using fresh MongoDB connection:", freshError);
-
-      // Try using the existing direct MongoDB connection
-      try {
-        if (directDb) {
-          console.log(
-            "Attempting to save product using existing direct MongoDB connection"
-          );
-
-          // Insert the product into the products collection
-          const productsCollection = directDb.collection("products");
-          const result = await productsCollection.insertOne(productData);
-
-          if (result.acknowledged) {
-            console.log(
-              "Product created successfully using existing direct MongoDB connection:",
-              result
-            );
-
-            savedProduct = {
-              ...productData,
-              _id: result.insertedId,
-            };
-            saveMethod = "existing-direct";
-          } else {
-            throw new Error("Insert operation not acknowledged");
-          }
-        } else {
-          throw new Error("Existing direct MongoDB connection not available");
-        }
-      } catch (existingDirectError) {
-        console.error(
-          "Error using existing direct MongoDB connection:",
-          existingDirectError
-        );
-
-        // Fall back to Mongoose approach
-        try {
-          console.log("Attempting to save product using Mongoose");
-
-          // Try to load the Product model if it's not available
-          if (!Product) {
-            Product = loadModel("Product");
-            console.log(
-              "Attempted to load Product model:",
-              Product ? "Success" : "Failed"
-            );
-          }
-
-          // If Product model is still not available, throw an error
-          if (!Product) {
-            throw new Error("Product model not available");
-          }
-
-          // Create the product
-          const product = await Product.create(productData);
-          console.log("Product created successfully using Mongoose:", product);
-
-          savedProduct = product;
-          saveMethod = "mongoose";
-        } catch (mongooseError) {
-          console.error("Error using Mongoose:", mongooseError);
-          throw new Error(`All save methods failed: ${mongooseError.message}`);
-        }
-      }
-    } finally {
-      // Close the new client if it was created
-      if (newClient) {
-        await newClient.close();
-        console.log("Closed fresh MongoDB connection");
-      }
-    }
-
-    // Verify that the product was saved
-    if (!savedProduct) {
-      throw new Error("Product was not saved by any method");
-    }
-
-    // Return success response
-    return res.status(201).json({
-      success: true,
-      data: savedProduct,
-      method: saveMethod,
-      message: "Product created successfully",
-    });
-  } catch (error) {
-    console.error("Error creating product:", error);
-
-    // Return error response
-    return res.status(200).json({
-      success: false,
-      message: error.message || "Error creating product",
-      error: error.stack,
-    });
-  }
-});
+// Override the existing category routes to use our direct MongoDB driver approach
+app.post("/api/categories", categoryController.createCategory);
+app.get("/api/categories", categoryController.getAllCategories);
+app.get("/api/categories/:id", categoryController.getCategoryById);
+app.put("/api/categories/:id", categoryController.updateCategory);
+app.delete("/api/categories/:id", categoryController.deleteCategory);
 
 // Use routes from server
 app.use("/api", routes);
