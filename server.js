@@ -799,8 +799,7 @@ app.get("/api/db-status", (req, res) => {
   });
 });
 
-// Import MongoDB driver
-const { MongoClient } = require("mongodb");
+// MongoDB driver already imported at the top of the file
 
 // Test database query endpoint using direct MongoDB driver (bypassing Mongoose)
 app.get("/api/db-test", async (req, res) => {
