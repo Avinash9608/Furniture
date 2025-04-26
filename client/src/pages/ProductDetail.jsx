@@ -35,29 +35,71 @@ const ProductDetail = () => {
         setLoading(true);
         setError(null);
 
+        console.log(`Fetching product details for ID: ${id}`);
         const response = await productsAPI.getById(id);
-        setProduct(response.data.data);
+
+        // Check if we have valid product data
+        if (!response || !response.data || !response.data.data) {
+          console.error("Invalid product data received:", response);
+          throw new Error("Product data is invalid or missing");
+        }
+
+        const productData = response.data.data;
+        console.log("Product data received:", productData);
+
+        // Ensure product has all required properties
+        const safeProduct = {
+          ...productData,
+          name: productData.name || "Unknown Product",
+          description: productData.description || "No description available",
+          price: productData.price || 0,
+          discountPrice: productData.discountPrice || null,
+          stock: productData.stock || 0,
+          ratings: productData.ratings || 0,
+          numReviews: productData.numReviews || 0,
+          images: Array.isArray(productData.images) ? productData.images : [],
+          category: productData.category || null,
+        };
+
+        setProduct(safeProduct);
+        console.log("Safe product data set:", safeProduct);
 
         // Fetch related products from the same category if category exists
         const categoryId =
-          response.data.data.category &&
-          typeof response.data.data.category === "object"
-            ? response.data.data.category._id
-            : typeof response.data.data.category === "string"
-            ? response.data.data.category
+          safeProduct.category && typeof safeProduct.category === "object"
+            ? safeProduct.category._id
+            : typeof safeProduct.category === "string"
+            ? safeProduct.category
             : null;
 
-        const relatedResponse = await productsAPI.getAll({
-          category: categoryId,
-          limit: 3,
-        });
+        if (categoryId) {
+          console.log(`Fetching related products for category: ${categoryId}`);
+          const relatedResponse = await productsAPI.getAll({
+            category: categoryId,
+            limit: 3,
+          });
 
-        // Filter out the current product from related products
-        const filteredRelated = relatedResponse.data.data.filter(
-          (item) => item._id !== response.data.data._id
-        );
+          // Ensure we have valid related products data
+          if (
+            relatedResponse &&
+            relatedResponse.data &&
+            Array.isArray(relatedResponse.data.data)
+          ) {
+            // Filter out the current product from related products
+            const filteredRelated = relatedResponse.data.data.filter(
+              (item) => item && item._id !== safeProduct._id
+            );
 
-        setRelatedProducts(filteredRelated);
+            console.log(`Found ${filteredRelated.length} related products`);
+            setRelatedProducts(filteredRelated);
+          } else {
+            console.log("No valid related products data found");
+            setRelatedProducts([]);
+          }
+        } else {
+          console.log("No category ID found for related products");
+          setRelatedProducts([]);
+        }
       } catch (error) {
         console.error("Error fetching product details:", error);
         setError("Failed to load product details. Please try again later.");
@@ -204,15 +246,20 @@ const ProductDetail = () => {
             {/* Product Images */}
             <div>
               <div className="relative h-80 md:h-96 rounded-lg overflow-hidden mb-4">
+                {/* Main Product Image with defensive coding */}
                 <img
                   src={
-                    product.images && product.images.length > 0
+                    product &&
+                    product.images &&
+                    Array.isArray(product.images) &&
+                    product.images.length > 0 &&
+                    selectedImage < product.images.length
                       ? getImageUrl(product.images[selectedImage])
                       : `https://via.placeholder.com/800x600?text=${encodeURIComponent(
-                          product.name || "Product"
+                          (product && product.name) || "Product"
                         )}`
                   }
-                  alt={product.name}
+                  alt={(product && product.name) || "Product"}
                   className="w-full h-full object-cover"
                   onError={(e) => {
                     console.log("Image load error:", e.target.src);
@@ -223,49 +270,56 @@ const ProductDetail = () => {
                 />
               </div>
 
-              {/* Thumbnail Gallery */}
-              {product.images && product.images.length > 1 && (
-                <div className="flex space-x-2 overflow-x-auto pb-2">
-                  {product.images.map((image, index) => (
-                    <div
-                      key={index}
-                      className={`w-20 h-20 rounded-md overflow-hidden cursor-pointer border-2 ${
-                        selectedImage === index
-                          ? "border-primary"
-                          : "border-transparent"
-                      }`}
-                      onClick={() => setSelectedImage(index)}
-                    >
-                      <img
-                        src={getImageUrl(image)}
-                        alt={`${product.name} - Image ${index + 1}`}
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          console.log("Thumbnail load error:", e.target.src);
-                          e.target.onerror = null;
-                          e.target.src =
-                            "https://via.placeholder.com/100x100?text=Image+Not+Found";
-                        }}
-                      />
-                    </div>
-                  ))}
-                </div>
-              )}
+              {/* Thumbnail Gallery with defensive coding */}
+              {product &&
+                product.images &&
+                Array.isArray(product.images) &&
+                product.images.length > 1 && (
+                  <div className="flex space-x-2 overflow-x-auto pb-2">
+                    {product.images.map((image, index) => (
+                      <div
+                        key={index}
+                        className={`w-20 h-20 rounded-md overflow-hidden cursor-pointer border-2 ${
+                          selectedImage === index
+                            ? "border-primary"
+                            : "border-transparent"
+                        }`}
+                        onClick={() => setSelectedImage(index)}
+                      >
+                        <img
+                          src={getImageUrl(image)}
+                          alt={`${
+                            (product && product.name) || "Product"
+                          } - Image ${index + 1}`}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            console.log("Thumbnail load error:", e.target.src);
+                            e.target.onerror = null;
+                            e.target.src =
+                              "https://via.placeholder.com/100x100?text=Image+Not+Found";
+                          }}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
             </div>
 
             {/* Product Info */}
             <div>
               <h1 className="text-2xl md:text-3xl font-serif font-bold mb-2 theme-text-primary">
-                {product.name}
+                {product && product.name ? product.name : "Product"}
               </h1>
 
               <div className="flex items-center mb-4">
-                {/* Rating Stars */}
+                {/* Rating Stars with defensive coding */}
                 <div className="flex">
                   {[...Array(5)].map((_, index) => (
                     <svg
                       key={index}
                       className={`w-5 h-5 ${
+                        product &&
+                        product.ratings &&
                         index < Math.round(product.ratings)
                           ? "text-yellow-400"
                           : "text-gray-300"
@@ -280,13 +334,19 @@ const ProductDetail = () => {
                 </div>
 
                 <span className="theme-text-secondary ml-2">
-                  {product.ratings.toFixed(1)} ({product.numReviews} reviews)
+                  {product && typeof product.ratings === "number"
+                    ? `${product.ratings.toFixed(1)} (${
+                        product.numReviews || 0
+                      } reviews)`
+                    : "0.0 (0 reviews)"}
                 </span>
               </div>
 
-              {/* Price */}
+              {/* Price with defensive coding */}
               <div className="mb-6">
-                {product.discountPrice &&
+                {product &&
+                product.discountPrice &&
+                product.price &&
                 product.discountPrice < product.price ? (
                   <div className="flex flex-wrap items-center">
                     <span className="text-3xl font-bold text-primary mr-3">
@@ -307,14 +367,14 @@ const ProductDetail = () => {
                   </div>
                 ) : (
                   <span className="text-3xl font-bold text-primary">
-                    {formatPrice(product.price)}
+                    {formatPrice(product && product.price ? product.price : 0)}
                   </span>
                 )}
               </div>
 
-              {/* Stock Status */}
+              {/* Stock Status with defensive coding */}
               <div className="mb-6">
-                {product.stock > 0 ? (
+                {product && product.stock && product.stock > 0 ? (
                   <span className="bg-green-100 text-green-800 text-sm font-medium px-2.5 py-0.5 rounded">
                     In Stock ({product.stock} available)
                   </span>
@@ -325,15 +385,17 @@ const ProductDetail = () => {
                 )}
               </div>
 
-              {/* Short Description */}
+              {/* Short Description with defensive coding */}
               <div className="mb-6">
                 <p className="theme-text-primary">
-                  {product.description.split(".")[0]}
+                  {product && product.description
+                    ? product.description.split(".")[0]
+                    : "No description available"}
                 </p>
               </div>
 
-              {/* Quantity Selector */}
-              {product.stock > 0 && (
+              {/* Quantity Selector with defensive coding */}
+              {product && product.stock && product.stock > 0 && (
                 <div className="mb-6">
                   <label className="block theme-text-primary font-medium mb-2">
                     Quantity
@@ -363,7 +425,9 @@ const ProductDetail = () => {
                       min="1"
                       max={product.stock}
                       value={quantity}
-                      onChange={(e) => setQuantity(parseInt(e.target.value))}
+                      onChange={(e) =>
+                        setQuantity(parseInt(e.target.value) || 1)
+                      }
                       className="h-10 w-16 border-y theme-border theme-bg-primary theme-text-primary text-center"
                     />
                     <button
@@ -389,11 +453,11 @@ const ProductDetail = () => {
                 </div>
               )}
 
-              {/* Add to Cart Button */}
+              {/* Add to Cart Button with defensive coding */}
               <div className="flex flex-wrap gap-4 mb-6">
                 <Button
                   onClick={handleAddToCart}
-                  disabled={product.stock === 0}
+                  disabled={!product || !product.stock || product.stock === 0}
                   className="flex-grow sm:flex-grow-0"
                 >
                   <svg
@@ -432,11 +496,11 @@ const ProductDetail = () => {
                 </Button>
               </div>
 
-              {/* Product Specifications */}
+              {/* Product Specifications with defensive coding */}
               <div className="border-t border-gray-200 pt-4">
                 <h3 className="text-lg font-medium mb-2">Specifications</h3>
                 <ul className="space-y-2 text-sm">
-                  {product.material && (
+                  {product && product.material && (
                     <li className="flex">
                       <span className="font-medium w-24">Material:</span>
                       <span className="theme-text-primary">
@@ -444,7 +508,7 @@ const ProductDetail = () => {
                       </span>
                     </li>
                   )}
-                  {product.color && (
+                  {product && product.color && (
                     <li className="flex">
                       <span className="font-medium w-24">Color:</span>
                       <span className="theme-text-primary">
@@ -452,18 +516,22 @@ const ProductDetail = () => {
                       </span>
                     </li>
                   )}
-                  {product.dimensions && (
-                    <li className="flex">
-                      <span className="font-medium w-24">Dimensions:</span>
-                      <span className="theme-text-primary">
-                        {product.dimensions.length} x {product.dimensions.width}{" "}
-                        x {product.dimensions.height} cm
-                      </span>
-                    </li>
-                  )}
+                  {product &&
+                    product.dimensions &&
+                    typeof product.dimensions === "object" && (
+                      <li className="flex">
+                        <span className="font-medium w-24">Dimensions:</span>
+                        <span className="theme-text-primary">
+                          {product.dimensions.length || 0} x{" "}
+                          {product.dimensions.width || 0} x{" "}
+                          {product.dimensions.height || 0} cm
+                        </span>
+                      </li>
+                    )}
                   <li className="flex">
                     <span className="font-medium w-24">Category:</span>
-                    {product.category &&
+                    {product &&
+                    product.category &&
                     typeof product.category === "object" ? (
                       <Link
                         to={`/products?category=${product.category.slug || ""}`}
