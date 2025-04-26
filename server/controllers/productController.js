@@ -211,6 +211,23 @@ const createProduct = async (req, res) => {
               "Original value:",
               req.body.dimensions
             );
+            // Try to handle the case where dimensions might be a stringified object with quotes
+            try {
+              // Remove any extra quotes that might be causing parsing issues
+              const cleanedDimensions = req.body.dimensions
+                .replace(/['"]+/g, '"')
+                .trim();
+              dimensions = JSON.parse(cleanedDimensions);
+              console.log(
+                "Successfully parsed cleaned dimensions JSON:",
+                dimensions
+              );
+            } catch (secondParseError) {
+              console.error(
+                "Second attempt to parse dimensions failed:",
+                secondParseError
+              );
+            }
           }
         } else if (typeof req.body.dimensions === "object") {
           dimensions = req.body.dimensions;
@@ -253,7 +270,17 @@ const createProduct = async (req, res) => {
 
     // Only add dimensions if it's valid
     if (dimensions) {
-      productData.dimensions = dimensions;
+      // Ensure dimensions are properly formatted for MongoDB
+      productData.dimensions = {
+        length: parseFloat(dimensions.length) || 0,
+        width: parseFloat(dimensions.width) || 0,
+        height: parseFloat(dimensions.height) || 0,
+      };
+      console.log("Adding dimensions to product data:", productData.dimensions);
+    } else {
+      console.log(
+        "No valid dimensions found, dimensions will not be added to the product"
+      );
     }
 
     console.log("Product data to be saved:", productData);
@@ -955,6 +982,24 @@ const updateProduct = async (req, res) => {
                 "Original value:",
                 req.body.dimensions
               );
+
+              // Try to handle the case where dimensions might be a stringified object with quotes
+              try {
+                // Remove any extra quotes that might be causing parsing issues
+                const cleanedDimensions = req.body.dimensions
+                  .replace(/['"]+/g, '"')
+                  .trim();
+                dimensionsData = JSON.parse(cleanedDimensions);
+                console.log(
+                  "Successfully parsed cleaned dimensions JSON for update:",
+                  dimensionsData
+                );
+              } catch (secondParseError) {
+                console.error(
+                  "Second attempt to parse dimensions for update failed:",
+                  secondParseError
+                );
+              }
             }
           } else if (typeof req.body.dimensions === "object") {
             dimensionsData = req.body.dimensions;
@@ -967,15 +1012,9 @@ const updateProduct = async (req, res) => {
             height: parseFloat(dimensionsData.height) || 0,
           };
 
-          // Only add dimensions if at least one value is non-zero
-          if (
-            dimensionsObj.length > 0 ||
-            dimensionsObj.width > 0 ||
-            dimensionsObj.height > 0
-          ) {
-            updateData.$set.dimensions = dimensionsObj;
-            console.log("Processed dimensions for update:", dimensionsObj);
-          }
+          // Always add dimensions to ensure they're updated properly
+          updateData.$set.dimensions = dimensionsObj;
+          console.log("Processed dimensions for update:", dimensionsObj);
         } catch (dimError) {
           console.error("Error processing dimensions for update:", dimError);
         }
