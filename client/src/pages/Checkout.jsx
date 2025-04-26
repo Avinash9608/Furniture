@@ -734,11 +734,29 @@ const Checkout = () => {
           <h3 className="font-medium text-gray-700 mb-3">UPI Payment</h3>
           <div className="flex flex-col items-center">
             <div className="bg-white p-4 rounded-lg border border-gray-200 mb-4">
-              <img
-                src="https://via.placeholder.com/200x200?text=UPI+QR+Code"
-                alt="UPI QR Code"
-                className="w-48 h-48 object-cover"
-              />
+              <div className="w-48 h-48 flex items-center justify-center bg-gray-100 rounded-lg">
+                <div className="text-center">
+                  <div className="grid grid-cols-5 grid-rows-5 gap-1 mx-auto w-32 h-32 bg-white p-2 border-2 border-gray-800">
+                    {/* Simple QR code pattern using divs */}
+                    {Array.from({ length: 25 }).map((_, i) => (
+                      <div
+                        key={i}
+                        className={`${
+                          [
+                            0, 1, 2, 3, 4, 5, 9, 10, 14, 15, 19, 20, 21, 22, 23,
+                            24,
+                          ].includes(i)
+                            ? "bg-gray-800"
+                            : "bg-white"
+                        }`}
+                      ></div>
+                    ))}
+                  </div>
+                  <p className="mt-2 text-xs font-medium text-gray-700">
+                    UPI QR Code
+                  </p>
+                </div>
+              </div>
             </div>
             <p className="text-sm text-gray-600 mb-2">
               Scan with any UPI app to pay
