@@ -335,14 +335,73 @@ const AdminOrders = () => {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span
-                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
-                          order.status
-                        )}`}
-                      >
-                        {order.status.charAt(0).toUpperCase() +
-                          order.status.slice(1)}
-                      </span>
+                      <div className="flex flex-col space-y-2">
+                        <span
+                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
+                            order.status
+                          )}`}
+                        >
+                          {order.status.charAt(0).toUpperCase() +
+                            order.status.slice(1)}
+                        </span>
+
+                        {/* Order tracking progress bar */}
+                        <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700 mt-2">
+                          <div
+                            className={`h-2.5 rounded-full ${
+                              order.status === "cancelled"
+                                ? "bg-red-600"
+                                : "bg-primary"
+                            }`}
+                            style={{
+                              width:
+                                order.status === "processing"
+                                  ? "25%"
+                                  : order.status === "shipped"
+                                  ? "50%"
+                                  : order.status === "delivered"
+                                  ? "100%"
+                                  : order.status === "cancelled"
+                                  ? "100%"
+                                  : "10%",
+                            }}
+                          ></div>
+                        </div>
+
+                        {/* Order tracking steps */}
+                        <div className="flex justify-between text-xs theme-text-secondary mt-1">
+                          <span
+                            className={
+                              order.status === "processing" ||
+                              order.status === "shipped" ||
+                              order.status === "delivered"
+                                ? "font-bold text-primary"
+                                : ""
+                            }
+                          >
+                            Processing
+                          </span>
+                          <span
+                            className={
+                              order.status === "shipped" ||
+                              order.status === "delivered"
+                                ? "font-bold text-primary"
+                                : ""
+                            }
+                          >
+                            Shipped
+                          </span>
+                          <span
+                            className={
+                              order.status === "delivered"
+                                ? "font-bold text-primary"
+                                : ""
+                            }
+                          >
+                            Delivered
+                          </span>
+                        </div>
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <select
@@ -352,11 +411,21 @@ const AdminOrders = () => {
                         }
                         className="block w-full pl-3 pr-10 py-2 text-base theme-border theme-bg-primary theme-text-primary focus:outline-none focus:ring-primary focus:border-primary sm:text-sm rounded-md"
                       >
+                        <option value="pending">Pending</option>
                         <option value="processing">Processing</option>
                         <option value="shipped">Shipped</option>
                         <option value="delivered">Delivered</option>
                         <option value="cancelled">Cancelled</option>
                       </select>
+
+                      <a
+                        href={`/order/${order._id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block mt-2 text-primary hover:text-primary-dark text-center"
+                      >
+                        View Details
+                      </a>
                     </td>
                   </tr>
                 ))}

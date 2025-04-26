@@ -27,6 +27,7 @@ import AdminOrders from "./pages/admin/AdminOrders";
 import AdminMessages from "./pages/admin/Messages";
 import AdminPaymentSettings from "./pages/admin/PaymentSettings";
 import AdminPaymentRequests from "./pages/admin/PaymentRequests";
+import AdminShippingAddresses from "./pages/admin/ShippingAddresses";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/admin/ProtectedRoute";
 import UserProtectedRoute from "./components/UserProtectedRoute";
@@ -186,6 +187,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <AdminPaymentRequests />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/shipping-addresses"
+            element={
+              <ProtectedRoute>
+                <AdminShippingAddresses />
               </ProtectedRoute>
             }
           />

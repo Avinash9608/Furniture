@@ -448,6 +448,7 @@ let Category = loadModel("Category");
 let Order = loadModel("Order");
 let PaymentSettings = loadModel("PaymentSetting");
 let PaymentRequest = loadModel("PaymentRequest");
+let ShippingAddress = loadModel("ShippingAddress");
 
 // Log model loading status
 console.log("Model loading status:");
@@ -2620,6 +2621,85 @@ app.put("/api/api/orders/:id/status", orderController.updateOrderStatus); // Add
 app.put("/api/orders/:id/pay", orderController.updateOrderToPaid);
 app.put("/orders/:id/pay", orderController.updateOrderToPaid); // Add additional route for fallback
 app.put("/api/api/orders/:id/pay", orderController.updateOrderToPaid); // Add additional route for fallback
+
+// Import shipping address controller
+const shippingAddressController = require("./server/controllers/shippingAddresses");
+
+// Add direct shipping address routes with multiple paths for better accessibility
+app.get(
+  "/api/shipping-addresses",
+  shippingAddressController.getShippingAddresses
+);
+app.get("/shipping-addresses", shippingAddressController.getShippingAddresses); // Add additional route for fallback
+app.get(
+  "/api/api/shipping-addresses",
+  shippingAddressController.getShippingAddresses
+); // Add additional route for fallback
+
+app.get(
+  "/api/shipping-addresses/default",
+  shippingAddressController.getDefaultShippingAddress
+);
+app.get(
+  "/shipping-addresses/default",
+  shippingAddressController.getDefaultShippingAddress
+); // Add additional route for fallback
+app.get(
+  "/api/api/shipping-addresses/default",
+  shippingAddressController.getDefaultShippingAddress
+); // Add additional route for fallback
+
+app.post(
+  "/api/shipping-addresses",
+  shippingAddressController.createShippingAddress
+);
+app.post(
+  "/shipping-addresses",
+  shippingAddressController.createShippingAddress
+); // Add additional route for fallback
+app.post(
+  "/api/api/shipping-addresses",
+  shippingAddressController.createShippingAddress
+); // Add additional route for fallback
+
+app.get(
+  "/api/shipping-addresses/:id",
+  shippingAddressController.getShippingAddressById
+);
+app.get(
+  "/shipping-addresses/:id",
+  shippingAddressController.getShippingAddressById
+); // Add additional route for fallback
+app.get(
+  "/api/api/shipping-addresses/:id",
+  shippingAddressController.getShippingAddressById
+); // Add additional route for fallback
+
+app.put(
+  "/api/shipping-addresses/:id",
+  shippingAddressController.updateShippingAddress
+);
+app.put(
+  "/shipping-addresses/:id",
+  shippingAddressController.updateShippingAddress
+); // Add additional route for fallback
+app.put(
+  "/api/api/shipping-addresses/:id",
+  shippingAddressController.updateShippingAddress
+); // Add additional route for fallback
+
+app.delete(
+  "/api/shipping-addresses/:id",
+  shippingAddressController.deleteShippingAddress
+);
+app.delete(
+  "/shipping-addresses/:id",
+  shippingAddressController.deleteShippingAddress
+); // Add additional route for fallback
+app.delete(
+  "/api/api/shipping-addresses/:id",
+  shippingAddressController.deleteShippingAddress
+); // Add additional route for fallback
 
 // Use routes from server
 app.use("/api", routes);

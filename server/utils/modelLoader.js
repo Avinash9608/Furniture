@@ -78,6 +78,29 @@ function loadModel(modelName) {
     path.join(__dirname, "..", "..", "server", "models", "PaymentRequests.js"),
     path.join(__dirname, "..", "..", "server", "models", "paymentRequest.js"),
     path.join(__dirname, "..", "..", "server", "models", "paymentRequests.js"),
+    // Special case for ShippingAddress/ShippingAddresses
+    path.join(__dirname, "..", "models", "ShippingAddress.js"),
+    path.join(__dirname, "..", "models", "ShippingAddresses.js"),
+    path.join(__dirname, "..", "models", "shippingAddress.js"),
+    path.join(__dirname, "..", "models", "shippingAddresses.js"),
+    path.join(__dirname, "..", "..", "server", "models", "ShippingAddress.js"),
+    path.join(
+      __dirname,
+      "..",
+      "..",
+      "server",
+      "models",
+      "ShippingAddresses.js"
+    ),
+    path.join(__dirname, "..", "..", "server", "models", "shippingAddress.js"),
+    path.join(
+      __dirname,
+      "..",
+      "..",
+      "server",
+      "models",
+      "shippingAddresses.js"
+    ),
   ];
 
   // Try each path
@@ -146,6 +169,7 @@ function loadAllModels() {
     "PaymentRequest",
     "PaymentSetting",
     "Product",
+    "ShippingAddress",
     "User",
   ];
 
