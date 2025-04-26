@@ -15,6 +15,7 @@ import Register from "./pages/Register";
 import Profile from "./pages/Profile";
 import Orders from "./pages/Orders";
 import MyOrders from "./pages/MyOrders";
+import OrderDetail from "./pages/OrderDetail";
 import MyPaymentRequests from "./pages/MyPaymentRequests";
 import AdminLogin from "./pages/admin/AdminLogin";
 import AdminDashboard from "./pages/admin/Dashboard";
@@ -94,6 +95,14 @@ function App() {
             element={
               <UserProtectedRoute>
                 <MyOrders />
+              </UserProtectedRoute>
+            }
+          />
+          <Route
+            path="/orders/:id"
+            element={
+              <UserProtectedRoute>
+                <OrderDetail />
               </UserProtectedRoute>
             }
           />

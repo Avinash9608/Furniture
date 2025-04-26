@@ -163,10 +163,16 @@ const MyOrders = () => {
                       at {new Date(order.createdAt).toLocaleTimeString()}
                     </p>
                   </div>
-                  <div className="mt-2 sm:mt-0">
+                  <div className="mt-2 sm:mt-0 flex flex-col sm:flex-row items-end sm:items-center">
                     <span className="font-medium text-primary">
                       {formatPrice(order.totalPrice)}
                     </span>
+                    <Link
+                      to={`/orders/${order._id}`}
+                      className="mt-2 sm:mt-0 sm:ml-4 px-4 py-2 bg-primary text-white text-sm font-medium rounded hover:bg-primary-dark transition-colors"
+                    >
+                      View Details
+                    </Link>
                   </div>
                 </div>
 
