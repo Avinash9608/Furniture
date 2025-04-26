@@ -34,7 +34,10 @@ const AdminOrders = () => {
           try {
             console.log(`Attempt ${4 - retries} to fetch orders from API...`);
 
-            const response = await ordersAPI.getAll();
+            // Add cache busting parameter to prevent caching
+            const cacheBuster = new Date().getTime();
+            const response = await ordersAPI.getAll({ _cb: cacheBuster });
+
             console.log("Orders API response:", response);
 
             // Check if we have valid data
@@ -42,6 +45,7 @@ const AdminOrders = () => {
               console.log(
                 `Successfully fetched ${response.data.data.length} orders from API`
               );
+              console.log(`Data source: ${response.data.source || "unknown"}`);
 
               // Process the orders to ensure all required fields are present
               const processedOrders = response.data.data.map((order) => {
@@ -68,10 +72,24 @@ const AdminOrders = () => {
                     name: "Unknown User",
                     email: "unknown@example.com",
                   },
+                  // Ensure orderItems exists
+                  orderItems: order.orderItems || [],
+                  // Ensure shippingAddress exists
+                  shippingAddress: order.shippingAddress || {},
                 };
               });
 
               setOrders(processedOrders);
+
+              // Show a message if using mock data
+              if (response.data.isMockData) {
+                setError(
+                  "Using mock data - database connection issue. Data shown is for demonstration purposes only."
+                );
+              } else {
+                setError(null);
+              }
+
               success = true;
               break;
             } else {
@@ -102,7 +120,7 @@ const AdminOrders = () => {
         if (!success) {
           console.error("All API fetch attempts failed");
           setError(
-            "Failed to fetch orders from the database. Please try again later."
+            "Failed to fetch orders from the database. Using mock data for demonstration purposes."
           );
 
           // Only use mock data as a last resort
@@ -111,7 +129,9 @@ const AdminOrders = () => {
         }
       } catch (err) {
         console.error("Error in fetchOrders:", err);
-        setError("An unexpected error occurred. Please try again later.");
+        setError(
+          "An unexpected error occurred. Using mock data for demonstration purposes."
+        );
         setOrders(getMockOrders());
       } finally {
         setLoading(false);

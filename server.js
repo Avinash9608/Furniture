@@ -6,6 +6,7 @@ const express = require("express");
 const path = require("path");
 const fs = require("fs");
 const mongoose = require("mongoose");
+const { MongoClient } = require("mongodb");
 const cors = require("cors");
 
 // Import Cloudinary configuration
@@ -138,7 +139,8 @@ try {
 const { MongoClient } = require("mongodb");
 
 // Configure Mongoose globally to prevent buffering timeout issues
-mongoose.set("bufferTimeoutMS", 600000); // Set globally to 600 seconds (10 minutes)
+mongoose.set("bufferTimeoutMS", 30000); // Set to 30 seconds - lower is better for deployment
+mongoose.set("bufferCommands", false); // Disable command buffering - critical for deployment
 
 // Set additional Mongoose options for better stability
 mongoose.set("autoIndex", false); // Don't build indexes automatically in production
@@ -180,29 +182,50 @@ const connectDB = async () => {
       console.log("Disconnected existing MongoDB connection");
     }
 
-    // Set the buffering timeout again right before connecting
-    mongoose.set("bufferTimeoutMS", 60000); // Ensure it's set to 60 seconds
+    // CRITICAL: Disable buffering before connecting - this is key to fixing the timeout issues
+    mongoose.set("bufferCommands", false); // Disable command buffering
+    mongoose.set("bufferTimeoutMS", 10000); // 10 seconds timeout is enough when buffering is disabled
 
-    // Enhanced connection options with only supported options
+    // First, try to establish a direct connection to verify the server is reachable
+    try {
+      console.log(
+        "Testing direct MongoDB connection before Mongoose connection..."
+      );
+      const testClient = new MongoClient(uri, {
+        serverSelectionTimeoutMS: 5000, // 5 seconds timeout for server selection
+        connectTimeoutMS: 5000, // 5 seconds timeout for connection
+      });
+
+      await testClient.connect();
+      console.log("Direct MongoDB connection test successful");
+      await testClient.close();
+    } catch (directError) {
+      console.error(
+        "Direct MongoDB connection test failed:",
+        directError.message
+      );
+      console.log("Will still attempt Mongoose connection...");
+    }
+
+    // Simplified connection options for better reliability in deployment
     await mongoose.connect(uri, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
-      serverSelectionTimeoutMS: 300000, // 5 minutes timeout for initial connection
-      socketTimeoutMS: 450000, // 7.5 minutes timeout for queries
-      connectTimeoutMS: 300000, // 5 minutes timeout for initial connection
-      heartbeatFrequencyMS: 30000, // Check server status every 30 seconds
+      serverSelectionTimeoutMS: 10000, // 10 seconds timeout for initial connection
+      socketTimeoutMS: 30000, // 30 seconds timeout for queries
+      connectTimeoutMS: 10000, // 10 seconds timeout for initial connection
+      heartbeatFrequencyMS: 10000, // Check server status every 10 seconds
       retryWrites: true, // Retry write operations
       w: "majority", // Write concern
-      maxPoolSize: 20, // Increased maximum number of connections in the pool
-      minPoolSize: 5, // Increased minimum number of sockets
-      bufferCommands: true, // Buffer commands when connection is lost
+      maxPoolSize: 10, // Reduced pool size for better stability
+      minPoolSize: 1, // Minimum connections
+      bufferCommands: false, // CRITICAL: Disable command buffering
       autoIndex: false, // Don't build indexes automatically in production
       family: 4, // Use IPv4, skip trying IPv6
-      // Removed unsupported options: keepAlive and keepAliveInitialDelay
     });
 
-    // Set the buffer timeout one more time after connection
-    mongoose.set("bufferTimeoutMS", 120000); // 120 seconds (2 minutes)
+    // Keep the buffer timeout low
+    mongoose.set("bufferTimeoutMS", 10000); // 10 seconds timeout
 
     // Verify the buffer timeout setting
     console.log("Mongoose buffer timeout:", mongoose.get("bufferTimeoutMS"));
