@@ -83,9 +83,9 @@ const ProductDetailSimple = () => {
           // Handle dimensions with proper fallbacks
           dimensions: productData.dimensions
             ? {
-                length: productData.dimensions.length || 0,
-                width: productData.dimensions.width || 0,
-                height: productData.dimensions.height || 0,
+                length: parseFloat(productData.dimensions.length) || 0,
+                width: parseFloat(productData.dimensions.width) || 0,
+                height: parseFloat(productData.dimensions.height) || 0,
               }
             : {
                 length: 0,
@@ -100,11 +100,20 @@ const ProductDetailSimple = () => {
               : { _id: productData.category, name: "Loading...", slug: "" }
             : null,
 
+          // Include categoryInfo if available
+          categoryInfo: productData.categoryInfo || null,
+
           images: Array.isArray(productData.images) ? productData.images : [],
           reviews: Array.isArray(productData.reviews)
             ? productData.reviews
             : [],
         };
+
+        // Log dimensions for debugging
+        console.log(
+          "[ProductDetailSimple] Product dimensions:",
+          safeProduct.dimensions
+        );
 
         // If category is just an ID, try to fetch the category details
         if (productData.category && typeof productData.category !== "object") {
@@ -793,22 +802,35 @@ const ProductDetailSimple = () => {
                   {/* Category with improved handling */}
                   <li className="flex">
                     <span className="font-medium w-24">Category:</span>
-                    {product.category &&
-                    typeof product.category === "object" &&
-                    product.category.name ? (
-                      <Link
-                        to={`/products?category=${product.category.slug || ""}`}
-                        className="text-primary hover:underline"
-                      >
-                        {product.category.name}
-                      </Link>
+                    {product.category ? (
+                      typeof product.category === "object" &&
+                      product.category.name ? (
+                        <Link
+                          to={`/products?category=${
+                            product.category.slug || ""
+                          }`}
+                          className="text-primary hover:underline"
+                        >
+                          {product.category.name}
+                        </Link>
+                      ) : product.categoryInfo && product.categoryInfo.name ? (
+                        <Link
+                          to={`/products?category=${
+                            product.categoryInfo.slug || ""
+                          }`}
+                          className="text-primary hover:underline"
+                        >
+                          {product.categoryInfo.name}
+                        </Link>
+                      ) : (
+                        <span className="theme-text-primary">
+                          {typeof product.category === "string"
+                            ? "Loading category..."
+                            : "Uncategorized"}
+                        </span>
+                      )
                     ) : (
-                      <span className="theme-text-primary">
-                        {product.category &&
-                        typeof product.category === "string"
-                          ? "Loading category..."
-                          : "Uncategorized"}
-                      </span>
+                      <span className="theme-text-primary">Uncategorized</span>
                     )}
                   </li>
 
