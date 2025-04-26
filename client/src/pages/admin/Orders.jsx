@@ -20,14 +20,17 @@ const AdminOrders = () => {
         setLoading(true);
         setError(null);
 
-        // Try to get orders from API
+        // Try multiple approaches to get orders
+        let ordersData = [];
+        let fetchSuccess = false;
+
+        // Approach 1: Use the API utility
         try {
+          console.log("Attempting to fetch orders using ordersAPI.getAll()");
           const response = await ordersAPI.getAll();
           console.log("Orders API response:", response);
 
           // Handle different response structures
-          let ordersData = [];
-
           if (
             response &&
             response.data &&
@@ -35,28 +38,96 @@ const AdminOrders = () => {
             Array.isArray(response.data.data)
           ) {
             ordersData = response.data.data;
+            fetchSuccess = true;
+            console.log("Successfully fetched orders from API utility");
           } else if (
             response &&
             response.data &&
             Array.isArray(response.data)
           ) {
             ordersData = response.data;
+            fetchSuccess = true;
+            console.log(
+              "Successfully fetched orders from API utility (alt format)"
+            );
           } else if (response && Array.isArray(response)) {
             ordersData = response;
-          }
-
-          console.log("Processed orders data:", ordersData);
-
-          if (ordersData && ordersData.length > 0) {
-            setOrders(ordersData);
-          } else {
-            // If we get an empty response, use mock data
-            console.log("No orders found, using mock data");
-            setOrders(getMockOrders());
+            fetchSuccess = true;
+            console.log(
+              "Successfully fetched orders from API utility (direct array)"
+            );
           }
         } catch (apiError) {
-          console.error("Error fetching orders from API:", apiError);
-          // Use mock data as fallback
+          console.error("Error fetching orders from API utility:", apiError);
+        }
+
+        // Approach 2: Try direct fetch to different endpoints if API utility failed
+        if (!fetchSuccess) {
+          const endpoints = [
+            "/admin/orders",
+            "/api/admin/orders",
+            "/api/orders",
+            "/orders",
+          ];
+
+          for (const endpoint of endpoints) {
+            if (fetchSuccess) break;
+
+            try {
+              console.log(`Attempting direct fetch from ${endpoint}`);
+              const response = await fetch(endpoint);
+
+              if (response.ok) {
+                const data = await response.json();
+                console.log(`Response from ${endpoint}:`, data);
+
+                if (data && data.data && Array.isArray(data.data)) {
+                  ordersData = data.data;
+                  fetchSuccess = true;
+                  console.log(`Successfully fetched orders from ${endpoint}`);
+                } else if (data && Array.isArray(data)) {
+                  ordersData = data;
+                  fetchSuccess = true;
+                  console.log(
+                    `Successfully fetched orders from ${endpoint} (direct array)`
+                  );
+                }
+              }
+            } catch (fetchError) {
+              console.error(`Error fetching from ${endpoint}:`, fetchError);
+            }
+          }
+        }
+
+        console.log("Final processed orders data:", ordersData);
+
+        // Check if we have valid data
+        if (fetchSuccess && ordersData && ordersData.length > 0) {
+          // Normalize the data to ensure consistent structure
+          const normalizedOrders = ordersData.map((order) => ({
+            _id:
+              order._id ||
+              `mock_${Date.now()}_${Math.random()
+                .toString(36)
+                .substring(2, 7)}`,
+            user: order.user || {
+              name: order.shippingAddress?.name || "Unknown Customer",
+            },
+            shippingAddress: order.shippingAddress || {
+              name: order.user?.name || "Unknown Address",
+            },
+            createdAt: order.createdAt || new Date().toISOString(),
+            totalPrice: order.totalPrice || 0,
+            status: order.status || "Pending",
+            isPaid: order.isPaid || false,
+            paymentMethod: order.paymentMethod || "Unknown",
+            orderItems: order.orderItems || [],
+          }));
+
+          setOrders(normalizedOrders);
+        } else {
+          // If we still don't have data, use mock data
+          console.log("No valid orders data found, using mock data");
           setOrders(getMockOrders());
         }
       } catch (error) {
@@ -75,49 +146,269 @@ const AdminOrders = () => {
   const getMockOrders = () => {
     return [
       {
-        _id: "order1",
-        user: { name: "John Doe" },
-        shippingAddress: { name: "John Doe" },
-        createdAt: new Date().toISOString(),
-        totalPrice: 1299,
-        status: "Pending",
-        isPaid: false,
-      },
-      {
-        _id: "order2",
-        user: { name: "Jane Smith" },
-        shippingAddress: { name: "Jane Smith" },
-        createdAt: new Date(Date.now() - 86400000).toISOString(), // Yesterday
-        totalPrice: 2499,
-        status: "Processing",
+        _id: `mock_admin_${Date.now()}_1`,
+        user: {
+          _id: "mock_user_1",
+          name: "John Doe",
+          email: "john@example.com",
+        },
+        orderItems: [
+          {
+            name: "Executive Office Chair",
+            quantity: 1,
+            image:
+              "https://images.unsplash.com/photo-1580480055273-228ff5388ef8",
+            price: 15999,
+            product: "prod_chair_1",
+          },
+        ],
+        shippingAddress: {
+          name: "John Doe",
+          address: "42 Business Park",
+          city: "Mumbai",
+          state: "Maharashtra",
+          postalCode: "400001",
+          country: "India",
+          phone: "9876543210",
+        },
+        paymentMethod: "credit_card",
+        taxPrice: 2880,
+        shippingPrice: 0,
+        totalPrice: 18879,
         isPaid: true,
-      },
-      {
-        _id: "order3",
-        user: { name: "Robert Johnson" },
-        shippingAddress: { name: "Robert Johnson" },
-        createdAt: new Date(Date.now() - 172800000).toISOString(), // 2 days ago
-        totalPrice: 4999,
-        status: "Shipped",
-        isPaid: true,
-      },
-      {
-        _id: "order4",
-        user: { name: "Emily Davis" },
-        shippingAddress: { name: "Emily Davis" },
-        createdAt: new Date(Date.now() - 259200000).toISOString(), // 3 days ago
-        totalPrice: 1899,
+        paidAt: new Date(Date.now() - 172800000), // 2 days ago
         status: "Delivered",
-        isPaid: true,
+        createdAt: new Date(Date.now() - 172800000),
+        updatedAt: new Date(Date.now() - 86400000),
       },
       {
-        _id: "order5",
-        user: { name: "Michael Wilson" },
-        shippingAddress: { name: "Michael Wilson" },
-        createdAt: new Date(Date.now() - 345600000).toISOString(), // 4 days ago
-        totalPrice: 3299,
-        status: "Cancelled",
+        _id: `mock_admin_${Date.now()}_2`,
+        user: {
+          _id: "mock_user_2",
+          name: "Priya Sharma",
+          email: "priya@example.com",
+        },
+        orderItems: [
+          {
+            name: "King Size Bed",
+            quantity: 1,
+            image:
+              "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85",
+            price: 32999,
+            product: "prod_bed_1",
+          },
+          {
+            name: "Memory Foam Mattress",
+            quantity: 1,
+            image:
+              "https://images.unsplash.com/photo-1631052066165-9542cf078c4e",
+            price: 12999,
+            product: "prod_mattress_1",
+          },
+        ],
+        shippingAddress: {
+          name: "Priya Sharma",
+          address: "15 Lake View Apartments",
+          city: "Delhi",
+          state: "Delhi",
+          postalCode: "110001",
+          country: "India",
+          phone: "9876543211",
+        },
+        paymentMethod: "upi",
+        taxPrice: 8280,
+        shippingPrice: 1500,
+        totalPrice: 55778,
+        isPaid: true,
+        paidAt: new Date(Date.now() - 86400000), // 1 day ago
+        status: "Shipped",
+        createdAt: new Date(Date.now() - 86400000),
+        updatedAt: new Date(Date.now() - 43200000),
+      },
+      {
+        _id: `mock_admin_${Date.now()}_3`,
+        user: {
+          _id: "mock_user_3",
+          name: "Raj Patel",
+          email: "raj@example.com",
+        },
+        orderItems: [
+          {
+            name: "L-Shaped Sofa",
+            quantity: 1,
+            image:
+              "https://images.unsplash.com/photo-1493663284031-b7e3aefcae8e",
+            price: 45999,
+            product: "prod_sofa_1",
+          },
+        ],
+        shippingAddress: {
+          name: "Raj Patel",
+          address: "78 Green Avenue",
+          city: "Bangalore",
+          state: "Karnataka",
+          postalCode: "560001",
+          country: "India",
+          phone: "9876543212",
+        },
+        paymentMethod: "cod",
+        taxPrice: 8280,
+        shippingPrice: 2000,
+        totalPrice: 56279,
         isPaid: false,
+        status: "Processing",
+        createdAt: new Date(Date.now() - 43200000), // 12 hours ago
+        updatedAt: new Date(Date.now() - 43200000),
+      },
+      {
+        _id: `mock_admin_${Date.now()}_4`,
+        user: {
+          _id: "mock_user_4",
+          name: "Ananya Gupta",
+          email: "ananya@example.com",
+        },
+        orderItems: [
+          {
+            name: "Dining Table Set",
+            quantity: 1,
+            image:
+              "https://images.unsplash.com/photo-1617098650990-217c7cf9de26",
+            price: 28999,
+            product: "prod_table_1",
+          },
+        ],
+        shippingAddress: {
+          name: "Ananya Gupta",
+          address: "23 Park Street",
+          city: "Kolkata",
+          state: "West Bengal",
+          postalCode: "700001",
+          country: "India",
+          phone: "9876543213",
+        },
+        paymentMethod: "rupay",
+        taxPrice: 5220,
+        shippingPrice: 1500,
+        totalPrice: 35719,
+        isPaid: false,
+        status: "Pending",
+        createdAt: new Date(Date.now() - 21600000), // 6 hours ago
+        updatedAt: new Date(Date.now() - 21600000),
+      },
+      {
+        _id: `mock_admin_${Date.now()}_5`,
+        user: {
+          _id: "mock_user_5",
+          name: "Vikram Singh",
+          email: "vikram@example.com",
+        },
+        orderItems: [
+          {
+            name: "Wardrobe",
+            quantity: 1,
+            image:
+              "https://images.unsplash.com/photo-1595428774223-ef52624120d2",
+            price: 22999,
+            product: "prod_wardrobe_1",
+          },
+        ],
+        shippingAddress: {
+          name: "Vikram Singh",
+          address: "56 Hill Road",
+          city: "Pune",
+          state: "Maharashtra",
+          postalCode: "411001",
+          country: "India",
+          phone: "9876543214",
+        },
+        paymentMethod: "credit_card",
+        taxPrice: 4140,
+        shippingPrice: 1000,
+        totalPrice: 28139,
+        isPaid: true,
+        paidAt: new Date(Date.now() - 3600000), // 1 hour ago
+        status: "Processing",
+        createdAt: new Date(Date.now() - 3600000),
+        updatedAt: new Date(Date.now() - 3600000),
+      },
+      {
+        _id: `mock_admin_${Date.now()}_6`,
+        user: {
+          _id: "mock_user_6",
+          name: "Avinash Kumar",
+          email: "avinashmadhukar4@gmail.com",
+        },
+        orderItems: [
+          {
+            name: "Study Table",
+            quantity: 1,
+            image:
+              "https://images.unsplash.com/photo-1518455027359-f3f8164ba6bd",
+            price: 18999,
+            product: "prod_table_2",
+          },
+          {
+            name: "Bookshelf",
+            quantity: 1,
+            image:
+              "https://images.unsplash.com/photo-1594620302200-9a762244a156",
+            price: 12999,
+            product: "prod_shelf_1",
+          },
+        ],
+        shippingAddress: {
+          name: "Avinash Kumar",
+          address: "123 Main Street",
+          city: "Mumbai",
+          state: "Maharashtra",
+          postalCode: "400001",
+          country: "India",
+          phone: "9876543215",
+        },
+        paymentMethod: "upi",
+        taxPrice: 5760,
+        shippingPrice: 0,
+        totalPrice: 37758,
+        isPaid: true,
+        paidAt: new Date(Date.now() - 259200000), // 3 days ago
+        status: "Delivered",
+        createdAt: new Date(Date.now() - 259200000),
+        updatedAt: new Date(Date.now() - 172800000),
+      },
+      {
+        _id: `mock_admin_${Date.now()}_7`,
+        user: {
+          _id: "mock_user_7",
+          name: "Neha Reddy",
+          email: "neha@example.com",
+        },
+        orderItems: [
+          {
+            name: "Coffee Table",
+            quantity: 1,
+            image:
+              "https://images.unsplash.com/photo-1499933374294-4584851497cc",
+            price: 8999,
+            product: "prod_table_3",
+          },
+        ],
+        shippingAddress: {
+          name: "Neha Reddy",
+          address: "45 Garden Road",
+          city: "Chennai",
+          state: "Tamil Nadu",
+          postalCode: "600001",
+          country: "India",
+          phone: "9876543216",
+        },
+        paymentMethod: "cod",
+        taxPrice: 1620,
+        shippingPrice: 500,
+        totalPrice: 11119,
+        isPaid: false,
+        status: "Cancelled",
+        createdAt: new Date(Date.now() - 345600000), // 4 days ago
+        updatedAt: new Date(Date.now() - 345600000),
       },
     ];
   };

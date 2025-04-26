@@ -2624,6 +2624,10 @@ app.get("/api/orders", orderController.getOrders);
 app.get("/orders", orderController.getOrders); // Add additional route for fallback
 app.get("/api/api/orders", orderController.getOrders); // Add additional route for fallback
 
+// Add admin-specific routes for orders
+app.get("/admin/orders", orderController.getOrders); // Add route for admin panel
+app.get("/api/admin/orders", orderController.getOrders); // Add route for admin API
+
 app.put("/api/orders/:id/status", orderController.updateOrderStatus);
 app.put("/orders/:id/status", orderController.updateOrderStatus); // Add additional route for fallback
 app.put("/api/api/orders/:id/status", orderController.updateOrderStatus); // Add additional route for fallback
