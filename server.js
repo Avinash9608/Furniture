@@ -138,7 +138,11 @@ try {
 const { MongoClient } = require("mongodb");
 
 // Configure Mongoose globally to prevent buffering timeout issues
-mongoose.set("bufferTimeoutMS", 300000); // Set globally to 300 seconds (5 minutes)
+mongoose.set("bufferTimeoutMS", 600000); // Set globally to 600 seconds (10 minutes)
+
+// Set additional Mongoose options for better stability
+mongoose.set("autoIndex", false); // Don't build indexes automatically in production
+mongoose.set("strictQuery", false); // Less strict query filters for better compatibility
 
 // Add event listeners for connection issues
 mongoose.connection.on("error", (err) => {
@@ -183,16 +187,19 @@ const connectDB = async () => {
     await mongoose.connect(uri, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
-      serverSelectionTimeoutMS: 120000, // 2 minutes timeout for initial connection
-      socketTimeoutMS: 180000, // 3 minutes timeout for queries
-      connectTimeoutMS: 120000, // 2 minutes timeout for initial connection
+      serverSelectionTimeoutMS: 300000, // 5 minutes timeout for initial connection
+      socketTimeoutMS: 450000, // 7.5 minutes timeout for queries
+      connectTimeoutMS: 300000, // 5 minutes timeout for initial connection
+      heartbeatFrequencyMS: 30000, // Check server status every 30 seconds
       retryWrites: true, // Retry write operations
       w: "majority", // Write concern
-      maxPoolSize: 10, // Maximum number of connections in the pool
-      minPoolSize: 2, // Minimum number of sockets
+      maxPoolSize: 20, // Increased maximum number of connections in the pool
+      minPoolSize: 5, // Increased minimum number of sockets
       bufferCommands: true, // Buffer commands when connection is lost
       autoIndex: false, // Don't build indexes automatically in production
       family: 4, // Use IPv4, skip trying IPv6
+      keepAlive: true, // Keep connection alive
+      keepAliveInitialDelay: 300000, // 5 minutes delay before first keepAlive
     });
 
     // Set the buffer timeout one more time after connection

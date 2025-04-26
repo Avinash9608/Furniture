@@ -24,37 +24,96 @@ const AdminOrders = () => {
     const fetchOrders = async () => {
       try {
         setLoading(true);
-        console.log("Fetching orders...");
+        console.log("Fetching orders from database...");
 
-        // Use mock data immediately to prevent errors
-        const mockData = getMockOrders();
-        console.log("Using mock orders data:", mockData);
-        setOrders(mockData);
-        setLoading(false);
+        // Implement retry logic for better reliability
+        let retries = 3;
+        let success = false;
 
-        // Try to fetch real data in the background
-        try {
-          console.log("Attempting to fetch real data in background...");
-          const response = await ordersAPI.getAll();
-          console.log("Orders response:", response);
+        while (retries > 0 && !success) {
+          try {
+            console.log(`Attempt ${4 - retries} to fetch orders from API...`);
 
-          // Only update if we got valid data
-          if (
-            response?.data?.data &&
-            Array.isArray(response.data.data) &&
-            response.data.data.length > 0
-          ) {
-            console.log("Updating with real data from API");
-            setOrders(response.data.data);
+            const response = await ordersAPI.getAll();
+            console.log("Orders API response:", response);
+
+            // Check if we have valid data
+            if (response?.data?.data && Array.isArray(response.data.data)) {
+              console.log(
+                `Successfully fetched ${response.data.data.length} orders from API`
+              );
+
+              // Process the orders to ensure all required fields are present
+              const processedOrders = response.data.data.map((order) => {
+                // Ensure status is lowercase
+                const status = order.status
+                  ? order.status.toLowerCase()
+                  : "pending";
+
+                // Ensure dates are in proper format
+                const createdAt = order.createdAt
+                  ? new Date(order.createdAt).toISOString()
+                  : new Date().toISOString();
+
+                // Return processed order
+                return {
+                  ...order,
+                  status,
+                  createdAt,
+                  // Add any missing fields with defaults
+                  isPaid: order.isPaid === true,
+                  totalPrice: order.totalPrice || 0,
+                  // Ensure user object exists
+                  user: order.user || {
+                    name: "Unknown User",
+                    email: "unknown@example.com",
+                  },
+                };
+              });
+
+              setOrders(processedOrders);
+              success = true;
+              break;
+            } else {
+              console.warn("Invalid data format received from API");
+              retries--;
+
+              if (retries > 0) {
+                // Wait before retrying (exponential backoff)
+                const waitTime = 2000 * (4 - retries);
+                console.log(`Waiting ${waitTime}ms before retrying...`);
+                await new Promise((resolve) => setTimeout(resolve, waitTime));
+              }
+            }
+          } catch (apiError) {
+            console.error(`API fetch attempt ${4 - retries} failed:`, apiError);
+            retries--;
+
+            if (retries > 0) {
+              // Wait before retrying (exponential backoff)
+              const waitTime = 2000 * (4 - retries);
+              console.log(`Waiting ${waitTime}ms before retrying...`);
+              await new Promise((resolve) => setTimeout(resolve, waitTime));
+            }
           }
-        } catch (apiError) {
-          console.error("Background API fetch failed:", apiError);
-          // Already using mock data, so no need to set it again
+        }
+
+        // If all API attempts failed, show an error message and use mock data
+        if (!success) {
+          console.error("All API fetch attempts failed");
+          setError(
+            "Failed to fetch orders from the database. Please try again later."
+          );
+
+          // Only use mock data as a last resort
+          console.log("Using mock orders data as fallback");
+          setOrders(getMockOrders());
         }
       } catch (err) {
         console.error("Error in fetchOrders:", err);
-        // Make sure we're using mock data
+        setError("An unexpected error occurred. Please try again later.");
         setOrders(getMockOrders());
+      } finally {
         setLoading(false);
       }
     };

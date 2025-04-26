@@ -497,23 +497,75 @@ exports.getMyOrders = async (req, res) => {
 // @access  Private/Admin
 exports.getOrders = async (req, res) => {
   try {
-    console.log("getOrders called - fetching all orders");
+    console.log("getOrders called - fetching all orders from MongoDB Atlas");
 
-    // Set a longer timeout for this query
-    const orders = await Order.find({})
-      .populate("user", "id name email")
-      .maxTimeMS(60000); // 60 seconds timeout for this query
+    // Set a longer timeout for this query and add retry logic
+    let retries = 3;
+    let orders = [];
+    let error;
 
-    console.log(`Successfully fetched ${orders.length} orders`);
+    while (retries > 0) {
+      try {
+        console.log(`Attempt ${4 - retries} to fetch orders from database...`);
+
+        // Use lean() for better performance and add timeout
+        orders = await Order.find({})
+          .populate("user", "id name email")
+          .lean()
+          .maxTimeMS(90000); // 90 seconds timeout for this query
+
+        console.log(
+          `Successfully fetched ${orders.length} orders from database`
+        );
+
+        // If we got here, the query was successful
+        break;
+      } catch (err) {
+        error = err;
+        console.error(`Error on attempt ${4 - retries}:`, err.message);
+        retries--;
+
+        if (retries > 0) {
+          // Wait before retrying (exponential backoff)
+          const waitTime = 2000 * (4 - retries);
+          console.log(`Waiting ${waitTime}ms before retrying...`);
+          await new Promise((resolve) => setTimeout(resolve, waitTime));
+        }
+      }
+    }
+
+    // If we still don't have orders after all retries, throw the error
+    if (orders.length === 0 && error) {
+      throw error;
+    }
 
     // Normalize order status to lowercase for frontend consistency
     const normalizedOrders = orders.map((order) => {
-      const orderObj = order.toObject();
-      if (orderObj.status) {
-        orderObj.status = orderObj.status.toLowerCase();
+      // Ensure status is lowercase
+      if (order.status) {
+        order.status = order.status.toLowerCase();
       }
-      return orderObj;
+
+      // Ensure dates are in ISO format
+      if (order.createdAt) {
+        order.createdAt = new Date(order.createdAt).toISOString();
+      }
+      if (order.updatedAt) {
+        order.updatedAt = new Date(order.updatedAt).toISOString();
+      }
+      if (order.paidAt) {
+        order.paidAt = new Date(order.paidAt).toISOString();
+      }
+      if (order.deliveredAt) {
+        order.deliveredAt = new Date(order.deliveredAt).toISOString();
+      }
+
+      return order;
     });
+
+    console.log(
+      `Returning ${normalizedOrders.length} normalized orders to client`
+    );
 
     res.status(200).json({
       success: true,
@@ -523,134 +575,56 @@ exports.getOrders = async (req, res) => {
   } catch (error) {
     console.error("Error fetching orders:", error);
 
-    // Generate mock data as fallback
-    console.log("Generating mock order data as fallback");
+    // Try a different approach with a simpler query
+    try {
+      console.log("Attempting simplified query to fetch orders...");
 
-    // Create mock orders with lowercase status values
-    const mockOrders = [
-      {
-        _id: "mock-order-1",
-        user: {
-          _id: "user123",
-          name: "John Doe",
-          email: "john@example.com",
-        },
-        shippingAddress: {
-          name: "John Doe",
-          address: "123 Main St",
-          city: "Mumbai",
-          state: "Maharashtra",
-          postalCode: "400001",
-          country: "India",
-          phone: "9876543210",
-        },
-        orderItems: [
-          {
-            name: "Luxury Sofa",
-            quantity: 1,
-            image: "https://images.unsplash.com/photo-1555041469-a586c61ea9bc",
-            price: 12999,
-            product: "prod1",
-          },
-        ],
-        paymentMethod: "credit_card",
-        taxPrice: 2340,
-        shippingPrice: 0,
-        totalPrice: 15339,
-        isPaid: true,
-        paidAt: new Date().toISOString(),
-        status: "processing",
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      },
-      {
-        _id: "mock-order-2",
-        user: {
-          _id: "user456",
-          name: "Jane Smith",
-          email: "jane@example.com",
-        },
-        shippingAddress: {
-          name: "Jane Smith",
-          address: "456 Oak St",
-          city: "Delhi",
-          state: "Delhi",
-          postalCode: "110001",
-          country: "India",
-          phone: "9876543211",
-        },
-        orderItems: [
-          {
-            name: "Wooden Dining Table",
-            quantity: 1,
-            image:
-              "https://images.unsplash.com/photo-1533090161767-e6ffed986c88",
-            price: 8499,
-            product: "prod2",
-          },
-          {
-            name: "Dining Chair (Set of 4)",
-            quantity: 1,
-            image: "https://images.unsplash.com/photo-1551298370-9d3d53740c72",
-            price: 12999,
-            product: "prod3",
-          },
-        ],
-        paymentMethod: "upi",
-        taxPrice: 3870,
-        shippingPrice: 500,
-        totalPrice: 25868,
-        isPaid: true,
-        paidAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-        status: "delivered",
-        isDelivered: true,
-        deliveredAt: new Date().toISOString(),
-        createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-        updatedAt: new Date().toISOString(),
-      },
-      {
-        _id: "mock-order-3",
-        user: {
-          _id: "user789",
-          name: "Robert Johnson",
-          email: "robert@example.com",
-        },
-        shippingAddress: {
-          name: "Robert Johnson",
-          address: "789 Pine St",
-          city: "Bangalore",
-          state: "Karnataka",
-          postalCode: "560001",
-          country: "India",
-          phone: "9876543212",
-        },
-        orderItems: [
-          {
-            name: "King Size Bed",
-            quantity: 1,
-            image:
-              "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85",
-            price: 24999,
-            product: "prod4",
-          },
-        ],
-        paymentMethod: "cash_on_delivery",
-        taxPrice: 4500,
-        shippingPrice: 1000,
-        totalPrice: 30499,
-        isPaid: false,
-        status: "shipped",
-        createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-        updatedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-      },
-    ];
+      // Use a simpler query without population
+      const simpleOrders = await Order.find({})
+        .select(
+          "_id user shippingAddress orderItems paymentMethod taxPrice shippingPrice totalPrice isPaid status createdAt"
+        )
+        .lean()
+        .maxTimeMS(60000);
 
-    // Return mock data with 200 status to ensure frontend works
-    res.status(200).json({
-      success: true,
-      count: mockOrders.length,
-      data: mockOrders,
-      isMockData: true,
+      console.log(
+        `Successfully fetched ${simpleOrders.length} orders with simplified query`
+      );
+
+      if (simpleOrders.length > 0) {
+        // Normalize order status to lowercase for frontend consistency
+        const normalizedOrders = simpleOrders.map((order) => {
+          if (order.status) {
+            order.status = order.status.toLowerCase();
+          }
+          return order;
+        });
+
+        return res.status(200).json({
+          success: true,
+          count: normalizedOrders.length,
+          data: normalizedOrders,
+          isSimplifiedData: true,
+        });
+      }
+    } catch (simplifiedError) {
+      console.error("Error with simplified query:", simplifiedError);
+    }
+
+    // If we get here, both approaches failed
+    console.error(
+      "All database query attempts failed. Sending error response."
+    );
+
+    // Send error response with detailed information
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch orders from database",
+      error: {
+        message: error.message,
+        name: error.name,
+        code: error.code,
+      },
     });
   }
 };
