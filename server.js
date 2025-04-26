@@ -2561,6 +2561,9 @@ app.get("/api/products/:id", productController.getProductById);
 app.put("/api/products/:id", uploadMiddleware, productController.updateProduct);
 app.delete("/api/products/:id", productController.deleteProduct);
 
+// Add product review route
+app.post("/api/products/:id/reviews", productController.createProductReview);
+
 // Override the existing category routes to use our direct MongoDB driver approach
 app.post(
   "/api/categories",

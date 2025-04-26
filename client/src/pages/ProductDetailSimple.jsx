@@ -336,18 +336,23 @@ const ProductDetailSimple = () => {
         token.substring(0, 10) + "..."
       );
 
-      // Use the productsAPI to submit the review
-      const response = await fetch(
-        `https://furniture-q3nb.onrender.com/api/products/${id}/reviews`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify(reviewData),
-        }
-      );
+      // Use the correct API endpoint for reviews
+      console.log("[ProductDetailSimple] Submitting review to API endpoint");
+
+      // Determine the base URL based on environment
+      const baseUrl =
+        window.location.hostname === "localhost"
+          ? "http://localhost:5000"
+          : "https://furniture-q3nb.onrender.com";
+
+      const response = await fetch(`${baseUrl}/api/products/${id}/reviews`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(reviewData),
+      });
 
       // Check if response is JSON before parsing
       const contentType = response.headers.get("content-type");

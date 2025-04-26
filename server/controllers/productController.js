@@ -195,6 +195,46 @@ const createProduct = async (req, res) => {
 
     console.log(`Generated slug: ${slug} for product: ${productName}`);
 
+    // Process dimensions if provided
+    let dimensions = null;
+    if (req.body.dimensions) {
+      try {
+        // Check if dimensions is a string that needs parsing
+        if (typeof req.body.dimensions === "string") {
+          try {
+            dimensions = JSON.parse(req.body.dimensions);
+            console.log("Successfully parsed dimensions JSON:", dimensions);
+          } catch (parseError) {
+            console.error(
+              "Error parsing dimensions JSON:",
+              parseError,
+              "Original value:",
+              req.body.dimensions
+            );
+          }
+        } else if (typeof req.body.dimensions === "object") {
+          dimensions = req.body.dimensions;
+        }
+
+        // Ensure dimensions has proper numeric values
+        if (dimensions) {
+          dimensions = {
+            length: parseFloat(dimensions.length) || 0,
+            width: parseFloat(dimensions.width) || 0,
+            height: parseFloat(dimensions.height) || 0,
+          };
+          console.log("Processed dimensions:", dimensions);
+        }
+      } catch (dimError) {
+        console.error("Error processing dimensions:", dimError);
+      }
+    }
+
+    // Process other fields
+    const featured = req.body.featured === "true" || req.body.featured === true;
+    const material = req.body.material || "";
+    const color = req.body.color || "";
+
     // Create the product data
     const productData = {
       name: productName,
@@ -204,9 +244,17 @@ const createProduct = async (req, res) => {
       category: req.body.category,
       images: imageUrls,
       stock: parseInt(req.body.stock) || 0,
+      featured: featured,
+      material: material,
+      color: color,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
+
+    // Only add dimensions if it's valid
+    if (dimensions) {
+      productData.dimensions = dimensions;
+    }
 
     console.log("Product data to be saved:", productData);
 
@@ -880,7 +928,58 @@ const updateProduct = async (req, res) => {
         updateData.$set.description = req.body.description;
       if (req.body.category) updateData.$set.category = req.body.category;
       if (req.body.stock) updateData.$set.stock = parseInt(req.body.stock);
+      if (req.body.material) updateData.$set.material = req.body.material;
+      if (req.body.color) updateData.$set.color = req.body.color;
+      if (req.body.featured !== undefined)
+        updateData.$set.featured =
+          req.body.featured === "true" || req.body.featured === true;
       if (imageUrls.length > 0) updateData.$set.images = imageUrls;
+
+      // Process dimensions if provided
+      if (req.body.dimensions) {
+        try {
+          // Check if dimensions is a string that needs parsing
+          let dimensionsData = {};
+
+          if (typeof req.body.dimensions === "string") {
+            try {
+              dimensionsData = JSON.parse(req.body.dimensions);
+              console.log(
+                "Successfully parsed dimensions JSON for update:",
+                dimensionsData
+              );
+            } catch (parseError) {
+              console.error(
+                "Error parsing dimensions JSON for update:",
+                parseError,
+                "Original value:",
+                req.body.dimensions
+              );
+            }
+          } else if (typeof req.body.dimensions === "object") {
+            dimensionsData = req.body.dimensions;
+          }
+
+          // Create dimensions object with numeric values
+          const dimensionsObj = {
+            length: parseFloat(dimensionsData.length) || 0,
+            width: parseFloat(dimensionsData.width) || 0,
+            height: parseFloat(dimensionsData.height) || 0,
+          };
+
+          // Only add dimensions if at least one value is non-zero
+          if (
+            dimensionsObj.length > 0 ||
+            dimensionsObj.width > 0 ||
+            dimensionsObj.height > 0
+          ) {
+            updateData.$set.dimensions = dimensionsObj;
+            console.log("Processed dimensions for update:", dimensionsObj);
+          }
+        } catch (dimError) {
+          console.error("Error processing dimensions for update:", dimError);
+        }
+      }
 
       console.log("Update data:", updateData);
 
@@ -1116,11 +1215,170 @@ const deleteProduct = async (req, res) => {
   }
 };
 
+/**
+ * Create a product review with guaranteed persistence
+ */
+const createProductReview = async (req, res) => {
+  const { id } = req.params;
+  console.log(`Creating review for product with ID: ${id}`);
+  console.log("Review data:", req.body);
+
+  // Set proper headers to ensure JSON response
+  res.setHeader("Content-Type", "application/json");
+
+  try {
+    // Validate required fields
+    const { rating, comment } = req.body;
+
+    if (!rating || !comment) {
+      return res.status(400).json({
+        success: false,
+        message: "Please provide both rating and comment",
+      });
+    }
+
+    // Create a new direct MongoDB connection specifically for this operation
+    let client = null;
+    let updatedProduct = null;
+
+    try {
+      console.log("Attempting to add review using direct MongoDB driver");
+
+      // Get the MongoDB URI
+      const uri = getMongoURI();
+
+      // Direct connection options
+      const options = {
+        useNewUrlParser: true,
+        useUnifiedTopology: true,
+        connectTimeoutMS: 30000,
+        socketTimeoutMS: 45000,
+        serverSelectionTimeoutMS: 30000,
+        maxPoolSize: 5,
+      };
+
+      // Create a new MongoClient
+      client = new MongoClient(uri, options);
+      await client.connect();
+
+      // Get database name from connection string
+      const dbName = uri.split("/").pop().split("?")[0];
+      const db = client.db(dbName);
+
+      console.log(`MongoDB connection established to database: ${dbName}`);
+
+      // Fetch the existing product
+      const productsCollection = db.collection("products");
+
+      let product;
+      try {
+        product = await productsCollection.findOne({
+          _id: new ObjectId(id),
+        });
+      } catch (idError) {
+        product = await productsCollection.findOne({ _id: id });
+      }
+
+      if (!product) {
+        return res.status(404).json({
+          success: false,
+          message: "Product not found",
+        });
+      }
+
+      // Get user information
+      const userId = req.user ? req.user.id : "anonymous";
+      const userName = req.user ? req.user.name : "Anonymous User";
+
+      // Check if user already reviewed this product
+      const reviews = product.reviews || [];
+      const alreadyReviewed = reviews.find(
+        (r) => r.user && r.user.toString() === userId.toString()
+      );
+
+      if (alreadyReviewed) {
+        return res.status(400).json({
+          success: false,
+          message: "You have already reviewed this product",
+        });
+      }
+
+      // Create the review object
+      const review = {
+        name: userName,
+        rating: Number(rating),
+        comment,
+        user: userId,
+        createdAt: new Date(),
+      };
+
+      // Add the review to the product
+      const updatedReviews = [...reviews, review];
+      const numReviews = updatedReviews.length;
+      const ratings =
+        updatedReviews.reduce((acc, item) => item.rating + acc, 0) / numReviews;
+
+      // Update the product with the new review
+      const result = await productsCollection.updateOne(
+        { _id: product._id },
+        {
+          $set: {
+            reviews: updatedReviews,
+            numReviews: numReviews,
+            ratings: ratings,
+            updatedAt: new Date(),
+          },
+        }
+      );
+
+      if (result.modifiedCount !== 1) {
+        throw new Error("Failed to update product with review");
+      }
+
+      // Fetch the updated product
+      updatedProduct = await productsCollection.findOne({
+        _id: product._id,
+      });
+    } catch (error) {
+      console.error("Error adding review:", error);
+      throw error;
+    } finally {
+      // Close the MongoDB client
+      if (client) {
+        await client.close();
+        console.log("MongoDB connection closed");
+      }
+    }
+
+    // Return success response
+    return res.status(201).json({
+      success: true,
+      message: "Review added successfully",
+      data: updatedProduct
+        ? {
+            numReviews: updatedProduct.numReviews,
+            ratings: updatedProduct.ratings,
+          }
+        : null,
+    });
+  } catch (error) {
+    console.error("Error creating review:", error);
+
+    // Return error response
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Error adding review",
+      error: error.stack,
+    });
+  }
+};
+
 module.exports = {
   createProduct,
   getAllProducts,
   getProductById,
   updateProduct,
   deleteProduct,
+  createProductReview,
   getProperImageUrl,
 };
