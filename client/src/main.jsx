@@ -6,10 +6,14 @@ import App from "./App";
 import { AuthProvider } from "./context/AuthContext";
 import { CartProvider } from "./context/CartContext";
 import { ThemeProvider } from "./context/ThemeContext";
+import { makeSafeString } from "./utils/safeString";
 import "./index.css";
 
 // Make React available globally for JSX transformation
 window.React = React;
+
+// Apply safe string utilities globally
+makeSafeString();
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>

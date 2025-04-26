@@ -138,7 +138,7 @@ try {
 const { MongoClient } = require("mongodb");
 
 // Configure Mongoose globally to prevent buffering timeout issues
-mongoose.set("bufferTimeoutMS", 60000); // Set globally to 60 seconds
+mongoose.set("bufferTimeoutMS", 300000); // Set globally to 300 seconds (5 minutes)
 
 // Add event listeners for connection issues
 mongoose.connection.on("error", (err) => {
@@ -183,17 +183,20 @@ const connectDB = async () => {
     await mongoose.connect(uri, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
-      serverSelectionTimeoutMS: 30000, // 30 seconds timeout for initial connection
-      socketTimeoutMS: 45000, // 45 seconds timeout for queries
-      connectTimeoutMS: 30000, // 30 seconds timeout for initial connection
+      serverSelectionTimeoutMS: 120000, // 2 minutes timeout for initial connection
+      socketTimeoutMS: 180000, // 3 minutes timeout for queries
+      connectTimeoutMS: 120000, // 2 minutes timeout for initial connection
       retryWrites: true, // Retry write operations
       w: "majority", // Write concern
       maxPoolSize: 10, // Maximum number of connections in the pool
       minPoolSize: 2, // Minimum number of sockets
+      bufferCommands: true, // Buffer commands when connection is lost
+      autoIndex: false, // Don't build indexes automatically in production
+      family: 4, // Use IPv4, skip trying IPv6
     });
 
     // Set the buffer timeout one more time after connection
-    mongoose.set("bufferTimeoutMS", 60000);
+    mongoose.set("bufferTimeoutMS", 120000); // 120 seconds (2 minutes)
 
     // Verify the buffer timeout setting
     console.log("Mongoose buffer timeout:", mongoose.get("bufferTimeoutMS"));
@@ -217,10 +220,12 @@ const connectDB = async () => {
       const options = {
         useNewUrlParser: true,
         useUnifiedTopology: true,
-        connectTimeoutMS: 30000,
-        socketTimeoutMS: 45000,
-        serverSelectionTimeoutMS: 30000,
+        connectTimeoutMS: 60000, // 60 seconds
+        socketTimeoutMS: 90000, // 90 seconds
+        serverSelectionTimeoutMS: 60000, // 60 seconds
         maxPoolSize: 5,
+        retryWrites: true,
+        w: "majority",
       };
 
       directClient = new MongoClient(uri, options);

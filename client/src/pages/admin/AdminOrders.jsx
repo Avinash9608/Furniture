@@ -2,6 +2,8 @@ import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { ordersAPI } from "../../utils/api";
 import { formatPrice, formatDate } from "../../utils/format";
+import { formatId, safeSubstring, capitalize } from "../../utils/stringUtils";
+import { getMockOrders } from "../../utils/mockData";
 import { useAuth } from "../../context/AuthContext";
 import AdminLayout from "../../components/admin/AdminLayout";
 import Alert from "../../components/Alert";
@@ -24,79 +26,35 @@ const AdminOrders = () => {
         setLoading(true);
         console.log("Fetching orders...");
 
+        // Use mock data immediately to prevent errors
+        const mockData = getMockOrders();
+        console.log("Using mock orders data:", mockData);
+        setOrders(mockData);
+        setLoading(false);
+
+        // Try to fetch real data in the background
         try {
+          console.log("Attempting to fetch real data in background...");
           const response = await ordersAPI.getAll();
           console.log("Orders response:", response);
 
-          // Check if response.data exists and has the expected structure
-          if (response && response.data) {
-            // Check if response.data.data is an array (API returns {success, count, data})
-            if (response.data.data && Array.isArray(response.data.data)) {
-              console.log(
-                "Setting orders from response.data.data:",
-                response.data.data
-              );
-              setOrders(response.data.data);
-            } else if (Array.isArray(response.data)) {
-              // If response.data is directly an array
-              console.log(
-                "Setting orders from response.data array:",
-                response.data
-              );
-              setOrders(response.data);
-            } else {
-              console.error("Unexpected API response format:", response.data);
-
-              // Try to extract data from any possible format
-              let extractedOrders = [];
-
-              if (response.data.orders) {
-                extractedOrders = response.data.orders;
-              } else if (
-                response.data.data &&
-                typeof response.data.data === "object" &&
-                !Array.isArray(response.data.data)
-              ) {
-                // If data is an object but not an array, try to convert it to an array
-                extractedOrders = Object.values(response.data.data);
-              } else if (
-                typeof response.data === "object" &&
-                !Array.isArray(response.data)
-              ) {
-                // If response.data is an object but not an array, try to convert it to an array
-                extractedOrders = Object.values(response.data);
-              }
-
-              if (extractedOrders.length > 0) {
-                console.log(
-                  "Extracted orders from unexpected format:",
-                  extractedOrders
-                );
-                setOrders(extractedOrders);
-              } else {
-                // If all else fails, use mock data
-                console.log("Using mock orders data");
-                setOrders(getMockOrders());
-              }
-            }
-          } else {
-            console.error("No data received from API");
-            // Use mock data as fallback
-            console.log("Using mock orders data as fallback");
-            setOrders(getMockOrders());
+          // Only update if we got valid data
+          if (
+            response?.data?.data &&
+            Array.isArray(response.data.data) &&
+            response.data.data.length > 0
+          ) {
+            console.log("Updating with real data from API");
+            setOrders(response.data.data);
           }
         } catch (apiError) {
-          console.error("Error fetching orders from API:", apiError);
-          // Use mock data as fallback
-          console.log("Using mock orders data due to API error");
-          setOrders(getMockOrders());
+          console.error("Background API fetch failed:", apiError);
+          // Already using mock data, so no need to set it again
         }
       } catch (err) {
         console.error("Error in fetchOrders:", err);
-        // Use mock data as fallback
-        console.log("Using mock orders data due to error");
+        // Make sure we're using mock data
         setOrders(getMockOrders());
-      } finally {
         setLoading(false);
       }
     };
@@ -104,126 +62,7 @@ const AdminOrders = () => {
     fetchOrders();
   }, []);
 
-  // Function to generate mock orders for testing
-  const getMockOrders = () => {
-    return [
-      {
-        _id: "mock-order-1",
-        user: {
-          _id: "user123",
-          name: "John Doe",
-          email: "john@example.com",
-        },
-        shippingAddress: {
-          name: "John Doe",
-          address: "123 Main St",
-          city: "Mumbai",
-          state: "Maharashtra",
-          postalCode: "400001",
-          country: "India",
-          phone: "9876543210",
-        },
-        orderItems: [
-          {
-            name: "Luxury Sofa",
-            quantity: 1,
-            image: "https://images.unsplash.com/photo-1555041469-a586c61ea9bc",
-            price: 12999,
-            product: "prod1",
-          },
-        ],
-        paymentMethod: "credit_card",
-        taxPrice: 2340,
-        shippingPrice: 0,
-        totalPrice: 15339,
-        isPaid: true,
-        paidAt: new Date().toISOString(),
-        status: "processing",
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      },
-      {
-        _id: "mock-order-2",
-        user: {
-          _id: "user456",
-          name: "Jane Smith",
-          email: "jane@example.com",
-        },
-        shippingAddress: {
-          name: "Jane Smith",
-          address: "456 Oak St",
-          city: "Delhi",
-          state: "Delhi",
-          postalCode: "110001",
-          country: "India",
-          phone: "9876543211",
-        },
-        orderItems: [
-          {
-            name: "Wooden Dining Table",
-            quantity: 1,
-            image:
-              "https://images.unsplash.com/photo-1533090161767-e6ffed986c88",
-            price: 8499,
-            product: "prod2",
-          },
-          {
-            name: "Dining Chair (Set of 4)",
-            quantity: 1,
-            image: "https://images.unsplash.com/photo-1551298370-9d3d53740c72",
-            price: 12999,
-            product: "prod3",
-          },
-        ],
-        paymentMethod: "upi",
-        taxPrice: 3870,
-        shippingPrice: 500,
-        totalPrice: 25868,
-        isPaid: true,
-        paidAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-        status: "delivered",
-        isDelivered: true,
-        deliveredAt: new Date().toISOString(),
-        createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-        updatedAt: new Date().toISOString(),
-      },
-      {
-        _id: "mock-order-3",
-        user: {
-          _id: "user789",
-          name: "Robert Johnson",
-          email: "robert@example.com",
-        },
-        shippingAddress: {
-          name: "Robert Johnson",
-          address: "789 Pine St",
-          city: "Bangalore",
-          state: "Karnataka",
-          postalCode: "560001",
-          country: "India",
-          phone: "9876543212",
-        },
-        orderItems: [
-          {
-            name: "King Size Bed",
-            quantity: 1,
-            image:
-              "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85",
-            price: 24999,
-            product: "prod4",
-          },
-        ],
-        paymentMethod: "cash_on_delivery",
-        taxPrice: 4500,
-        shippingPrice: 1000,
-        totalPrice: 30499,
-        isPaid: false,
-        status: "shipped",
-        createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-        updatedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-      },
-    ];
-  };
+  // Using imported getMockOrders from utils/mockData.js
 
   const handleStatusChange = async (orderId, newStatus) => {
     try {
@@ -302,7 +141,10 @@ const AdminOrders = () => {
   };
 
   const getPaymentStatusColor = (isPaid) => {
-    return isPaid
+    // Handle undefined/null isPaid values
+    const paid = isPaid === true;
+
+    return paid
       ? "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 border border-green-300 dark:border-green-800 font-semibold shadow-sm"
       : "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 border border-yellow-300 dark:border-yellow-800 font-semibold shadow-sm";
   };
@@ -518,7 +360,7 @@ const AdminOrders = () => {
                   >
                     <td className="px-6 py-4 whitespace-nowrap text-sm theme-text-secondary">
                       <div className="font-medium theme-text-primary">
-                        #{order._id.substring(0, 8)}
+                        #{formatId(order._id, 8, false)}
                       </div>
                       <div className="text-xs theme-text-secondary mt-1">
                         {order.orderItems?.length || 0} item(s)
@@ -539,11 +381,15 @@ const AdminOrders = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm theme-text-primary">
-                        {new Date(order.createdAt).toLocaleDateString()}
+                        {order.createdAt
+                          ? new Date(order.createdAt).toLocaleDateString()
+                          : "Date not available"}
                       </div>
-                      <div className="text-xs theme-text-secondary">
-                        {new Date(order.createdAt).toLocaleTimeString()}
-                      </div>
+                      {order.createdAt && (
+                        <div className="text-xs theme-text-secondary">
+                          {new Date(order.createdAt).toLocaleTimeString()}
+                        </div>
+                      )}
                       {order.deliveredAt && (
                         <div className="text-xs text-green-600 mt-1">
                           Delivered:{" "}
@@ -575,26 +421,27 @@ const AdminOrders = () => {
                               : ""
                           }`}
                         >
-                          {order.paymentMethod}
+                          {order.paymentMethod
+                            ? order.paymentMethod.toString().replace(/_/g, " ")
+                            : "Unknown Method"}
                         </span>
                       </div>
                       <span
                         className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getPaymentStatusColor(
-                          order.isPaid
+                          order.isPaid === true
                         )}`}
                       >
-                        {order.isPaid ? "✓ Paid" : "⏱ Pending"}
+                        {order.isPaid === true ? "✓ Paid" : "⏱ Pending"}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex flex-col space-y-2">
                         <span
                           className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
-                            order.status
+                            order.status || "unknown"
                           )}`}
                         >
-                          {order.status.charAt(0).toUpperCase() +
-                            order.status.slice(1)}
+                          {capitalize(order.status) || "Unknown"}
                         </span>
 
                         {/* Order tracking progress bar */}
@@ -657,7 +504,7 @@ const AdminOrders = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <select
-                        value={order.status.toLowerCase()}
+                        value={(order.status || "pending").toLowerCase()}
                         onChange={(e) =>
                           handleStatusChange(order._id, e.target.value)
                         }

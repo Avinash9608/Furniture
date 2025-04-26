@@ -1,9 +1,9 @@
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
 
 const OrderSchema = new mongoose.Schema({
   user: {
     type: mongoose.Schema.ObjectId,
-    ref: 'User'
+    ref: "User",
   },
   orderItems: [
     {
@@ -14,9 +14,9 @@ const OrderSchema = new mongoose.Schema({
       product: {
         type: mongoose.Schema.ObjectId,
         required: true,
-        ref: 'Product'
-      }
-    }
+        ref: "Product",
+      },
+    },
   ],
   shippingAddress: {
     name: { type: String, required: true },
@@ -24,61 +24,62 @@ const OrderSchema = new mongoose.Schema({
     city: { type: String, required: true },
     state: { type: String, required: true },
     postalCode: { type: String, required: true },
-    country: { type: String, required: true, default: 'India' },
-    phone: { type: String, required: true }
+    country: { type: String, required: true, default: "India" },
+    phone: { type: String, required: true },
   },
   paymentMethod: {
     type: String,
     required: true,
-    default: 'Cash on Delivery'
+    default: "Cash on Delivery",
   },
   paymentResult: {
     id: { type: String },
     status: { type: String },
     update_time: { type: String },
-    email_address: { type: String }
+    email_address: { type: String },
   },
   itemsPrice: {
     type: Number,
     required: true,
-    default: 0.0
+    default: 0.0,
   },
   taxPrice: {
     type: Number,
     required: true,
-    default: 0.0
+    default: 0.0,
   },
   shippingPrice: {
     type: Number,
     required: true,
-    default: 0.0
+    default: 0.0,
   },
   totalPrice: {
     type: Number,
     required: true,
-    default: 0.0
+    default: 0.0,
   },
   isPaid: {
     type: Boolean,
     required: true,
-    default: false
+    default: false,
   },
   paidAt: {
-    type: Date
+    type: Date,
   },
   status: {
     type: String,
     required: true,
-    enum: ['Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled'],
-    default: 'Pending'
+    enum: ["pending", "processing", "shipped", "delivered", "cancelled"],
+    default: "pending",
+    lowercase: true, // Ensure status is always stored as lowercase
   },
   deliveredAt: {
-    type: Date
+    type: Date,
   },
   createdAt: {
     type: Date,
-    default: Date.now
-  }
+    default: Date.now,
+  },
 });
 
-module.exports = mongoose.model('Order', OrderSchema);
+module.exports = mongoose.model("Order", OrderSchema);
