@@ -63,6 +63,7 @@ const ProductDetailSimple = () => {
         }
 
         const productData = data.data;
+        console.log("[ProductDetailSimple] Raw product data:", productData);
 
         // Create a safe product object with fallbacks for all properties
         const safeProduct = {
@@ -76,17 +77,63 @@ const ProductDetailSimple = () => {
           numReviews: productData.numReviews || 0,
           material: productData.material || "",
           color: productData.color || "",
-          dimensions: productData.dimensions || {
-            length: 0,
-            width: 0,
-            height: 0,
-          },
-          category: productData.category || null,
+          featured: productData.featured || false,
+          createdAt: productData.createdAt || new Date().toISOString(),
+
+          // Handle dimensions with proper fallbacks
+          dimensions: productData.dimensions
+            ? {
+                length: productData.dimensions.length || 0,
+                width: productData.dimensions.width || 0,
+                height: productData.dimensions.height || 0,
+              }
+            : {
+                length: 0,
+                width: 0,
+                height: 0,
+              },
+
+          // Handle category with proper population check
+          category: productData.category
+            ? typeof productData.category === "object"
+              ? productData.category
+              : { _id: productData.category, name: "Loading...", slug: "" }
+            : null,
+
           images: Array.isArray(productData.images) ? productData.images : [],
           reviews: Array.isArray(productData.reviews)
             ? productData.reviews
             : [],
         };
+
+        // If category is just an ID, try to fetch the category details
+        if (productData.category && typeof productData.category !== "object") {
+          console.log(
+            "[ProductDetailSimple] Category is not populated, fetching category details"
+          );
+          try {
+            const categoryResponse = await fetch(
+              `https://furniture-q3nb.onrender.com/api/categories/${productData.category}`
+            );
+
+            if (categoryResponse.ok) {
+              const categoryData = await categoryResponse.json();
+              if (categoryData && categoryData.data) {
+                safeProduct.category = categoryData.data;
+                console.log(
+                  "[ProductDetailSimple] Fetched category details:",
+                  categoryData.data
+                );
+              }
+            }
+          } catch (categoryError) {
+            console.error(
+              "[ProductDetailSimple] Error fetching category:",
+              categoryError
+            );
+            // Keep the default category object
+          }
+        }
 
         setProduct(safeProduct);
 
@@ -302,7 +349,33 @@ const ProductDetailSimple = () => {
         }
       );
 
-      const responseData = await response.json();
+      // Check if response is JSON before parsing
+      const contentType = response.headers.get("content-type");
+      let responseData;
+
+      if (contentType && contentType.includes("application/json")) {
+        try {
+          responseData = await response.json();
+        } catch (jsonError) {
+          console.error(
+            "[ProductDetailSimple] Error parsing JSON response:",
+            jsonError
+          );
+          throw new Error(
+            "Invalid response from server. Please try again later."
+          );
+        }
+      } else {
+        // Not JSON, likely HTML error page
+        const textResponse = await response.text();
+        console.error(
+          "[ProductDetailSimple] Non-JSON response:",
+          textResponse.substring(0, 200) + "..."
+        );
+        throw new Error(
+          `Server returned invalid response format (${response.status})`
+        );
+      }
 
       if (!response.ok) {
         console.error(
@@ -310,7 +383,7 @@ const ProductDetailSimple = () => {
           responseData
         );
         throw new Error(
-          responseData.message || `Server responded with ${response.status}`
+          responseData?.message || `Server responded with ${response.status}`
         );
       }
 
@@ -712,19 +785,25 @@ const ProductDetailSimple = () => {
                     </span>
                   </li>
 
-                  {/* Category */}
+                  {/* Category with improved handling */}
                   <li className="flex">
                     <span className="font-medium w-24">Category:</span>
                     {product.category &&
-                    typeof product.category === "object" ? (
+                    typeof product.category === "object" &&
+                    product.category.name ? (
                       <Link
                         to={`/products?category=${product.category.slug || ""}`}
                         className="text-primary hover:underline"
                       >
-                        {product.category.name || "Uncategorized"}
+                        {product.category.name}
                       </Link>
                     ) : (
-                      <span className="theme-text-primary">Uncategorized</span>
+                      <span className="theme-text-primary">
+                        {product.category &&
+                        typeof product.category === "string"
+                          ? "Loading category..."
+                          : "Uncategorized"}
+                      </span>
                     )}
                   </li>
 
@@ -748,18 +827,27 @@ const ProductDetailSimple = () => {
                     </li>
                   )}
 
-                  {/* Dimensions */}
-                  {product.dimensions &&
-                    typeof product.dimensions === "object" && (
-                      <li className="flex">
-                        <span className="font-medium w-24">Dimensions:</span>
-                        <span className="theme-text-primary">
-                          {product.dimensions.length || 0} x{" "}
-                          {product.dimensions.width || 0} x{" "}
-                          {product.dimensions.height || 0} cm
-                        </span>
-                      </li>
-                    )}
+                  {/* Dimensions with improved display */}
+                  <li className="flex">
+                    <span className="font-medium w-24">Dimensions:</span>
+                    <span className="theme-text-primary">
+                      {product.dimensions &&
+                      typeof product.dimensions === "object" ? (
+                        <>
+                          {/* Check if any dimension has a non-zero value */}
+                          {product.dimensions.length > 0 ||
+                          product.dimensions.width > 0 ||
+                          product.dimensions.height > 0
+                            ? `${product.dimensions.length || 0} × ${
+                                product.dimensions.width || 0
+                              } × ${product.dimensions.height || 0} cm`
+                            : "Dimensions not specified"}
+                        </>
+                      ) : (
+                        "Dimensions not specified"
+                      )}
+                    </span>
+                  </li>
 
                   {/* Stock */}
                   <li className="flex">
