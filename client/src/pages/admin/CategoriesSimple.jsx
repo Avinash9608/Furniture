@@ -3,6 +3,7 @@ import { categoriesAPI, productsAPI } from "../../utils/api";
 import {
   validateCategories,
   safeRenderCategories,
+  getImageUrl,
 } from "../../utils/safeDataHandler";
 import AdminLayout from "../../components/admin/AdminLayout";
 import Button from "../../components/Button";
@@ -239,11 +240,21 @@ const CategoriesSimple = () => {
 
   // Edit category
   const handleEditClick = (category) => {
+    console.log("Edit category:", category);
     setEditCategory({
       ...category,
       newImage: null,
     });
-    setEditImagePreview(category.image);
+
+    // Set the image preview with proper URL handling
+    if (category.image) {
+      const imageUrl = getImageUrl(category.image);
+      console.log("Setting edit image preview to:", imageUrl);
+      setEditImagePreview(category.image);
+    } else {
+      setEditImagePreview(null);
+    }
+
     setShowEditModal(true);
     setFormError(null);
   };
@@ -513,13 +524,11 @@ const CategoriesSimple = () => {
                     <div className="h-48 overflow-hidden">
                       {categoryImage ? (
                         <img
-                          src={`${
-                            import.meta.env.VITE_API_BASE_URL ||
-                            "http://localhost:5000"
-                          }${categoryImage}`}
+                          src={getImageUrl(categoryImage)}
                           alt={categoryName}
                           className="w-full h-full object-cover"
                           onError={(e) => {
+                            console.log("Image load error for:", categoryImage);
                             e.target.onerror = null;
                             e.target.src = "/no-image.jpg";
                           }}
@@ -793,9 +802,17 @@ const CategoriesSimple = () => {
               {editImagePreview && (
                 <div className="mt-2">
                   <img
-                    src={editImagePreview}
+                    src={getImageUrl(editImagePreview)}
                     alt="Preview"
                     className="h-32 w-32 object-cover rounded-md"
+                    onError={(e) => {
+                      console.log(
+                        "Edit image preview load error for:",
+                        editImagePreview
+                      );
+                      e.target.onerror = null;
+                      e.target.src = "/no-image.jpg";
+                    }}
                   />
                 </div>
               )}
