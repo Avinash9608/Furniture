@@ -6,6 +6,7 @@ import Home from "./pages/Home";
 import About from "./pages/About";
 import Products from "./pages/Products";
 import ProductDetail from "./pages/ProductDetail";
+import ProductDetailSimple from "./pages/ProductDetailSimple";
 import Cart from "./pages/Cart";
 import Checkout from "./pages/Checkout";
 import Contact from "./pages/Contact";
@@ -29,6 +30,7 @@ import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/admin/ProtectedRoute";
 import UserProtectedRoute from "./components/UserProtectedRoute";
 import ApiTest from "./components/ApiTest";
+import ErrorBoundary from "./components/ErrorBoundary";
 
 function App() {
   const location = useLocation();
@@ -53,7 +55,18 @@ function App() {
           <Route path="/api-test" element={<ApiTest />} />
           <Route path="/about" element={<About />} />
           <Route path="/products" element={<Products />} />
-          <Route path="/products/:id" element={<ProductDetail />} />
+          <Route
+            path="/products/:id"
+            element={
+              <ErrorBoundary showDetails={false}>
+                {window.location.hostname === "localhost" ? (
+                  <ProductDetail />
+                ) : (
+                  <ProductDetailSimple />
+                )}
+              </ErrorBoundary>
+            }
+          />
           <Route path="/cart" element={<Cart />} />
           <Route
             path="/checkout"
