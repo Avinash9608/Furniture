@@ -27,7 +27,7 @@ const enhancedUploadMiddleware = require("./server/middleware/uploadMiddleware")
 app.use(
   cors({
     origin: "*",
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
@@ -68,8 +68,11 @@ app.use(
   (req, res, next) => {
     // Set CORS headers
     res.header("Access-Control-Allow-Origin", "*");
-    res.header("Access-Control-Allow-Methods", "GET");
-    res.header("Access-Control-Allow-Headers", "Content-Type");
+    res.header(
+      "Access-Control-Allow-Methods",
+      "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+    );
+    res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
 
     // Add caching headers for images
     if (req.path.match(/\.(jpg|jpeg|png|gif|webp)$/i)) {
@@ -2630,10 +2633,54 @@ app.put("/api/api/orders/:id/pay", orderController.updateOrderToPaid); // Add ad
 // Import shipping address controller
 const shippingAddressController = require("./server/controllers/shippingAddresses");
 
+// Import source address controller
+const sourceAddressController = require("./server/controllers/sourceAddress");
+
 // Add direct shipping address routes with multiple paths for better accessibility
 app.get(
   "/api/shipping-addresses",
   shippingAddressController.getShippingAddresses
+);
+app.post(
+  "/api/shipping-addresses",
+  shippingAddressController.createShippingAddress
+);
+app.put(
+  "/api/shipping-addresses/:id",
+  shippingAddressController.updateShippingAddress
+);
+app.delete(
+  "/api/shipping-addresses/:id",
+  shippingAddressController.deleteShippingAddress
+);
+
+// Add fallback routes without /api prefix for shipping addresses
+app.get("/shipping-addresses", shippingAddressController.getShippingAddresses);
+app.post(
+  "/shipping-addresses",
+  shippingAddressController.createShippingAddress
+);
+app.put(
+  "/shipping-addresses/:id",
+  shippingAddressController.updateShippingAddress
+);
+app.delete(
+  "/shipping-addresses/:id",
+  shippingAddressController.deleteShippingAddress
+);
+
+// Add direct source address routes with multiple paths for better accessibility
+app.get("/api/source-address", sourceAddressController.getSourceAddresses);
+app.get(
+  "/api/source-address/active",
+  sourceAddressController.getActiveSourceAddress
+);
+app.post("/api/source-address", sourceAddressController.createSourceAddress);
+app.get("/api/source-address/:id", sourceAddressController.getSourceAddress);
+app.put("/api/source-address/:id", sourceAddressController.updateSourceAddress);
+app.delete(
+  "/api/source-address/:id",
+  sourceAddressController.deleteSourceAddress
 );
 app.get("/shipping-addresses", shippingAddressController.getShippingAddresses); // Add additional route for fallback
 app.get(

@@ -27,6 +27,10 @@ const OrderSchema = new mongoose.Schema({
     country: { type: String, required: true, default: "India" },
     phone: { type: String, required: true },
   },
+  sourceAddress: {
+    type: mongoose.Schema.ObjectId,
+    ref: "SourceAddress",
+  },
   paymentMethod: {
     type: String,
     required: true,

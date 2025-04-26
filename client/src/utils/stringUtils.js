@@ -12,7 +12,7 @@
  */
 export const safeSubstring = (value, start, end, fallback = "N/A") => {
   if (value == null) return fallback;
-  
+
   try {
     const str = String(value);
     return end ? str.substring(start, end) : str.substring(start);
@@ -31,9 +31,18 @@ export const safeSubstring = (value, start, end, fallback = "N/A") => {
  */
 export const formatId = (id, length = 8, addEllipsis = true) => {
   if (id == null) return "ID Not Available";
-  
+
   try {
     const str = String(id);
+
+    // Handle MongoDB ObjectIds (24 characters) specially
+    if (str.length === 24 && /^[0-9a-f]{24}$/i.test(str)) {
+      // For MongoDB IDs, show the last part which is more unique
+      const shortened = str.substring(str.length - length);
+      return shortened;
+    }
+
+    // For mock IDs or other IDs, truncate from the beginning
     const shortened = str.substring(0, length);
     return addEllipsis ? `${shortened}...` : shortened;
   } catch (error) {
@@ -49,7 +58,7 @@ export const formatId = (id, length = 8, addEllipsis = true) => {
  */
 export const capitalize = (value) => {
   if (value == null) return "";
-  
+
   try {
     const str = String(value);
     return str.charAt(0).toUpperCase() + str.slice(1);

@@ -1712,6 +1712,59 @@ const ordersAPI = {
   getAll: async (params) => {
     try {
       console.log("Fetching all orders with params:", params);
+      console.log("IMPORTANT: Attempting to fetch REAL orders from database");
+
+      // First, try using fetch directly for better debugging
+      try {
+        console.log("Trying direct fetch to /api/orders first...");
+        const directFetchResponse = await fetch("/api/orders", {
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+            Authorization: localStorage.getItem("token")
+              ? `Bearer ${localStorage.getItem("token")}`
+              : "",
+          },
+        });
+
+        if (directFetchResponse.ok) {
+          const directData = await directFetchResponse.json();
+          console.log("Direct fetch successful:", directData);
+
+          if (directData && directData.data && Array.isArray(directData.data)) {
+            console.log(
+              "SUCCESS: Got real orders from database via direct fetch:",
+              directData.data.length
+            );
+
+            // Check if the data has the isMockData flag
+            if (directData.isMockData) {
+              console.warn(
+                "WARNING: Server returned mock data instead of real data"
+              );
+            } else {
+              console.log("CONFIRMED: Data is from real database");
+            }
+
+            return {
+              data: {
+                success: true,
+                count: directData.data.length,
+                data: directData.data,
+                source: directData.source || "direct_fetch",
+                isMockData: directData.isMockData || false,
+              },
+            };
+          }
+        } else {
+          console.warn(
+            "Direct fetch failed with status:",
+            directFetchResponse.status
+          );
+        }
+      } catch (directFetchError) {
+        console.error("Direct fetch error:", directFetchError);
+      }
 
       // Create a direct axios instance with auth token
       const token = localStorage.getItem("token");
@@ -1752,6 +1805,17 @@ const ordersAPI = {
           const response = await directApi.get(endpoint, { params });
           console.log("Orders fetched successfully:", response.data);
 
+          // Check if the response indicates it's mock data
+          if (response.data && response.data.isMockData) {
+            console.warn(
+              `WARNING: Endpoint ${endpoint} returned mock data instead of real data`
+            );
+          } else {
+            console.log(
+              `SUCCESS: Endpoint ${endpoint} returned real data from database`
+            );
+          }
+
           // Ensure the response has the expected structure
           let ordersData = [];
 
@@ -1779,6 +1843,8 @@ const ordersAPI = {
                 success: true,
                 count: ordersData.length,
                 data: ordersData,
+                source: response.data.source || endpoint,
+                isMockData: response.data.isMockData || false,
               },
             };
           }
@@ -1788,360 +1854,70 @@ const ordersAPI = {
         }
       }
 
-      // If all endpoints fail, return mock data
-      console.warn("All order endpoints failed, returning mock data");
+      // If all endpoints fail, try one more approach - using XMLHttpRequest
+      try {
+        console.log("Trying XMLHttpRequest as a last resort...");
+        const xhrData = await new Promise((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open("GET", "/api/orders");
+          xhr.setRequestHeader("Content-Type", "application/json");
+          xhr.setRequestHeader("Accept", "application/json");
+          if (token) {
+            xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+          }
+          xhr.onload = function () {
+            if (xhr.status >= 200 && xhr.status < 300) {
+              try {
+                resolve(JSON.parse(xhr.responseText));
+              } catch (e) {
+                reject(new Error("Invalid JSON response"));
+              }
+            } else {
+              reject(new Error(`HTTP error ${xhr.status}`));
+            }
+          };
+          xhr.onerror = function () {
+            reject(new Error("Network error"));
+          };
+          xhr.send();
+        });
 
-      // Create mock orders data
-      const mockOrders = [
-        {
-          _id: "mock-order-1",
-          user: {
-            _id: "user123",
-            name: "John Doe",
-            email: "john@example.com",
-          },
-          shippingAddress: {
-            name: "John Doe",
-            address: "123 Main St",
-            city: "Mumbai",
-            state: "Maharashtra",
-            postalCode: "400001",
-            country: "India",
-            phone: "9876543210",
-          },
-          orderItems: [
-            {
-              name: "Luxury Sofa",
-              quantity: 1,
-              image:
-                "https://images.unsplash.com/photo-1555041469-a586c61ea9bc",
-              price: 12999,
-              product: "prod1",
-            },
-          ],
-          paymentMethod: "credit_card",
-          taxPrice: 2340,
-          shippingPrice: 0,
-          totalPrice: 15339,
-          isPaid: true,
-          paidAt: new Date().toISOString(),
-          status: "processing",
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-        {
-          _id: "mock-order-2",
-          user: {
-            _id: "user456",
-            name: "Jane Smith",
-            email: "jane@example.com",
-          },
-          shippingAddress: {
-            name: "Jane Smith",
-            address: "456 Oak St",
-            city: "Delhi",
-            state: "Delhi",
-            postalCode: "110001",
-            country: "India",
-            phone: "9876543211",
-          },
-          orderItems: [
-            {
-              name: "Wooden Dining Table",
-              quantity: 1,
-              image:
-                "https://images.unsplash.com/photo-1533090161767-e6ffed986c88",
-              price: 8499,
-              product: "prod2",
-            },
-            {
-              name: "Dining Chair (Set of 4)",
-              quantity: 1,
-              image:
-                "https://images.unsplash.com/photo-1551298370-9d3d53740c72",
-              price: 12999,
-              product: "prod3",
-            },
-          ],
-          paymentMethod: "upi",
-          taxPrice: 3870,
-          shippingPrice: 500,
-          totalPrice: 25868,
-          isPaid: true,
-          paidAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-          status: "delivered",
-          isDelivered: true,
-          deliveredAt: new Date().toISOString(),
-          createdAt: new Date(
-            Date.now() - 7 * 24 * 60 * 60 * 1000
-          ).toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-        {
-          _id: "mock-order-3",
-          user: {
-            _id: "user789",
-            name: "Robert Johnson",
-            email: "robert@example.com",
-          },
-          shippingAddress: {
-            name: "Robert Johnson",
-            address: "789 Pine St",
-            city: "Bangalore",
-            state: "Karnataka",
-            postalCode: "560001",
-            country: "India",
-            phone: "9876543212",
-          },
-          orderItems: [
-            {
-              name: "King Size Bed",
-              quantity: 1,
-              image:
-                "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85",
-              price: 24999,
-              product: "prod4",
-            },
-          ],
-          paymentMethod: "cash_on_delivery",
-          taxPrice: 4500,
-          shippingPrice: 1000,
-          totalPrice: 30499,
-          isPaid: false,
-          status: "shipped",
-          createdAt: new Date(
-            Date.now() - 2 * 24 * 60 * 60 * 1000
-          ).toISOString(),
-          updatedAt: new Date(
-            Date.now() - 1 * 24 * 60 * 60 * 1000
-          ).toISOString(),
-        },
-        {
-          _id: "mock-order-4",
-          user: {
-            _id: "user101",
-            name: "Emily Davis",
-            email: "emily@example.com",
-          },
-          shippingAddress: {
-            name: "Emily Davis",
-            address: "101 Maple St",
-            city: "Chennai",
-            state: "Tamil Nadu",
-            postalCode: "600001",
-            country: "India",
-            phone: "9876543213",
-          },
-          orderItems: [
-            {
-              name: "Wardrobe",
-              quantity: 1,
-              image:
-                "https://images.unsplash.com/photo-1556020685-ae41abfc9365",
-              price: 18999,
-              product: "prod5",
-            },
-          ],
-          paymentMethod: "bank_transfer",
-          taxPrice: 3420,
-          shippingPrice: 800,
-          totalPrice: 23219,
-          isPaid: true,
-          paidAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-          status: "pending",
-          createdAt: new Date(
-            Date.now() - 1 * 24 * 60 * 60 * 1000
-          ).toISOString(),
-          updatedAt: new Date(
-            Date.now() - 1 * 24 * 60 * 60 * 1000
-          ).toISOString(),
-        },
-        {
-          _id: "mock-order-5",
-          user: {
-            _id: "user202",
-            name: "Michael Wilson",
-            email: "michael@example.com",
-          },
-          shippingAddress: {
-            name: "Michael Wilson",
-            address: "202 Cedar St",
-            city: "Hyderabad",
-            state: "Telangana",
-            postalCode: "500001",
-            country: "India",
-            phone: "9876543214",
-          },
-          orderItems: [
-            {
-              name: "Office Chair",
-              quantity: 2,
-              image:
-                "https://images.unsplash.com/photo-1580480055273-228ff5388ef8",
-              price: 7999,
-              product: "prod6",
-            },
-          ],
-          paymentMethod: "credit_card",
-          taxPrice: 2880,
-          shippingPrice: 0,
-          totalPrice: 18878,
-          isPaid: true,
-          paidAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
-          status: "cancelled",
-          createdAt: new Date(
-            Date.now() - 14 * 24 * 60 * 60 * 1000
-          ).toISOString(),
-          updatedAt: new Date(
-            Date.now() - 10 * 24 * 60 * 60 * 1000
-          ).toISOString(),
-        },
-      ];
+        console.log("XMLHttpRequest response:", xhrData);
 
-      return {
-        data: {
-          success: true,
-          count: mockOrders.length,
-          data: mockOrders,
-        },
-      };
+        if (xhrData && xhrData.data && Array.isArray(xhrData.data)) {
+          console.log(
+            "SUCCESS: Got real orders from database via XMLHttpRequest:",
+            xhrData.data.length
+          );
+
+          return {
+            data: {
+              success: true,
+              count: xhrData.data.length,
+              data: xhrData.data,
+              source: xhrData.source || "xhr",
+              isMockData: xhrData.isMockData || false,
+            },
+          };
+        }
+      } catch (xhrError) {
+        console.error("XMLHttpRequest error:", xhrError);
+      }
+
+      // If all endpoints fail, throw an error instead of returning mock data
+      console.error("⚠️ IMPORTANT: All order endpoints failed! ⚠️");
+      console.error("Unable to fetch real orders from the database.");
+      console.error("Please check server logs and database connection.");
+
+      // Throw an error to be caught by the catch block
+      throw new Error(
+        "Failed to fetch orders from any endpoint. Please check server logs for details."
+      );
     } catch (error) {
       console.error("Error in ordersAPI.getAll:", error);
 
-      // Return mock data on error
-      const mockOrders = [
-        {
-          _id: "mock-order-1",
-          user: {
-            _id: "user123",
-            name: "John Doe",
-            email: "john@example.com",
-          },
-          shippingAddress: {
-            name: "John Doe",
-            address: "123 Main St",
-            city: "Mumbai",
-            state: "Maharashtra",
-            postalCode: "400001",
-            country: "India",
-            phone: "9876543210",
-          },
-          orderItems: [
-            {
-              name: "Luxury Sofa",
-              quantity: 1,
-              image:
-                "https://images.unsplash.com/photo-1555041469-a586c61ea9bc",
-              price: 12999,
-              product: "prod1",
-            },
-          ],
-          paymentMethod: "credit_card",
-          taxPrice: 2340,
-          shippingPrice: 0,
-          totalPrice: 15339,
-          isPaid: true,
-          paidAt: new Date().toISOString(),
-          status: "processing",
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-        {
-          _id: "mock-order-2",
-          user: {
-            _id: "user456",
-            name: "Jane Smith",
-            email: "jane@example.com",
-          },
-          shippingAddress: {
-            name: "Jane Smith",
-            address: "456 Oak St",
-            city: "Delhi",
-            state: "Delhi",
-            postalCode: "110001",
-            country: "India",
-            phone: "9876543211",
-          },
-          orderItems: [
-            {
-              name: "Wooden Dining Table",
-              quantity: 1,
-              image:
-                "https://images.unsplash.com/photo-1533090161767-e6ffed986c88",
-              price: 8499,
-              product: "prod2",
-            },
-            {
-              name: "Dining Chair (Set of 4)",
-              quantity: 1,
-              image:
-                "https://images.unsplash.com/photo-1551298370-9d3d53740c72",
-              price: 12999,
-              product: "prod3",
-            },
-          ],
-          paymentMethod: "upi",
-          taxPrice: 3870,
-          shippingPrice: 500,
-          totalPrice: 25868,
-          isPaid: true,
-          paidAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-          status: "delivered",
-          isDelivered: true,
-          deliveredAt: new Date().toISOString(),
-          createdAt: new Date(
-            Date.now() - 7 * 24 * 60 * 60 * 1000
-          ).toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-        {
-          _id: "mock-order-3",
-          user: {
-            _id: "user789",
-            name: "Robert Johnson",
-            email: "robert@example.com",
-          },
-          shippingAddress: {
-            name: "Robert Johnson",
-            address: "789 Pine St",
-            city: "Bangalore",
-            state: "Karnataka",
-            postalCode: "560001",
-            country: "India",
-            phone: "9876543212",
-          },
-          orderItems: [
-            {
-              name: "King Size Bed",
-              quantity: 1,
-              image:
-                "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85",
-              price: 24999,
-              product: "prod4",
-            },
-          ],
-          paymentMethod: "cash_on_delivery",
-          taxPrice: 4500,
-          shippingPrice: 1000,
-          totalPrice: 30499,
-          isPaid: false,
-          status: "shipped",
-          createdAt: new Date(
-            Date.now() - 2 * 24 * 60 * 60 * 1000
-          ).toISOString(),
-          updatedAt: new Date(
-            Date.now() - 1 * 24 * 60 * 60 * 1000
-          ).toISOString(),
-        },
-      ];
-
-      return {
-        data: {
-          success: true,
-          count: mockOrders.length,
-          data: mockOrders,
-        },
-      };
+      // Throw the error to be handled by the component
+      throw error;
     }
   },
 
@@ -2220,131 +1996,13 @@ const ordersAPI = {
         }
       }
 
-      // If all endpoints fail, return mock data
-      console.warn("All my orders endpoints failed, returning mock data");
-      return {
-        data: [
-          {
-            _id: "mock-order-1",
-            createdAt: new Date(),
-            totalPrice: 12999,
-            status: "Processing",
-            isPaid: true,
-            orderItems: [
-              {
-                name: "Luxury Sofa",
-                quantity: 1,
-                image:
-                  "https://images.unsplash.com/photo-1555041469-a586c61ea9bc",
-                price: 12999,
-                product: "prod1",
-              },
-            ],
-            shippingAddress: {
-              name: "John Doe",
-              address: "123 Main St",
-              city: "Mumbai",
-              state: "Maharashtra",
-              postalCode: "400001",
-              country: "India",
-              phone: "9876543210",
-            },
-            paymentMethod: "credit_card",
-          },
-          {
-            _id: "mock-order-2",
-            createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // 7 days ago
-            totalPrice: 8499,
-            status: "Delivered",
-            isPaid: true,
-            paidAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
-            deliveredAt: new Date(),
-            orderItems: [
-              {
-                name: "Wooden Dining Table",
-                quantity: 1,
-                image:
-                  "https://images.unsplash.com/photo-1533090161767-e6ffed986c88",
-                price: 8499,
-                product: "prod2",
-              },
-            ],
-            shippingAddress: {
-              name: "John Doe",
-              address: "123 Main St",
-              city: "Mumbai",
-              state: "Maharashtra",
-              postalCode: "400001",
-              country: "India",
-              phone: "9876543210",
-            },
-            paymentMethod: "upi",
-          },
-        ],
-      };
+      // If all endpoints fail, throw an error
+      console.error("All my orders endpoints failed");
+      throw new Error("Failed to fetch your orders. Please try again later.");
     } catch (error) {
       console.error("Error in ordersAPI.getMyOrders:", error);
-      // Return mock data on error
-      return {
-        data: [
-          {
-            _id: "mock-order-1",
-            createdAt: new Date(),
-            totalPrice: 12999,
-            status: "Processing",
-            isPaid: true,
-            orderItems: [
-              {
-                name: "Luxury Sofa",
-                quantity: 1,
-                image:
-                  "https://images.unsplash.com/photo-1555041469-a586c61ea9bc",
-                price: 12999,
-                product: "prod1",
-              },
-            ],
-            shippingAddress: {
-              name: "John Doe",
-              address: "123 Main St",
-              city: "Mumbai",
-              state: "Maharashtra",
-              postalCode: "400001",
-              country: "India",
-              phone: "9876543210",
-            },
-            paymentMethod: "credit_card",
-          },
-          {
-            _id: "mock-order-2",
-            createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // 7 days ago
-            totalPrice: 8499,
-            status: "Delivered",
-            isPaid: true,
-            paidAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
-            deliveredAt: new Date(),
-            orderItems: [
-              {
-                name: "Wooden Dining Table",
-                quantity: 1,
-                image:
-                  "https://images.unsplash.com/photo-1533090161767-e6ffed986c88",
-                price: 8499,
-                product: "prod2",
-              },
-            ],
-            shippingAddress: {
-              name: "John Doe",
-              address: "123 Main St",
-              city: "Mumbai",
-              state: "Maharashtra",
-              postalCode: "400001",
-              country: "India",
-              phone: "9876543210",
-            },
-            paymentMethod: "upi",
-          },
-        ],
-      };
+      // Throw the error to be handled by the component
+      throw error;
     }
   },
 
@@ -2401,84 +2059,14 @@ const ordersAPI = {
         }
       }
 
-      // If all endpoints fail, return mock data
-      console.warn(
-        `All order fetch endpoints failed for ${id}, returning mock data`
-      );
-
-      // Create a mock order based on the ID
-      return {
-        data: {
-          _id: id,
-          createdAt: new Date(),
-          totalPrice: 12999,
-          status: "Processing",
-          isPaid: true,
-          orderItems: [
-            {
-              name: "Luxury Sofa",
-              quantity: 1,
-              image:
-                "https://images.unsplash.com/photo-1555041469-a586c61ea9bc",
-              price: 12999,
-              product: "prod1",
-            },
-          ],
-          shippingAddress: {
-            name: "John Doe",
-            address: "123 Main St",
-            city: "Mumbai",
-            state: "Maharashtra",
-            postalCode: "400001",
-            country: "India",
-            phone: "9876543210",
-          },
-          paymentMethod: "credit_card",
-          user: {
-            _id: "user123",
-            name: "John Doe",
-            email: "john@example.com",
-          },
-        },
-      };
+      // If all endpoints fail, throw an error
+      console.error(`All order fetch endpoints failed for ${id}`);
+      throw new Error(`Failed to fetch order ${id}. Please try again later.`);
     } catch (error) {
       console.error(`Error in ordersAPI.getById for ${id}:`, error);
 
-      // Return mock data on error
-      return {
-        data: {
-          _id: id,
-          createdAt: new Date(),
-          totalPrice: 12999,
-          status: "Processing",
-          isPaid: true,
-          orderItems: [
-            {
-              name: "Luxury Sofa",
-              quantity: 1,
-              image:
-                "https://images.unsplash.com/photo-1555041469-a586c61ea9bc",
-              price: 12999,
-              product: "prod1",
-            },
-          ],
-          shippingAddress: {
-            name: "John Doe",
-            address: "123 Main St",
-            city: "Mumbai",
-            state: "Maharashtra",
-            postalCode: "400001",
-            country: "India",
-            phone: "9876543210",
-          },
-          paymentMethod: "credit_card",
-          user: {
-            _id: "user123",
-            name: "John Doe",
-            email: "john@example.com",
-          },
-        },
-      };
+      // Throw the error to be handled by the component
+      throw error;
     }
   },
 
@@ -2615,26 +2203,14 @@ const ordersAPI = {
         }
       }
 
-      // If all endpoints fail, return a default response
-      console.warn("All order stats endpoints failed, returning default stats");
-      return {
-        data: {
-          totalOrders: 0,
-          totalRevenue: 0,
-          pendingOrders: 0,
-          completedOrders: 0,
-        },
-      };
+      // If all endpoints fail, throw an error
+      console.error("All order stats endpoints failed");
+      throw new Error(
+        "Failed to fetch order statistics. Please try again later."
+      );
     } catch (error) {
       console.error("Error in ordersAPI.getStats:", error);
-      return {
-        data: {
-          totalOrders: 0,
-          totalRevenue: 0,
-          pendingOrders: 0,
-          completedOrders: 0,
-        },
-      };
+      throw error;
     }
   },
 
@@ -2682,12 +2258,12 @@ const ordersAPI = {
         }
       }
 
-      // If all endpoints fail, return empty array
-      console.warn("All recent orders endpoints failed, returning empty array");
-      return { data: [] };
+      // If all endpoints fail, throw an error
+      console.error("All recent orders endpoints failed");
+      throw new Error("Failed to fetch recent orders. Please try again later.");
     } catch (error) {
       console.error("Error in ordersAPI.getRecent:", error);
-      return { data: [] };
+      throw error;
     }
   },
 
@@ -2735,12 +2311,12 @@ const ordersAPI = {
         }
       }
 
-      // If all endpoints fail, return empty array
-      console.warn("All orders endpoints failed, returning empty array");
-      return { data: [] };
+      // If all endpoints fail, throw an error
+      console.error("All orders endpoints failed");
+      throw new Error("Failed to fetch orders. Please try again later.");
     } catch (error) {
       console.error("Error in ordersAPI.getAllOrders:", error);
-      return { data: [] };
+      throw error;
     }
   },
 
@@ -2770,7 +2346,7 @@ const ordersAPI = {
       for (const endpoint of endpoints) {
         try {
           console.log(`Trying to update order status at: ${endpoint}`);
-          const response = await directApi.patch(endpoint, { status });
+          const response = await directApi.put(endpoint, { status });
           console.log(
             `Order ${id} status updated successfully:`,
             response.data
@@ -2786,7 +2362,7 @@ const ordersAPI = {
       console.warn(
         `All order status update endpoints failed for ${id}, falling back to original implementation`
       );
-      return api.patch(`/orders/${id}/status`, { status });
+      return api.put(`/orders/${id}/status`, { status });
     } catch (error) {
       console.error(`Error in ordersAPI.updateOrderStatus for ${id}:`, error);
       throw error;

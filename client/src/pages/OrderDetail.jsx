@@ -17,20 +17,44 @@ const OrderDetail = () => {
       try {
         setLoading(true);
         setError(null);
-        
+
         console.log(`Fetching order details for ID: ${id}`);
         const response = await ordersAPI.getById(id);
-        
+
         // Check if we have valid order data
         if (!response || !response.data || !response.data.data) {
           console.error("Invalid order data received:", response);
           throw new Error("Order data is invalid or missing");
         }
-        
-        setOrder(response.data.data);
+
+        // Fetch source address if not included in the order
+        const orderData = response.data.data;
+        if (!orderData.sourceAddress) {
+          try {
+            console.log("Fetching active source address");
+            const sourceAddressResponse = await fetch(
+              "/api/source-address/active"
+            );
+            const sourceAddressData = await sourceAddressResponse.json();
+
+            if (sourceAddressData.success && sourceAddressData.data) {
+              console.log(
+                "Active source address found:",
+                sourceAddressData.data
+              );
+              orderData.sourceAddress = sourceAddressData.data;
+            }
+          } catch (sourceAddressError) {
+            console.error("Error fetching source address:", sourceAddressError);
+          }
+        }
+
+        setOrder(orderData);
       } catch (err) {
         console.error("Error fetching order details:", err);
-        setError(err.message || "Failed to load order details. Please try again later.");
+        setError(
+          err.message || "Failed to load order details. Please try again later."
+        );
       } finally {
         setLoading(false);
       }
@@ -73,11 +97,17 @@ const OrderDetail = () => {
 
   // Render order tracking progress bar
   const renderTrackingProgress = () => {
-    const statuses = ["Pending", "Processing", "Shipped", "Out for Delivery", "Delivered"];
+    const statuses = [
+      "Pending",
+      "Processing",
+      "Shipped",
+      "Out for Delivery",
+      "Delivered",
+    ];
     const currentStatusIndex = statuses.findIndex(
       (s) => s.toLowerCase() === (order?.status || "").toLowerCase()
     );
-    
+
     return (
       <div className="mb-8">
         <h3 className="text-lg font-medium text-gray-900 mb-4">Order Status</h3>
@@ -85,34 +115,54 @@ const OrderDetail = () => {
           {/* Progress bar background */}
           <div className="h-2 bg-gray-200 rounded-full">
             {/* Active progress */}
-            <div 
+            <div
               className="h-full bg-primary rounded-full transition-all duration-500 ease-in-out"
-              style={{ width: `${Math.max(5, ((currentStatusIndex + 1) / statuses.length) * 100)}%` }}
+              style={{
+                width: `${Math.max(
+                  5,
+                  ((currentStatusIndex + 1) / statuses.length) * 100
+                )}%`,
+              }}
             ></div>
           </div>
-          
+
           {/* Status points */}
           <div className="flex justify-between mt-2">
             {statuses.map((status, index) => (
               <div key={status} className="flex flex-col items-center">
-                <div 
+                <div
                   className={`w-6 h-6 rounded-full flex items-center justify-center mb-1 ${
-                    index <= currentStatusIndex 
-                      ? "bg-primary text-white" 
+                    index <= currentStatusIndex
+                      ? "bg-primary text-white"
                       : "bg-gray-200 text-gray-500"
                   }`}
                 >
                   {index <= currentStatusIndex ? (
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-4 w-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M5 13l4 4L19 7"
+                      />
                     </svg>
                   ) : (
                     <span className="text-xs">{index + 1}</span>
                   )}
                 </div>
-                <span className={`text-xs text-center ${
-                  index <= currentStatusIndex ? "text-primary font-medium" : "text-gray-500"
-                }`}>
+                <span
+                  className={`text-xs text-center ${
+                    index <= currentStatusIndex
+                      ? "text-primary font-medium"
+                      : "text-gray-500"
+                  }`}
+                >
                   {status}
                 </span>
               </div>
@@ -165,16 +215,26 @@ const OrderDetail = () => {
           <h1 className="text-2xl font-bold text-gray-900">
             Order #{order._id.substring(0, 8)}
           </h1>
-          <p className="text-gray-600">Placed on {formatDate(order.createdAt)}</p>
+          <p className="text-gray-600">
+            Placed on {formatDate(order.createdAt)}
+          </p>
         </div>
         <div className="mt-2 md:mt-0 flex flex-col sm:flex-row items-start sm:items-center">
-          <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(order.status)}`}>
+          <span
+            className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(
+              order.status
+            )}`}
+          >
             {order.status}
           </span>
-          <span className={`mt-1 sm:mt-0 sm:ml-2 px-3 py-1 rounded-full text-xs font-medium ${getPaymentStatusColor(order.isPaid)}`}>
+          <span
+            className={`mt-1 sm:mt-0 sm:ml-2 px-3 py-1 rounded-full text-xs font-medium ${getPaymentStatusColor(
+              order.isPaid
+            )}`}
+          >
             {order.isPaid ? "Paid" : "Payment Pending"}
           </span>
-          <button 
+          <button
             onClick={() => navigate("/orders")}
             className="mt-2 sm:mt-0 sm:ml-4 text-primary hover:text-primary-dark"
           >
@@ -196,39 +256,41 @@ const OrderDetail = () => {
             </div>
             <div className="p-6">
               <div className="divide-y divide-gray-200">
-                {order.orderItems && order.orderItems.map((item) => (
-                  <div key={item._id || item.product} className="py-4 flex">
-                    <div className="h-24 w-24 flex-shrink-0 overflow-hidden rounded-md border border-gray-200">
-                      <img
-                        src={item.image}
-                        alt={item.name}
-                        className="h-full w-full object-cover object-center"
-                        onError={(e) => {
-                          e.target.onerror = null;
-                          e.target.src = "https://via.placeholder.com/300x300?text=Image+Not+Found";
-                        }}
-                      />
-                    </div>
-                    <div className="ml-4 flex flex-1 flex-col">
-                      <div>
-                        <div className="flex justify-between text-base font-medium text-gray-900">
-                          <h3>
-                            <Link to={`/products/${item.product}`}>
-                              {item.name}
-                            </Link>
-                          </h3>
-                          <p className="ml-4">{formatPrice(item.price)}</p>
+                {order.orderItems &&
+                  order.orderItems.map((item) => (
+                    <div key={item._id || item.product} className="py-4 flex">
+                      <div className="h-24 w-24 flex-shrink-0 overflow-hidden rounded-md border border-gray-200">
+                        <img
+                          src={item.image}
+                          alt={item.name}
+                          className="h-full w-full object-cover object-center"
+                          onError={(e) => {
+                            e.target.onerror = null;
+                            e.target.src =
+                              "https://via.placeholder.com/300x300?text=Image+Not+Found";
+                          }}
+                        />
+                      </div>
+                      <div className="ml-4 flex flex-1 flex-col">
+                        <div>
+                          <div className="flex justify-between text-base font-medium text-gray-900">
+                            <h3>
+                              <Link to={`/products/${item.product}`}>
+                                {item.name}
+                              </Link>
+                            </h3>
+                            <p className="ml-4">{formatPrice(item.price)}</p>
+                          </div>
+                        </div>
+                        <div className="flex-1 flex items-end justify-between text-sm">
+                          <p className="text-gray-500">Qty {item.quantity}</p>
+                          <p className="text-gray-500">
+                            Subtotal: {formatPrice(item.price * item.quantity)}
+                          </p>
                         </div>
                       </div>
-                      <div className="flex-1 flex items-end justify-between text-sm">
-                        <p className="text-gray-500">Qty {item.quantity}</p>
-                        <p className="text-gray-500">
-                          Subtotal: {formatPrice(item.price * item.quantity)}
-                        </p>
-                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
               </div>
             </div>
           </div>
@@ -236,7 +298,9 @@ const OrderDetail = () => {
           {/* Shipping Information */}
           <div className="bg-white rounded-lg shadow-md overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-200">
-              <h2 className="text-lg font-medium text-gray-900">Shipping Information</h2>
+              <h2 className="text-lg font-medium text-gray-900">
+                Shipping Information
+              </h2>
             </div>
             <div className="p-6">
               {order.shippingAddress && (
@@ -249,7 +313,8 @@ const OrderDetail = () => {
                   </p>
                   <p>{order.shippingAddress.country}</p>
                   <p className="mt-2">
-                    <span className="font-medium">Phone:</span> {order.shippingAddress.phone}
+                    <span className="font-medium">Phone:</span>{" "}
+                    {order.shippingAddress.phone}
                   </p>
                 </div>
               )}
@@ -262,7 +327,9 @@ const OrderDetail = () => {
           {/* Payment Information */}
           <div className="bg-white rounded-lg shadow-md overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-200">
-              <h2 className="text-lg font-medium text-gray-900">Payment Information</h2>
+              <h2 className="text-lg font-medium text-gray-900">
+                Payment Information
+              </h2>
             </div>
             <div className="p-6">
               <p>
@@ -271,7 +338,11 @@ const OrderDetail = () => {
               </p>
               <p className="mt-2">
                 <span className="font-medium">Status:</span>{" "}
-                <span className={order.isPaid ? "text-green-600" : "text-yellow-600"}>
+                <span
+                  className={
+                    order.isPaid ? "text-green-600" : "text-yellow-600"
+                  }
+                >
                   {order.isPaid ? "Paid" : "Payment Pending"}
                 </span>
               </p>
@@ -299,24 +370,34 @@ const OrderDetail = () => {
           {/* Order Summary */}
           <div className="bg-white rounded-lg shadow-md overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-200">
-              <h2 className="text-lg font-medium text-gray-900">Order Summary</h2>
+              <h2 className="text-lg font-medium text-gray-900">
+                Order Summary
+              </h2>
             </div>
             <div className="p-6">
               <div className="flex justify-between py-2">
                 <span className="text-gray-600">Items:</span>
-                <span className="font-medium">{formatPrice(order.itemsPrice)}</span>
+                <span className="font-medium">
+                  {formatPrice(order.itemsPrice)}
+                </span>
               </div>
               <div className="flex justify-between py-2">
                 <span className="text-gray-600">Shipping:</span>
-                <span className="font-medium">{formatPrice(order.shippingPrice)}</span>
+                <span className="font-medium">
+                  {formatPrice(order.shippingPrice)}
+                </span>
               </div>
               <div className="flex justify-between py-2">
                 <span className="text-gray-600">Tax:</span>
-                <span className="font-medium">{formatPrice(order.taxPrice)}</span>
+                <span className="font-medium">
+                  {formatPrice(order.taxPrice)}
+                </span>
               </div>
               <div className="flex justify-between py-2 border-t border-gray-200 mt-2 pt-2">
                 <span className="font-medium">Total:</span>
-                <span className="font-bold text-primary">{formatPrice(order.totalPrice)}</span>
+                <span className="font-bold text-primary">
+                  {formatPrice(order.totalPrice)}
+                </span>
               </div>
             </div>
           </div>
@@ -324,14 +405,20 @@ const OrderDetail = () => {
           {/* Delivery Information */}
           <div className="bg-white rounded-lg shadow-md overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-200">
-              <h2 className="text-lg font-medium text-gray-900">Delivery Information</h2>
+              <h2 className="text-lg font-medium text-gray-900">
+                Delivery Information
+              </h2>
             </div>
             <div className="p-6">
               <p>
                 <span className="font-medium">Status:</span>{" "}
-                <span className={`font-medium ${
-                  order.status === "Delivered" ? "text-green-600" : "text-blue-600"
-                }`}>
+                <span
+                  className={`font-medium ${
+                    order.status === "Delivered"
+                      ? "text-green-600"
+                      : "text-blue-600"
+                  }`}
+                >
                   {order.status}
                 </span>
               </p>
@@ -355,6 +442,25 @@ const OrderDetail = () => {
                 <p className="mt-2 text-gray-600">
                   Your order is pending confirmation.
                 </p>
+              )}
+
+              {/* Source Address */}
+              {order.sourceAddress && (
+                <div className="mt-4 pt-4 border-t border-gray-200">
+                  <h3 className="text-md font-medium text-gray-900 mb-2">
+                    Shipped From:
+                  </h3>
+                  <p className="text-gray-600">{order.sourceAddress.name}</p>
+                  <p className="text-gray-600">{order.sourceAddress.address}</p>
+                  <p className="text-gray-600">
+                    {order.sourceAddress.city}, {order.sourceAddress.state}{" "}
+                    {order.sourceAddress.postalCode}
+                  </p>
+                  <p className="text-gray-600">{order.sourceAddress.country}</p>
+                  <p className="text-gray-600 mt-1">
+                    Phone: {order.sourceAddress.phone}
+                  </p>
+                </div>
               )}
             </div>
           </div>

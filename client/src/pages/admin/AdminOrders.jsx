@@ -3,8 +3,6 @@ import { Link } from "react-router-dom";
 import { ordersAPI } from "../../utils/api";
 import { formatPrice, formatDate } from "../../utils/format";
 import { formatId, safeSubstring, capitalize } from "../../utils/stringUtils";
-import { getMockOrders } from "../../utils/mockData";
-import { useAuth } from "../../context/AuthContext";
 import AdminLayout from "../../components/admin/AdminLayout";
 import Alert from "../../components/Alert";
 import SweetAlert from "sweetalert2";
@@ -15,7 +13,6 @@ const AdminOrders = () => {
   const [error, setError] = useState(null);
   const [filter, setFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
-  const { user } = useAuth();
 
   // Ensure orders is always an array
   const ordersArray = Array.isArray(orders) ? orders : [];
@@ -24,37 +21,96 @@ const AdminOrders = () => {
     const fetchOrders = async () => {
       try {
         setLoading(true);
-        console.log("Fetching orders...");
+        console.log("Fetching orders from database...");
 
-        // Use mock data immediately to prevent errors
-        const mockData = getMockOrders();
-        console.log("Using mock orders data:", mockData);
-        setOrders(mockData);
-        setLoading(false);
+        // Add cache busting parameter to prevent caching
+        const cacheBuster = new Date().getTime();
 
-        // Try to fetch real data in the background
-        try {
-          console.log("Attempting to fetch real data in background...");
-          const response = await ordersAPI.getAll();
-          console.log("Orders response:", response);
+        // Use the improved ordersAPI utility which has better error handling and debugging
+        console.log(
+          "Using ordersAPI to fetch orders with improved error handling..."
+        );
+        const response = await ordersAPI.getAll({ _cb: cacheBuster });
 
-          // Only update if we got valid data
-          if (
-            response?.data?.data &&
-            Array.isArray(response.data.data) &&
-            response.data.data.length > 0
-          ) {
-            console.log("Updating with real data from API");
-            setOrders(response.data.data);
+        console.log("Orders API response:", response);
+
+        // Check if we have valid data
+        if (response?.data?.data && Array.isArray(response.data.data)) {
+          console.log(
+            `Successfully fetched ${response.data.data.length} orders from API`
+          );
+          console.log(`Data source: ${response.data.source || "unknown"}`);
+
+          // Process the orders to ensure all required fields are present
+          const processedOrders = response.data.data.map((order) => {
+            // Ensure status is lowercase
+            const status = order.status
+              ? order.status.toLowerCase()
+              : "pending";
+
+            // Ensure dates are in proper format
+            const createdAt = order.createdAt
+              ? new Date(order.createdAt).toISOString()
+              : new Date().toISOString();
+
+            // Return processed order
+            return {
+              ...order,
+              status,
+              createdAt,
+              // Add any missing fields with defaults
+              isPaid: order.isPaid === true,
+              totalPrice: order.totalPrice || 0,
+              // Ensure user object exists
+              user: order.user || {
+                name: "Unknown User",
+                email: "unknown@example.com",
+              },
+              // Ensure orderItems exists
+              orderItems: order.orderItems || [],
+              // Ensure shippingAddress exists
+              shippingAddress: order.shippingAddress || {},
+            };
+          });
+
+          console.log("Processed orders:", processedOrders);
+          setOrders(processedOrders);
+
+          // Show a message if using mock data
+          if (response.data.isMockData) {
+            setError({
+              type: "mockData",
+              message:
+                "⚠️ USING MOCK DATA - Database connection issue. The data shown is for demonstration purposes only and does not represent real orders from customers. Please check server logs for details.",
+            });
+          } else {
+            setError(null);
           }
-        } catch (apiError) {
-          console.error("Background API fetch failed:", apiError);
-          // Already using mock data, so no need to set it again
+
+          // Add data source information
+          if (response.data.source) {
+            console.log(`Data source confirmed: ${response.data.source}`);
+            // You could display this information in the UI if needed
+          }
+        } else {
+          console.error("Invalid data format received from API");
+          setError({
+            type: "error",
+            message:
+              "Failed to fetch orders from the database. The API returned an invalid data format. Please check server logs for details.",
+          });
+          setOrders([]);
         }
       } catch (err) {
         console.error("Error in fetchOrders:", err);
-        // Make sure we're using mock data
-        setOrders(getMockOrders());
+        setError({
+          type: "error",
+          message:
+            err.message ||
+            "An unexpected error occurred while fetching orders. Please check server logs for details.",
+        });
+        setOrders([]);
+      } finally {
         setLoading(false);
       }
     };
@@ -199,7 +255,11 @@ const AdminOrders = () => {
   if (error) {
     return (
       <AdminLayout title="Orders">
-        <Alert type="error" message={error} />
+        <Alert
+          type={error.type || "error"}
+          message={error.message || error}
+          autoClose={false}
+        />
       </AdminLayout>
     );
   }
@@ -360,7 +420,10 @@ const AdminOrders = () => {
                   >
                     <td className="px-6 py-4 whitespace-nowrap text-sm theme-text-secondary">
                       <div className="font-medium theme-text-primary">
-                        #{formatId(order._id, 8, false)}
+                        #
+                        {order._id && order._id.startsWith("mock")
+                          ? formatId(order._id, 8, false)
+                          : formatId(order._id, 12, true)}
                       </div>
                       <div className="text-xs theme-text-secondary mt-1">
                         {order.orderItems?.length || 0} item(s)
@@ -378,6 +441,11 @@ const AdminOrders = () => {
                       <div className="text-xs theme-text-secondary mt-1">
                         {order.shippingAddress?.phone || "No phone"}
                       </div>
+                      {order.sourceAddress && (
+                        <div className="text-xs text-green-600 mt-1">
+                          Source: {order.sourceAddress.name}
+                        </div>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm theme-text-primary">

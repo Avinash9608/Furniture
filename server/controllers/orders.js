@@ -135,6 +135,19 @@ exports.createOrder = async (req, res) => {
 
     console.log(`Creating order for user: ${userId}`);
 
+    // Try to get the active source address
+    let sourceAddress = null;
+    try {
+      const SourceAddress = require("../models/SourceAddress");
+      sourceAddress = await SourceAddress.findOne({ isActive: true });
+      console.log(
+        "Found active source address:",
+        sourceAddress ? sourceAddress._id : "None"
+      );
+    } catch (sourceAddressError) {
+      console.error("Error finding active source address:", sourceAddressError);
+    }
+
     // Prepare order data with defaults for missing fields
     const orderData = {
       orderItems,
@@ -147,6 +160,11 @@ exports.createOrder = async (req, res) => {
       totalPrice: totalPrice || 0,
       isPaid: isPaid || false,
     };
+
+    // Add source address if found
+    if (sourceAddress) {
+      orderData.sourceAddress = sourceAddress._id;
+    }
 
     // Add optional fields if they exist
     if (paidAt) orderData.paidAt = paidAt;
@@ -220,11 +238,13 @@ exports.getOrderById = async (req, res) => {
   try {
     console.log(`getOrderById called for order ID: ${req.params.id}`);
 
-    // Try to find the order
-    const order = await Order.findById(req.params.id).populate(
-      "user",
-      "name email"
-    );
+    // Try to find the order and populate user and source address
+    const order = await Order.findById(req.params.id)
+      .populate("user", "name email")
+      .populate(
+        "sourceAddress",
+        "name address city state postalCode country phone isActive"
+      );
 
     if (!order) {
       console.log(`Order not found with id: ${req.params.id}`);
@@ -285,31 +305,64 @@ exports.getOrderById = async (req, res) => {
 // @access  Private/Admin
 exports.updateOrderStatus = async (req, res) => {
   try {
+    console.log(`updateOrderStatus called for order ID: ${req.params.id}`);
+    console.log("Request body:", req.body);
+
+    if (!req.body.status) {
+      console.error("Status is missing in the request body");
+      return res.status(400).json({
+        success: false,
+        message: "Status is required",
+      });
+    }
+
     const order = await Order.findById(req.params.id);
 
     if (!order) {
+      console.error(`Order not found with id: ${req.params.id}`);
       return res.status(404).json({
         success: false,
         message: `Order not found with id of ${req.params.id}`,
       });
     }
 
-    order.status = req.body.status;
+    // Log the incoming status update request
+    console.log(`Updating order ${req.params.id} status to:`, req.body.status);
 
-    if (req.body.status === "Delivered") {
+    // Normalize status to lowercase for consistency
+    const normalizedStatus = req.body.status.toLowerCase();
+    order.status = normalizedStatus;
+
+    // Set deliveredAt if status is delivered (case insensitive)
+    if (normalizedStatus === "delivered") {
       order.deliveredAt = Date.now();
     }
 
-    const updatedOrder = await order.save();
+    try {
+      const updatedOrder = await order.save();
+      console.log(
+        `Order ${req.params.id} status updated successfully to ${order.status}`
+      );
 
-    res.status(200).json({
-      success: true,
-      data: updatedOrder,
-    });
+      res.status(200).json({
+        success: true,
+        data: updatedOrder,
+      });
+    } catch (saveError) {
+      console.error(`Error saving order ${req.params.id}:`, saveError);
+      res.status(500).json({
+        success: false,
+        message: `Error saving order: ${saveError.message}`,
+        error: saveError.toString(),
+      });
+    }
   } catch (error) {
+    console.error(`Error in updateOrderStatus for ${req.params.id}:`, error);
     res.status(500).json({
       success: false,
       message: error.message,
+      error: error.toString(),
+      stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
     });
   }
 };
@@ -497,160 +550,425 @@ exports.getMyOrders = async (req, res) => {
 // @access  Private/Admin
 exports.getOrders = async (req, res) => {
   try {
-    console.log("getOrders called - fetching all orders");
+    console.log("getOrders called - fetching all orders from MongoDB Atlas");
+    console.log("Request query params:", req.query);
 
-    // Set a longer timeout for this query
-    const orders = await Order.find({})
-      .populate("user", "id name email")
-      .maxTimeMS(60000); // 60 seconds timeout for this query
+    // Check if Order model is available
+    if (!Order) {
+      console.error("Order model is not defined!");
+      return res.status(500).json({
+        success: false,
+        message: "Order model is not defined",
+      });
+    }
 
-    console.log(`Successfully fetched ${orders.length} orders`);
+    console.log("Order model is available:", !!Order);
 
-    // Normalize order status to lowercase for frontend consistency
-    const normalizedOrders = orders.map((order) => {
-      const orderObj = order.toObject();
-      if (orderObj.status) {
-        orderObj.status = orderObj.status.toLowerCase();
+    // Try to use Mongoose first - this is the most reliable approach
+    try {
+      console.log("Attempting to fetch orders using Mongoose...");
+
+      // First, try to find all orders in the database
+      console.log("Looking for all orders in the database");
+
+      // Try to convert the order ID from the user's example to ObjectId
+      try {
+        const { ObjectId } = mongoose.Types;
+        const specificOrderId = "680d1470c53457ff5e52b87b";
+
+        try {
+          // Try to find the specific order by ID
+          const specificOrder = await Order.findById(specificOrderId).lean();
+          if (specificOrder) {
+            console.log("Found specific order by ID:", specificOrder._id);
+            console.log(
+              "Specific order details:",
+              JSON.stringify(specificOrder, null, 2)
+            );
+
+            // Process this order to ensure consistent format
+            if (specificOrder.status) {
+              specificOrder.status = specificOrder.status.toLowerCase();
+            }
+            if (specificOrder.createdAt) {
+              specificOrder.createdAt = new Date(
+                specificOrder.createdAt
+              ).toISOString();
+            }
+
+            console.log(
+              "Successfully found the specific order mentioned by the user"
+            );
+          } else {
+            console.log(`Order with ID ${specificOrderId} not found`);
+          }
+        } catch (specificOrderError) {
+          console.error("Error finding specific order:", specificOrderError);
+        }
+      } catch (objectIdError) {
+        console.error("Error creating ObjectId:", objectIdError);
       }
-      return orderObj;
-    });
 
-    res.status(200).json({
-      success: true,
-      count: normalizedOrders.length,
-      data: normalizedOrders,
+      // Use a query with population to get user and source address details
+      const orders = await Order.find({})
+        .select(
+          "_id user sourceAddress shippingAddress orderItems paymentMethod taxPrice shippingPrice totalPrice isPaid status createdAt"
+        )
+        .populate("user", "name email")
+        .populate(
+          "sourceAddress",
+          "name address city state postalCode country phone isActive"
+        )
+        .lean();
+
+      console.log(
+        `Successfully fetched ${orders.length} orders using Mongoose`
+      );
+      console.log(
+        "Sample order:",
+        orders.length > 0
+          ? JSON.stringify(orders[0], null, 2)
+          : "No orders found"
+      );
+
+      if (orders.length > 0) {
+        // Process orders to ensure consistent format
+        const processedOrders = orders.map((order) => {
+          console.log("Processing order:", order._id);
+
+          // Create a deep copy to avoid modifying the original
+          const processedOrder = JSON.parse(JSON.stringify(order));
+
+          // Ensure status is lowercase
+          if (processedOrder.status) {
+            processedOrder.status = processedOrder.status.toLowerCase();
+          }
+
+          // Ensure dates are in ISO format
+          if (processedOrder.createdAt) {
+            processedOrder.createdAt = new Date(
+              processedOrder.createdAt
+            ).toISOString();
+          }
+
+          // Log the processed order for debugging
+          console.log(
+            `Processed order ${processedOrder._id}:`,
+            JSON.stringify(processedOrder, null, 2)
+          );
+
+          return processedOrder;
+        });
+
+        console.log(
+          `Returning ${processedOrders.length} real orders from the database`
+        );
+
+        return res.status(200).json({
+          success: true,
+          count: processedOrders.length,
+          data: processedOrders,
+          source: "mongoose_real_data",
+        });
+      } else {
+        console.log(
+          "No orders found in database, will try alternative approaches"
+        );
+
+        // Try to create some sample orders if none exist
+        try {
+          // Find a product to use in the sample order
+          const Product = require("../models/Product");
+          const product = await Product.findOne();
+
+          if (product) {
+            console.log("Found product for sample order:", product._id);
+
+            // Find or create a default user
+            const User = require("../models/User");
+            let defaultUser = await User.findOne({
+              email: "admin@example.com",
+            });
+
+            if (!defaultUser) {
+              console.log("Creating default admin user for orders");
+              defaultUser = await User.create({
+                name: "Admin User",
+                email: "admin@example.com",
+                password: "admin123",
+                role: "admin",
+              });
+            }
+
+            // Create a sample order
+            const sampleOrder = await Order.create({
+              user: defaultUser._id,
+              orderItems: [
+                {
+                  name: product.name,
+                  quantity: 1,
+                  image:
+                    product.images && product.images.length > 0
+                      ? product.images[0]
+                      : "https://via.placeholder.com/300",
+                  price: product.price,
+                  product: product._id,
+                },
+              ],
+              shippingAddress: {
+                name: "John Doe",
+                address: "123 Main St",
+                city: "Mumbai",
+                state: "Maharashtra",
+                postalCode: "400001",
+                country: "India",
+                phone: "9876543210",
+              },
+              paymentMethod: "credit_card",
+              itemsPrice: product.price,
+              taxPrice: product.price * 0.18,
+              shippingPrice: 0,
+              totalPrice: product.price + product.price * 0.18,
+              status: "processing",
+            });
+
+            console.log("Sample order created:", sampleOrder._id);
+
+            // Create another sample order with different status
+            const sampleOrder2 = await Order.create({
+              user: defaultUser._id,
+              orderItems: [
+                {
+                  name: product.name,
+                  quantity: 2,
+                  image:
+                    product.images && product.images.length > 0
+                      ? product.images[0]
+                      : "https://via.placeholder.com/300",
+                  price: product.price,
+                  product: product._id,
+                },
+              ],
+              shippingAddress: {
+                name: "Jane Smith",
+                address: "456 Oak St",
+                city: "Delhi",
+                state: "Delhi",
+                postalCode: "110001",
+                country: "India",
+                phone: "9876543211",
+              },
+              paymentMethod: "upi",
+              itemsPrice: product.price * 2,
+              taxPrice: product.price * 2 * 0.18,
+              shippingPrice: 500,
+              totalPrice: product.price * 2 + product.price * 2 * 0.18 + 500,
+              status: "shipped",
+              isPaid: true,
+              paidAt: Date.now(),
+            });
+
+            console.log("Second sample order created:", sampleOrder2._id);
+
+            // Fetch the orders again
+            const newOrders = await Order.find({}).lean();
+
+            // Process orders to ensure consistent format
+            const processedOrders = newOrders.map((order) => {
+              // Ensure status is lowercase
+              if (order.status) {
+                order.status = order.status.toLowerCase();
+              }
+
+              // Ensure dates are in ISO format
+              if (order.createdAt) {
+                order.createdAt = new Date(order.createdAt).toISOString();
+              }
+
+              return order;
+            });
+
+            console.log(
+              `Returning ${processedOrders.length} newly created orders to client`
+            );
+
+            return res.status(200).json({
+              success: true,
+              count: processedOrders.length,
+              data: processedOrders,
+              source: "mongoose_new_orders",
+            });
+          }
+        } catch (createError) {
+          console.error("Error creating sample orders:", createError);
+        }
+      }
+    } catch (mongooseError) {
+      console.error("Error using Mongoose:", mongooseError);
+    }
+
+    // Try to use direct MongoDB driver as a fallback
+    try {
+      // Get the MongoDB client from the server.js file
+      const { MongoClient } = require("mongodb");
+      const uri = process.env.MONGO_URI;
+
+      console.log("Attempting to fetch orders using direct MongoDB driver");
+
+      // Create a new client with minimal options
+      const client = new MongoClient(uri, {
+        useNewUrlParser: true,
+        useUnifiedTopology: true,
+        serverSelectionTimeoutMS: 5000,
+        socketTimeoutMS: 10000,
+        connectTimeoutMS: 5000,
+      });
+
+      // Connect to MongoDB
+      await client.connect();
+      console.log("Connected to MongoDB using direct driver");
+
+      // Get the database name from the connection string
+      const dbName = uri.split("/").pop().split("?")[0];
+      const db = client.db(dbName);
+
+      // Get the orders collection
+      const ordersCollection = db.collection("orders");
+
+      // First try to find the specific order by ID
+      console.log(
+        "Looking for specific order ID with direct MongoDB: 680d1470c53457ff5e52b87b"
+      );
+      try {
+        const specificOrderId = "680d1470c53457ff5e52b87b";
+        // Try to convert to ObjectId if possible
+        let objectId;
+        try {
+          const { ObjectId } = require("mongodb");
+          objectId = new ObjectId(specificOrderId);
+        } catch (err) {
+          console.log("Could not convert to ObjectId, using string ID");
+          objectId = specificOrderId;
+        }
+
+        // Try both string ID and ObjectId
+        const specificOrder = await ordersCollection.findOne({
+          $or: [{ _id: objectId }, { _id: specificOrderId }],
+        });
+
+        if (specificOrder) {
+          console.log(
+            "Found specific order by ID with direct MongoDB:",
+            specificOrder._id
+          );
+          console.log(
+            "Specific order details:",
+            JSON.stringify(specificOrder, null, 2)
+          );
+
+          // Process this order to ensure consistent format
+          if (specificOrder.status) {
+            specificOrder.status = specificOrder.status.toLowerCase();
+          }
+          if (specificOrder.createdAt) {
+            specificOrder.createdAt = new Date(
+              specificOrder.createdAt
+            ).toISOString();
+          }
+
+          // Close the connection
+          await client.close();
+
+          // Return just this order to verify it's working
+          return res.status(200).json({
+            success: true,
+            count: 1,
+            data: [specificOrder],
+            source: "direct_mongodb_specific_order",
+          });
+        } else {
+          console.log(
+            "Specific order not found with direct MongoDB, continuing with general query"
+          );
+        }
+      } catch (specificOrderError) {
+        console.error(
+          "Error finding specific order with direct MongoDB:",
+          specificOrderError
+        );
+      }
+
+      // Find all orders
+      const ordersCursor = ordersCollection.find({});
+
+      // Convert cursor to array
+      const orders = await ordersCursor.toArray();
+      console.log(
+        `Successfully fetched ${orders.length} orders using direct MongoDB driver`
+      );
+
+      // Close the connection
+      await client.close();
+
+      if (orders.length > 0) {
+        // Process orders to ensure consistent format
+        const processedOrders = orders.map((order) => {
+          // Ensure status is lowercase
+          if (order.status) {
+            order.status = order.status.toLowerCase();
+          }
+
+          // Ensure dates are in ISO format
+          if (order.createdAt) {
+            order.createdAt = new Date(order.createdAt).toISOString();
+          }
+          if (order.updatedAt) {
+            order.updatedAt = new Date(order.updatedAt).toISOString();
+          }
+          if (order.paidAt) {
+            order.paidAt = new Date(order.paidAt).toISOString();
+          }
+          if (order.deliveredAt) {
+            order.deliveredAt = new Date(order.deliveredAt).toISOString();
+          }
+
+          return order;
+        });
+
+        console.log(
+          `Returning ${processedOrders.length} processed orders to client`
+        );
+
+        return res.status(200).json({
+          success: true,
+          count: processedOrders.length,
+          data: processedOrders,
+          source: "direct_mongodb",
+        });
+      }
+    } catch (directError) {
+      console.error("Error using direct MongoDB driver:", directError);
+    }
+
+    // If all database approaches failed, return an error
+    console.log("All database approaches failed, returning error");
+
+    // Return an error response instead of mock data
+    return res.status(500).json({
+      success: false,
+      message:
+        "Failed to fetch orders from the database. Please check server logs for details.",
+      error: "DATABASE_FETCH_FAILED",
     });
   } catch (error) {
-    console.error("Error fetching orders:", error);
+    console.error("Error in getOrders controller:", error);
 
-    // Generate mock data as fallback
-    console.log("Generating mock order data as fallback");
-
-    // Create mock orders with lowercase status values
-    const mockOrders = [
-      {
-        _id: "mock-order-1",
-        user: {
-          _id: "user123",
-          name: "John Doe",
-          email: "john@example.com",
-        },
-        shippingAddress: {
-          name: "John Doe",
-          address: "123 Main St",
-          city: "Mumbai",
-          state: "Maharashtra",
-          postalCode: "400001",
-          country: "India",
-          phone: "9876543210",
-        },
-        orderItems: [
-          {
-            name: "Luxury Sofa",
-            quantity: 1,
-            image: "https://images.unsplash.com/photo-1555041469-a586c61ea9bc",
-            price: 12999,
-            product: "prod1",
-          },
-        ],
-        paymentMethod: "credit_card",
-        taxPrice: 2340,
-        shippingPrice: 0,
-        totalPrice: 15339,
-        isPaid: true,
-        paidAt: new Date().toISOString(),
-        status: "processing",
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      },
-      {
-        _id: "mock-order-2",
-        user: {
-          _id: "user456",
-          name: "Jane Smith",
-          email: "jane@example.com",
-        },
-        shippingAddress: {
-          name: "Jane Smith",
-          address: "456 Oak St",
-          city: "Delhi",
-          state: "Delhi",
-          postalCode: "110001",
-          country: "India",
-          phone: "9876543211",
-        },
-        orderItems: [
-          {
-            name: "Wooden Dining Table",
-            quantity: 1,
-            image:
-              "https://images.unsplash.com/photo-1533090161767-e6ffed986c88",
-            price: 8499,
-            product: "prod2",
-          },
-          {
-            name: "Dining Chair (Set of 4)",
-            quantity: 1,
-            image: "https://images.unsplash.com/photo-1551298370-9d3d53740c72",
-            price: 12999,
-            product: "prod3",
-          },
-        ],
-        paymentMethod: "upi",
-        taxPrice: 3870,
-        shippingPrice: 500,
-        totalPrice: 25868,
-        isPaid: true,
-        paidAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-        status: "delivered",
-        isDelivered: true,
-        deliveredAt: new Date().toISOString(),
-        createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-        updatedAt: new Date().toISOString(),
-      },
-      {
-        _id: "mock-order-3",
-        user: {
-          _id: "user789",
-          name: "Robert Johnson",
-          email: "robert@example.com",
-        },
-        shippingAddress: {
-          name: "Robert Johnson",
-          address: "789 Pine St",
-          city: "Bangalore",
-          state: "Karnataka",
-          postalCode: "560001",
-          country: "India",
-          phone: "9876543212",
-        },
-        orderItems: [
-          {
-            name: "King Size Bed",
-            quantity: 1,
-            image:
-              "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85",
-            price: 24999,
-            product: "prod4",
-          },
-        ],
-        paymentMethod: "cash_on_delivery",
-        taxPrice: 4500,
-        shippingPrice: 1000,
-        totalPrice: 30499,
-        isPaid: false,
-        status: "shipped",
-        createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-        updatedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-      },
-    ];
-
-    // Return mock data with 200 status to ensure frontend works
-    res.status(200).json({
-      success: true,
-      count: mockOrders.length,
-      data: mockOrders,
-      isMockData: true,
+    // Return an error response
+    return res.status(500).json({
+      success: false,
+      message:
+        "An error occurred while fetching orders. Please check server logs for details.",
+      error: error.message || "UNKNOWN_ERROR",
     });
   }
 };

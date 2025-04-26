@@ -28,6 +28,7 @@ import AdminMessages from "./pages/admin/Messages";
 import AdminPaymentSettings from "./pages/admin/PaymentSettings";
 import AdminPaymentRequests from "./pages/admin/PaymentRequests";
 import AdminShippingAddresses from "./pages/admin/ShippingAddresses";
+import AdminSourceAddress from "./pages/admin/SourceAddress";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/admin/ProtectedRoute";
 import UserProtectedRoute from "./components/UserProtectedRoute";
@@ -195,6 +196,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <AdminShippingAddresses />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/source-address"
+            element={
+              <ProtectedRoute>
+                <AdminSourceAddress />
               </ProtectedRoute>
             }
           />
