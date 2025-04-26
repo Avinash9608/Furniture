@@ -106,6 +106,18 @@ const createCategory = async (req, res) => {
       updatedAt: new Date(),
     };
 
+    // Add image if it exists in the request
+    if (req.file) {
+      categoryData.image = `/uploads/${req.file.filename}`;
+      console.log("Image added to category data:", categoryData.image);
+    } else if (req.body.image) {
+      categoryData.image = req.body.image;
+      console.log(
+        "Image from request body added to category data:",
+        categoryData.image
+      );
+    }
+
     console.log("Category data to be saved:", categoryData);
 
     // Create a new direct MongoDB connection specifically for this operation
@@ -658,6 +670,18 @@ const updateCategory = async (req, res) => {
           updatedAt: new Date(),
         },
       };
+
+      // Add image if it exists in the request
+      if (req.file) {
+        updateData.$set.image = `/uploads/${req.file.filename}`;
+        console.log("Image added to update data:", updateData.$set.image);
+      } else if (req.body.image && req.body.image !== existingCategory.image) {
+        updateData.$set.image = req.body.image;
+        console.log(
+          "Image from request body added to update data:",
+          updateData.$set.image
+        );
+      }
 
       console.log("Update data:", updateData);
 
