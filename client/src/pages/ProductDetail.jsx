@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
-import { productsAPI } from "../utils/api";
+import { productsAPI, getImageUrl } from "../utils/api";
 import { formatPrice, calculateDiscountPercentage } from "../utils/format";
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
@@ -207,12 +207,7 @@ const ProductDetail = () => {
                 <img
                   src={
                     product.images && product.images.length > 0
-                      ? product.images[selectedImage].startsWith("http")
-                        ? product.images[selectedImage]
-                        : `${
-                            import.meta.env.VITE_API_BASE_URL ||
-                            "http://localhost:5000"
-                          }${product.images[selectedImage]}`
+                      ? getImageUrl(product.images[selectedImage])
                       : `https://via.placeholder.com/800x600?text=${encodeURIComponent(
                           product.name || "Product"
                         )}`
@@ -242,14 +237,7 @@ const ProductDetail = () => {
                       onClick={() => setSelectedImage(index)}
                     >
                       <img
-                        src={
-                          image.startsWith("http")
-                            ? image
-                            : `${
-                                import.meta.env.VITE_API_BASE_URL ||
-                                "http://localhost:5000"
-                              }${image}`
-                        }
+                        src={getImageUrl(image)}
                         alt={`${product.name} - Image ${index + 1}`}
                         className="w-full h-full object-cover"
                         onError={(e) => {

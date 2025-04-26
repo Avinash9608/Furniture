@@ -167,6 +167,7 @@ const productsAPI = {
         `${baseUrl}/products/${id}`,
         `${baseUrl}/api/api/products/${id}`,
         `${deployedUrl}/api/products/${id}`,
+        `${deployedUrl}/api/direct/products/${id}`,
       ];
 
       // Try each endpoint until one works
@@ -177,10 +178,38 @@ const productsAPI = {
           console.log(`Product ${id} fetched successfully:`, response.data);
 
           // Handle different response structures
+          let productData = null;
+
           if (response.data && response.data.data) {
-            return { data: response.data.data };
+            productData = response.data.data;
           } else if (response.data) {
-            return { data: response.data };
+            productData = response.data;
+          }
+
+          // Process the product data to ensure images are properly formatted
+          if (productData) {
+            // Ensure images is an array
+            if (!productData.images) {
+              productData.images = [];
+            } else if (!Array.isArray(productData.images)) {
+              productData.images = [productData.images];
+            }
+
+            // Ensure ratings is a number
+            if (typeof productData.ratings !== "number") {
+              productData.ratings = parseFloat(productData.ratings) || 0;
+            }
+
+            // Ensure numReviews is a number
+            if (typeof productData.numReviews !== "number") {
+              productData.numReviews = parseInt(productData.numReviews) || 0;
+            }
+
+            return {
+              data: {
+                data: productData,
+              },
+            };
           }
         } catch (error) {
           console.warn(`Error fetching product from ${endpoint}:`, error);
@@ -190,10 +219,18 @@ const productsAPI = {
 
       // If all endpoints fail, return null
       console.warn(`All product endpoints failed for ${id}, returning null`);
-      return { data: null };
+      return {
+        data: {
+          data: null,
+        },
+      };
     } catch (error) {
       console.error(`Error in productsAPI.getById for ${id}:`, error);
-      return { data: null };
+      return {
+        data: {
+          data: null,
+        },
+      };
     }
   },
   create: (productData, headers) => {
@@ -473,24 +510,16 @@ export const getImageUrl = (imagePath) => {
     return imagePath;
   }
 
-  // Use environment variable if available
-  const baseUrl =
-    import.meta.env.VITE_API_URL ||
-    (import.meta.env.PROD
-      ? window.location.origin
-      : "https://furniture-q3nb.onrender.com");
+  // Always use the deployed Render URL for images
+  // This ensures images work in both local and deployed environments
+  const baseUrl = "https://furniture-q3nb.onrender.com";
 
   // Ensure the path starts with a slash but doesn't have double slashes
   const normalizedPath = imagePath.startsWith("/")
     ? imagePath
     : `/${imagePath}`;
 
-  // In development, always use the deployed Render URL instead of localhost
-  // This fixes the "connection refused" errors when trying to load images from localhost
-  if (!import.meta.env.PROD && window.location.hostname === "localhost") {
-    return `https://furniture-q3nb.onrender.com${normalizedPath}`;
-  }
-
+  console.log("Image URL constructed:", `${baseUrl}${normalizedPath}`);
   return `${baseUrl}${normalizedPath}`;
 };
 
