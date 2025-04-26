@@ -135,8 +135,7 @@ try {
   console.error("Error reading uploads directory:", error);
 }
 
-// Import MongoDB driver for direct connection
-const { MongoClient } = require("mongodb");
+// MongoDB driver already imported at the top of the file
 
 // Configure Mongoose globally to prevent buffering timeout issues
 mongoose.set("bufferTimeoutMS", 30000); // Set to 30 seconds - lower is better for deployment
