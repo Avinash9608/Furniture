@@ -6,6 +6,7 @@ import Loading from "../components/Loading";
 import Alert from "../components/Alert";
 import { productsAPI, categoriesAPI } from "../utils/api";
 import { formatPrice } from "../utils/format";
+import { validateCategories } from "../utils/safeDataHandler";
 
 const Products = () => {
   const location = useLocation();
@@ -38,15 +39,22 @@ const Products = () => {
         // Fetch categories
         const categoriesResponse = await categoriesAPI.getAll();
 
-        // Filter out test categories
+        // Validate and filter categories
         const validCategoryNames = [
           "Sofa Beds",
           "Tables",
           "Chairs",
           "Wardrobes",
         ];
-        const filteredCategories = categoriesResponse.data.data.filter(
-          (category) => validCategoryNames.includes(category.name)
+
+        // First validate the categories to ensure they all have required properties
+        const validatedCategories = validateCategories(
+          categoriesResponse.data.data
+        );
+
+        // Then filter them by name
+        const filteredCategories = validatedCategories.filter((category) =>
+          validCategoryNames.includes(category.name)
         );
 
         console.log(
@@ -60,6 +68,18 @@ const Products = () => {
       } catch (error) {
         console.error("Error fetching data:", error);
         setError("Failed to load products. Please try again later.");
+
+        // Set fallback categories in case of error
+        const fallbackCategories = validateCategories([
+          {
+            name: "Sofa Beds",
+            description: "Comfortable sofa beds for your living room",
+          },
+          { name: "Tables", description: "Stylish tables for your home" },
+          { name: "Chairs", description: "Ergonomic chairs for comfort" },
+          { name: "Wardrobes", description: "Spacious wardrobes for storage" },
+        ]);
+        setCategories(fallbackCategories);
       } finally {
         setLoading(false);
       }
@@ -314,26 +334,45 @@ const Products = () => {
                   </label>
                 </div>
 
-                {categories.map((category) => (
-                  <div key={category._id} className="flex items-center">
-                    <input
-                      type="radio"
-                      id={category._id}
-                      name="category"
-                      checked={filters.category === category.slug}
-                      onChange={() =>
-                        handleFilterChange("category", category.slug)
+                {categories && categories.length > 0 ? (
+                  categories
+                    .map((category) => {
+                      // Skip invalid categories
+                      if (!category || !category._id) {
+                        console.warn(
+                          "Invalid category in Products.jsx:",
+                          category
+                        );
+                        return null;
                       }
-                      className="w-4 h-4 text-primary focus:ring-primary"
-                    />
-                    <label
-                      htmlFor={category._id}
-                      className="ml-2 theme-text-primary"
-                    >
-                      {category.name}
-                    </label>
+
+                      return (
+                        <div key={category._id} className="flex items-center">
+                          <input
+                            type="radio"
+                            id={category._id}
+                            name="category"
+                            checked={filters.category === category.slug}
+                            onChange={() =>
+                              handleFilterChange("category", category.slug)
+                            }
+                            className="w-4 h-4 text-primary focus:ring-primary"
+                          />
+                          <label
+                            htmlFor={category._id}
+                            className="ml-2 theme-text-primary"
+                          >
+                            {category.name}
+                          </label>
+                        </div>
+                      );
+                    })
+                    .filter(Boolean) // Remove null values
+                ) : (
+                  <div className="text-sm theme-text-secondary">
+                    No categories available
                   </div>
-                ))}
+                )}
               </div>
             </div>
 

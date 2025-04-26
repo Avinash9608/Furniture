@@ -38,9 +38,17 @@ const ProductDetail = () => {
         const response = await productsAPI.getById(id);
         setProduct(response.data.data);
 
-        // Fetch related products from the same category
+        // Fetch related products from the same category if category exists
+        const categoryId =
+          response.data.data.category &&
+          typeof response.data.data.category === "object"
+            ? response.data.data.category._id
+            : typeof response.data.data.category === "string"
+            ? response.data.data.category
+            : null;
+
         const relatedResponse = await productsAPI.getAll({
-          category: response.data.data.category._id,
+          category: categoryId,
           limit: 3,
         });
 
@@ -176,12 +184,16 @@ const ProductDetail = () => {
             Products
           </Link>
           <span className="mx-2 theme-text-secondary">/</span>
-          <Link
-            to={`/products?category=${product.category.slug}`}
-            className="theme-text-secondary hover:text-primary"
-          >
-            {product.category.name}
-          </Link>
+          {product.category && typeof product.category === "object" ? (
+            <Link
+              to={`/products?category=${product.category.slug || ""}`}
+              className="theme-text-secondary hover:text-primary"
+            >
+              {product.category.name || "Uncategorized"}
+            </Link>
+          ) : (
+            <span className="theme-text-secondary">Uncategorized</span>
+          )}
           <span className="mx-2 theme-text-secondary">/</span>
           <span className="theme-text-primary font-medium">{product.name}</span>
         </nav>
@@ -463,12 +475,17 @@ const ProductDetail = () => {
                   )}
                   <li className="flex">
                     <span className="font-medium w-24">Category:</span>
-                    <Link
-                      to={`/products?category=${product.category.slug}`}
-                      className="text-primary hover:underline"
-                    >
-                      {product.category.name}
-                    </Link>
+                    {product.category &&
+                    typeof product.category === "object" ? (
+                      <Link
+                        to={`/products?category=${product.category.slug || ""}`}
+                        className="text-primary hover:underline"
+                      >
+                        {product.category.name || "Uncategorized"}
+                      </Link>
+                    ) : (
+                      <span className="theme-text-primary">Uncategorized</span>
+                    )}
                   </li>
                 </ul>
               </div>

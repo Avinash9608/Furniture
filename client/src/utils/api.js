@@ -1,4 +1,5 @@
 import axios from "axios";
+import { validateCategories } from "./safeDataHandler";
 
 // Determine the API base URL based on environment
 const getBaseURL = () => {
@@ -580,24 +581,8 @@ const categoriesAPI = {
               categoriesData = [response.data];
             }
 
-            // Validate and normalize each category object
-            const validatedCategories = categoriesData
-              .filter((cat) => cat && typeof cat === "object")
-              .map((cat) => ({
-                _id: cat._id
-                  ? cat._id.toString()
-                  : `temp_${Date.now()}_${Math.floor(Math.random() * 10000)}`,
-                name: cat.name || "Unnamed Category",
-                description: cat.description || "",
-                slug:
-                  cat.slug ||
-                  (cat.name
-                    ? cat.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")
-                    : ""),
-                image: cat.image || DEFAULT_CATEGORY_IMAGE,
-                createdAt: cat.createdAt || new Date().toISOString(),
-                updatedAt: cat.updatedAt || new Date().toISOString(),
-              }));
+            // Use the validateCategories utility for robust validation
+            const validatedCategories = validateCategories(categoriesData);
 
             console.log("Validated categories data:", validatedCategories);
 
@@ -615,23 +600,49 @@ const categoriesAPI = {
         }
       }
 
-      // If all endpoints fail, return empty array to prevent UI crashes
-      console.warn("All category endpoints failed, returning empty array");
+      // If all endpoints fail, return fallback categories to prevent UI crashes
+      console.warn(
+        "All category endpoints failed, returning fallback categories"
+      );
+
+      // Create fallback categories for the essential furniture categories
+      const fallbackCategories = validateCategories([
+        {
+          name: "Sofa Beds",
+          description: "Comfortable sofa beds for your living room",
+        },
+        { name: "Tables", description: "Stylish tables for your home" },
+        { name: "Chairs", description: "Ergonomic chairs for comfort" },
+        { name: "Wardrobes", description: "Spacious wardrobes for storage" },
+      ]);
+
       return {
         data: {
           success: true,
-          count: 0,
-          data: [],
+          count: fallbackCategories.length,
+          data: fallbackCategories,
         },
       };
     } catch (error) {
       console.error("Error in categoriesAPI.getAll:", error);
-      // Return empty array instead of throwing error
+      // Return fallback categories instead of throwing error
+
+      // Create fallback categories for the essential furniture categories
+      const fallbackCategories = validateCategories([
+        {
+          name: "Sofa Beds",
+          description: "Comfortable sofa beds for your living room",
+        },
+        { name: "Tables", description: "Stylish tables for your home" },
+        { name: "Chairs", description: "Ergonomic chairs for comfort" },
+        { name: "Wardrobes", description: "Spacious wardrobes for storage" },
+      ]);
+
       return {
         data: {
           success: true,
-          count: 0,
-          data: [],
+          count: fallbackCategories.length,
+          data: fallbackCategories,
         },
       };
     }

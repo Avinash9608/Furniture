@@ -33,10 +33,12 @@ const ProductCard = ({ product }) => {
       </div>
       <div className="p-4">
         <span className="text-sm theme-text-secondary">
-          {product.category &&
-          typeof product.category === "object" &&
-          product.category.name
-            ? product.category.name
+          {product && product.category
+            ? typeof product.category === "object" && product.category.name
+              ? product.category.name
+              : typeof product.category === "string"
+              ? product.category
+              : "Uncategorized"
             : "Uncategorized"}
         </span>
         <h3 className="text-lg font-medium mb-2 theme-text-primary">
@@ -69,7 +71,7 @@ const ProductCard = ({ product }) => {
             )}
           </div>
           <Link
-            to={`/products/${product._id}`}
+            to={`/products/${product._id || "not-found"}`}
             className="text-sm font-medium theme-text-secondary hover:text-primary transition-colors duration-300"
           >
             View Details

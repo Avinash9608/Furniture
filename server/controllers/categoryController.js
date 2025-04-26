@@ -52,11 +52,25 @@ const createCategory = async (req, res) => {
   res.setHeader("Content-Type", "application/json");
 
   try {
+    // Log request details for debugging
+    console.log("Category creation request received");
+    console.log("Request body:", req.body);
+    console.log("Request file:", req.file);
+
     // Validate required fields
     if (!req.body.name) {
       return res.status(200).json({
         success: false,
         message: "Please provide a category name",
+      });
+    }
+
+    // Check file size if a file is uploaded
+    if (req.file && req.file.size > 5 * 1024 * 1024) {
+      // 5MB limit
+      return res.status(200).json({
+        success: false,
+        message: "Image file is too large. Maximum size is 5MB.",
       });
     }
 

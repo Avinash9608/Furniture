@@ -138,21 +138,6 @@ if (process.env.NODE_ENV === "production") {
   console.log("Catch-all route configured for React app");
 }
 
-// Database Connection
-// const connectDB = async () => {
-//   try {
-//     const mongoURI =
-//       process.env.MONGO_URI || "mongodb://localhost:27017/shyam_furnitures";
-//     await mongoose.connect(mongoURI, {
-//       useNewUrlParser: true,
-//       useUnifiedTopology: true,
-//     });
-//     console.log("MongoDB connected successfully");
-//   } catch (error) {
-//     console.error("MongoDB connection error:", error.message);
-//     process.exit(1);
-//   }
-// };
 const connectDB = async () => {
   try {
     const uri = process.env.MONGO_URI;

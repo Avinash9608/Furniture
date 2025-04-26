@@ -336,9 +336,15 @@ const AddProduct = () => {
               // Save to local storage
               saveLocalCategories(updatedCategories);
 
+              // Get the category name from FormData if it's FormData
+              const categoryName =
+                categoryData instanceof FormData
+                  ? categoryData.get("name")
+                  : categoryData.name;
+
               // Show success message
               setCategorySuccess(
-                `Category "${categoryData.name}" created successfully`
+                `Category "${categoryName}" created successfully`
               );
 
               // Close modal

@@ -7,6 +7,10 @@ import {
   DEFAULT_CATEGORY_IMAGE,
 } from "../../utils/api";
 import { safeGet, safeMake } from "../../utils/safeRender";
+import {
+  validateCategories,
+  safeRenderCategories,
+} from "../../utils/safeDataHandler";
 import AdminLayout from "../../components/admin/AdminLayout";
 import Button from "../../components/Button";
 import Loading from "../../components/Loading";
@@ -42,130 +46,115 @@ const Categories = () => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState(null);
 
-  // Fetch categories
-  useEffect(() => {
-    const fetchCategories = async () => {
-      try {
-        setLoading(true);
-        setError(null);
+  // Fetch categories - using useCallback to prevent infinite loops
+  const fetchCategories = React.useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
 
-        console.log("Fetching categories...");
-        const response = await categoriesAPI.getAll();
+      console.log("Fetching categories...");
+      const response = await categoriesAPI.getAll();
 
-        // Validate response structure
-        if (!response || !response.data) {
-          console.error("Invalid response from server:", response);
-          throw new Error("Invalid response from server");
-        }
-
-        console.log("Raw categories response:", response);
-
-        // Extract categories data with safe fallbacks
-        let categoriesData = [];
-
-        if (
-          safeGet(response, "data.data") &&
-          Array.isArray(response.data.data)
-        ) {
-          categoriesData = response.data.data;
-        } else if (Array.isArray(response.data)) {
-          categoriesData = response.data;
-        } else if (safeGet(response, "data.data")) {
-          categoriesData = [response.data.data];
-        } else if (response.data) {
-          categoriesData = [response.data];
-        }
-
-        // Ensure each category has required fields and proper types
-        const processedCategories = categoriesData
-          .filter((cat) => cat && typeof cat === "object")
-          .map((category) => {
-            // Create a normalized category object with defaults for missing fields
-            return safeMake(category, {
-              _id: `temp_${Date.now()}_${Math.floor(Math.random() * 10000)}`,
-              name: "Unnamed Category",
-              description: "",
-              slug: "",
-              image: DEFAULT_CATEGORY_IMAGE,
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-            });
-          })
-          .map((category) => ({
-            ...category,
-            // Ensure _id is always a string
-            _id: category._id ? category._id.toString() : category._id,
-            // Process image URL
-            image: category.image
-              ? getImageUrl(category.image)
-              : DEFAULT_CATEGORY_IMAGE,
-          }))
-          // Final validation to ensure _id exists
-          .filter((cat) => cat && cat._id);
-
-        console.log("Processed categories data:", processedCategories);
-
-        // Update state with validated data
-        setCategories(processedCategories);
-
-        // Fetch product counts for each category using Promise.all for better performance
-        try {
-          console.log("Fetching product counts for all categories");
-
-          // Create an array of promises for fetching product counts
-          const countPromises = processedCategories.map(async (category) => {
-            if (!category || !category._id) return null;
-
-            try {
-              const productsResponse = await productsAPI.getAll({
-                category: category._id,
-                limit: 1,
-              });
-
-              return {
-                categoryId: category._id,
-                count: safeGet(productsResponse, "data.count", 0),
-              };
-            } catch (error) {
-              console.error(
-                `Error fetching products for category ${category._id}:`,
-                error
-              );
-              return {
-                categoryId: category._id,
-                count: 0,
-              };
-            }
-          });
-
-          // Wait for all promises to resolve
-          const results = await Promise.all(countPromises);
-
-          // Convert results to an object
-          const productCounts = results.reduce((counts, result) => {
-            if (result && result.categoryId) {
-              counts[result.categoryId] = result.count;
-            }
-            return counts;
-          }, {});
-
-          console.log("Category product counts:", productCounts);
-          setCategoryProducts(productCounts);
-        } catch (error) {
-          console.error("Error fetching product counts:", error);
-          // Set empty product counts as fallback
-          setCategoryProducts({});
-        }
-      } catch (error) {
-        console.error("Error fetching categories:", error);
-        setError("Failed to load categories. Please try again later.");
-      } finally {
-        setLoading(false);
+      // Validate response structure
+      if (!response) {
+        console.error("Invalid response from server:", response);
+        throw new Error("Invalid response from server");
       }
-    };
 
-    fetchCategories();
+      console.log("Raw categories response:", response);
+
+      // Extract categories data with safe fallbacks
+      let categoriesData = [];
+
+      if (safeGet(response, "data.data") && Array.isArray(response.data.data)) {
+        categoriesData = response.data.data;
+      } else if (Array.isArray(response.data)) {
+        categoriesData = response.data;
+      } else if (safeGet(response, "data.data")) {
+        categoriesData = [response.data.data];
+      } else if (response.data) {
+        categoriesData = [response.data];
+      }
+
+      // Use our validateCategories utility to ensure all categories have required fields
+      const validatedCategories = validateCategories(categoriesData);
+
+      // Process image URLs and ensure string IDs
+      const processedCategories = validatedCategories.map((category) => ({
+        ...category,
+        // Ensure _id is always a string
+        _id: String(category._id),
+        // Process image URL with error handling
+        image: category.image
+          ? getImageUrl(category.image)
+          : DEFAULT_CATEGORY_IMAGE,
+      }));
+
+      console.log("Processed categories data:", processedCategories);
+
+      // Update state with validated data
+      setCategories(processedCategories);
+
+      // Fetch product counts for each category using Promise.all for better performance
+      try {
+        console.log("Fetching product counts for all categories");
+
+        // Create an array of promises for fetching product counts
+        const countPromises = processedCategories.map(async (category) => {
+          if (!category || !category._id) return null;
+
+          try {
+            const productsResponse = await productsAPI.getAll({
+              category: category._id,
+              limit: 1,
+            });
+
+            return {
+              categoryId: category._id,
+              count: safeGet(productsResponse, "data.count", 0),
+            };
+          } catch (error) {
+            console.error(
+              `Error fetching products for category ${category._id}:`,
+              error
+            );
+            return {
+              categoryId: category._id,
+              count: 0,
+            };
+          }
+        });
+
+        // Wait for all promises to resolve
+        const results = await Promise.all(countPromises);
+
+        // Convert results to an object
+        const productCounts = results.reduce((counts, result) => {
+          if (result && result.categoryId) {
+            counts[result.categoryId] = result.count;
+          }
+          return counts;
+        }, {});
+
+        console.log("Category product counts:", productCounts);
+        setCategoryProducts(productCounts);
+      } catch (error) {
+        console.error("Error fetching product counts:", error);
+        // Set empty product counts as fallback
+        setCategoryProducts({});
+      }
+    } catch (error) {
+      console.error("Error fetching categories:", error);
+      setError("Failed to load categories. Please try again later.");
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  // Use the memoized fetchCategories function in useEffect
+  useEffect(() => {
+    fetchCategories();
+  }, [fetchCategories]);
 
   // Handle image change for new category
   const handleImageChange = (e) => {
@@ -212,69 +201,97 @@ const Categories = () => {
         },
       };
 
-      const response = await categoriesAPI.create(formData, config);
-      console.log("Category creation response:", response);
+      console.log(
+        "Submitting category with image:",
+        newCategory.image ? newCategory.image.name : "No image"
+      );
 
-      // Check for errors in the response
-      if (response.error) {
-        setSubmitError(response.error);
-        return;
-      }
+      try {
+        const response = await categoriesAPI.create(formData, config);
+        console.log("Category creation response:", response);
 
-      // Check for warnings
-      if (response.warning) {
-        console.warn("Category creation warning:", response.warning);
-      }
+        // Check for errors in the response
+        if (response.error) {
+          setSubmitError(response.error);
+          return;
+        }
 
-      // Handle different response structures
-      let newCategoryData = null;
+        // Check for warnings
+        if (response.warning) {
+          console.warn("Category creation warning:", response.warning);
+        }
 
-      if (response.data) {
-        newCategoryData = response.data;
-      }
+        // Handle different response structures
+        let newCategoryData = null;
 
-      // Ensure we have a valid category object
-      if (newCategoryData) {
-        console.log("New category data received:", newCategoryData);
+        if (response.data && response.data.data) {
+          newCategoryData = response.data.data;
+        } else if (response.data) {
+          newCategoryData = response.data;
+        }
 
-        // Ensure the category has a valid _id
-        const validCategory = {
-          ...newCategoryData,
-          _id:
-            newCategoryData._id ||
-            `temp_${Date.now()}_${Math.floor(Math.random() * 10000)}`,
-          name: newCategoryData.name || "Unnamed Category",
-          description: newCategoryData.description || "",
-          image: newCategoryData.image || DEFAULT_CATEGORY_IMAGE,
-        };
+        // Ensure we have a valid category object
+        if (newCategoryData) {
+          console.log("New category data received:", newCategoryData);
 
-        console.log("Processed new category:", validCategory);
+          // Ensure the category has a valid _id
+          const validCategory = {
+            ...newCategoryData,
+            _id:
+              newCategoryData._id ||
+              `temp_${Date.now()}_${Math.floor(Math.random() * 10000)}`,
+            name: newCategoryData.name || "Unnamed Category",
+            description: newCategoryData.description || "",
+            image: newCategoryData.image
+              ? getImageUrl(newCategoryData.image)
+              : DEFAULT_CATEGORY_IMAGE,
+          };
 
-        // Add the new category to the list
-        setCategories([...categories, validCategory]);
-        setCategoryProducts({
-          ...categoryProducts,
-          [validCategory._id]: 0,
-        });
+          console.log("Processed new category:", validCategory);
+
+          // Add the new category to the list
+          setCategories((prevCategories) => [...prevCategories, validCategory]);
+          setCategoryProducts((prevCounts) => ({
+            ...prevCounts,
+            [validCategory._id]: 0,
+          }));
+
+          // Reset form and close modal
+          setNewCategory({ name: "", description: "", image: null });
+          setImagePreview(null);
+          setShowAddModal(false);
+
+          // Show success message with warning if applicable
+          if (response.warning) {
+            setSuccessMessage(
+              `Category added with temporary data. Please refresh the page to confirm.`
+            );
+          } else {
+            setSuccessMessage("Category added successfully!");
+          }
+
+          setTimeout(() => setSuccessMessage(null), 5000);
+        } else {
+          console.error("Invalid category data received:", response);
+          setSubmitError(
+            "Received invalid data from server. Please try again."
+          );
+        }
+      } catch (apiError) {
+        console.error("API error adding category:", apiError);
+
+        // Even if the API call fails, the category might still be created
+        // Let's show a success message but with a warning
+        setSuccessMessage(
+          "Category may have been added. Please refresh the page to confirm."
+        );
 
         // Reset form and close modal
         setNewCategory({ name: "", description: "", image: null });
         setImagePreview(null);
         setShowAddModal(false);
 
-        // Show success message with warning if applicable
-        if (response.warning) {
-          setSuccessMessage(
-            `Category added with temporary data. Please refresh the page to confirm.`
-          );
-        } else {
-          setSuccessMessage("Category added successfully!");
-        }
-
         setTimeout(() => setSuccessMessage(null), 5000);
-      } else {
-        console.error("Invalid category data received:", response);
-        setSubmitError("Received invalid data from server. Please try again.");
       }
     } catch (error) {
       console.error("Error adding category:", error);
@@ -331,12 +348,16 @@ const Categories = () => {
 
       const formData = new FormData();
       formData.append("name", editCategory.name);
-      formData.append("description", editCategory.description);
+      formData.append("description", editCategory.description || "");
+
       if (editCategory.newImage) {
+        console.log("Updating with new image:", editCategory.newImage.name);
         formData.append("image", editCategory.newImage);
       }
 
+      console.log("Updating category with ID:", editCategory._id);
       const response = await categoriesAPI.update(editCategory._id, formData);
+      console.log("Category update response:", response);
 
       // Get the updated category data
       let updatedCategory = null;
@@ -355,10 +376,9 @@ const Categories = () => {
           name: updatedCategory.name || editCategory.name || "Unnamed Category",
           description:
             updatedCategory.description || editCategory.description || "",
-          image:
-            updatedCategory.image ||
-            editCategory.image ||
-            DEFAULT_CATEGORY_IMAGE,
+          image: updatedCategory.image
+            ? getImageUrl(updatedCategory.image)
+            : editCategory.image || DEFAULT_CATEGORY_IMAGE,
         };
       } else {
         // If no valid response, use the existing category with updated fields
@@ -372,9 +392,11 @@ const Categories = () => {
         };
       }
 
-      // Update the categories array
-      setCategories(
-        categories.map((cat) => {
+      console.log("Updated category:", updatedCategory);
+
+      // Update the categories array using functional update to prevent stale state
+      setCategories((prevCategories) =>
+        prevCategories.map((cat) => {
           if (!cat || !cat._id || !editCategory || !editCategory._id)
             return cat;
           return cat._id === editCategory._id ? updatedCategory : cat;
@@ -421,6 +443,7 @@ const Categories = () => {
       setDeleteError(null);
 
       const categoryId = String(categoryToDelete._id);
+      console.log("Attempting to delete category with ID:", categoryId);
 
       // Check if category has products
       const productCount =
@@ -438,17 +461,25 @@ const Categories = () => {
 
       // Attempt to delete the category
       try {
-        await categoriesAPI.delete(categoryId);
+        const response = await categoriesAPI.delete(categoryId);
+        console.log("Category deletion response:", response);
 
-        // Filter out the deleted category from the categories array
-        setCategories(
-          categories.filter((cat) => {
+        // Filter out the deleted category from the categories array using functional update
+        setCategories((prevCategories) =>
+          prevCategories.filter((cat) => {
             // Skip invalid categories
             if (!cat || !cat._id) return false;
             // Keep categories that don't match the deleted one
             return cat._id !== categoryId;
           })
         );
+
+        // Also update the category products state
+        setCategoryProducts((prevCounts) => {
+          const newCounts = { ...prevCounts };
+          delete newCounts[categoryId];
+          return newCounts;
+        });
 
         setShowDeleteModal(false);
         setSuccessMessage("Category deleted successfully!");
@@ -461,8 +492,8 @@ const Categories = () => {
 
         // If the API call fails but we want to remove it from UI anyway
         // (useful when the backend might be having issues but we want the UI to be responsive)
-        setCategories(
-          categories.filter((cat) => {
+        setCategories((prevCategories) =>
+          prevCategories.filter((cat) => {
             if (!cat || !cat._id) return false;
             return cat._id !== categoryId;
           })
@@ -539,126 +570,101 @@ const Categories = () => {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {/* Direct rendering approach without safeRender */}
-            {Array.isArray(categories) && categories.length > 0 ? (
-              categories
-                .map((category) => {
-                  // Skip invalid categories
-                  if (
-                    !category ||
-                    typeof category !== "object" ||
-                    !category._id
-                  ) {
-                    console.warn("Invalid category object:", category);
-                    return null;
-                  }
+            {/* Use safeRenderCategories utility for robust rendering */}
+            {safeRenderCategories(
+              categories,
+              (category) => {
+                // Get category properties safely
+                const categoryId = String(category._id);
+                const categoryName = category.name;
+                const categoryDescription =
+                  category.description || "No description available.";
+                const categoryImage = category.image || DEFAULT_CATEGORY_IMAGE;
+                const productCount =
+                  (categoryProducts && categoryProducts[categoryId]) || 0;
 
-                  // Safely get category properties with defaults
-                  const categoryId = String(category._id || "");
-                  const categoryName = category.name || "Unnamed Category";
-                  const categoryDescription =
-                    category.description || "No description available.";
-                  const categoryImage =
-                    category.image || DEFAULT_CATEGORY_IMAGE;
-                  const productCount =
-                    (categoryProducts &&
-                      categoryId &&
-                      categoryProducts[categoryId]) ||
-                    0;
-
-                  return (
-                    <motion.div
-                      key={categoryId}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.3 }}
-                      className="theme-bg-secondary rounded-lg overflow-hidden shadow-sm border theme-border"
-                    >
-                      <div className="h-48 overflow-hidden">
-                        {categoryImage ? (
-                          <img
-                            src={getImageUrl(categoryImage)}
-                            alt={categoryName}
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                              console.log(
-                                "Image load error for:",
-                                categoryName
-                              );
-                              e.target.onerror = null;
-                              e.target.src = DEFAULT_CATEGORY_IMAGE;
-                              e.target.className =
-                                "w-full h-full object-contain p-4";
-                            }}
-                          />
-                        ) : (
-                          <div className="w-full h-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
-                            <span className="text-lg theme-text-secondary">
-                              No Image Available
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                      <div className="p-4">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <h3 className="text-lg font-semibold theme-text-primary">
-                              {categoryName}
-                            </h3>
-                            <p className="text-sm theme-text-secondary mt-1">
-                              {productCount} products
-                            </p>
-                          </div>
-                          <div className="flex space-x-2">
-                            <button
-                              onClick={() => handleEditClick(category)}
-                              className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-900 dark:hover:text-indigo-300"
-                            >
-                              <svg
-                                className="w-5 h-5"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                                xmlns="http://www.w3.org/2000/svg"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth="2"
-                                  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                                ></path>
-                              </svg>
-                            </button>
-                            <button
-                              onClick={() => handleDeleteClick(category)}
-                              className="text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300"
-                            >
-                              <svg
-                                className="w-5 h-5"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                                xmlns="http://www.w3.org/2000/svg"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth="2"
-                                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                                ></path>
-                              </svg>
-                            </button>
-                          </div>
+                return (
+                  <motion.div
+                    key={categoryId}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3 }}
+                    className="theme-bg-secondary rounded-lg overflow-hidden shadow-sm border theme-border"
+                  >
+                    <div className="h-48 overflow-hidden">
+                      <img
+                        src={categoryImage}
+                        alt={categoryName}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          console.log("Image load error for:", categoryName);
+                          e.target.onerror = null;
+                          // Use a data URL for the fallback to avoid network requests
+                          e.target.src =
+                            "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjMwMCIgdmlld0JveD0iMCAwIDMwMCAzMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjMwMCIgaGVpZ2h0PSIzMDAiIGZpbGw9IiNFNUU3RUIiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1mYW1pbHk9InNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMjRweCIgZmlsbD0iIzZCNzI4MCI+Tm8gSW1hZ2U8L3RleHQ+PC9zdmc+";
+                          e.target.className =
+                            "w-full h-full object-contain p-4";
+                        }}
+                      />
+                    </div>
+                    <div className="p-4">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h3 className="text-lg font-semibold theme-text-primary">
+                            {categoryName}
+                          </h3>
+                          <p className="text-sm theme-text-secondary mt-1">
+                            {productCount} products
+                          </p>
                         </div>
-                        <p className="text-sm theme-text-secondary mt-2 line-clamp-2">
-                          {categoryDescription}
-                        </p>
+                        <div className="flex space-x-2">
+                          <button
+                            onClick={() => handleEditClick(category)}
+                            className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-900 dark:hover:text-indigo-300"
+                          >
+                            <svg
+                              className="w-5 h-5"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                              xmlns="http://www.w3.org/2000/svg"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth="2"
+                                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                              ></path>
+                            </svg>
+                          </button>
+                          <button
+                            onClick={() => handleDeleteClick(category)}
+                            className="text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300"
+                          >
+                            <svg
+                              className="w-5 h-5"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                              xmlns="http://www.w3.org/2000/svg"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth="2"
+                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                              ></path>
+                            </svg>
+                          </button>
+                        </div>
                       </div>
-                    </motion.div>
-                  );
-                })
-                .filter(Boolean) // Remove null values
-            ) : (
+                      <p className="text-sm theme-text-secondary mt-2 line-clamp-2">
+                        {categoryDescription}
+                      </p>
+                    </div>
+                  </motion.div>
+                );
+              },
               <div className="col-span-3 text-center py-8 theme-text-secondary">
                 No valid categories found.
               </div>
