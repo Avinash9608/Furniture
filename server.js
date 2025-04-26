@@ -2609,6 +2609,8 @@ const orderController = require("./server/controllers/orders");
 app.get("/api/orders/myorders", orderController.getMyOrders);
 app.get("/orders/myorders", orderController.getMyOrders); // Add additional route for fallback
 app.get("/api/api/orders/myorders", orderController.getMyOrders); // Add additional route for fallback
+app.get("/myorders", orderController.getMyOrders); // Add additional route for fallback
+app.get("/api/myorders", orderController.getMyOrders); // Add additional route for fallback
 
 app.get("/api/orders/:id", orderController.getOrderById);
 app.get("/orders/:id", orderController.getOrderById); // Add additional route for fallback
