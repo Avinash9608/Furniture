@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { ordersAPI } from "../../utils/api";
-import { formatPrice } from "../../utils/format";
+import { formatPrice, formatDate } from "../../utils/format";
 import { useAuth } from "../../context/AuthContext";
 import AdminLayout from "../../components/admin/AdminLayout";
 import Alert from "../../components/Alert";
+import SweetAlert from "sweetalert2";
 
 const AdminOrders = () => {
   const [orders, setOrders] = useState([]);
@@ -55,24 +57,67 @@ const AdminOrders = () => {
 
   const handleStatusChange = async (orderId, newStatus) => {
     try {
-      await ordersAPI.updateOrderStatus(orderId, newStatus);
+      setLoading(true);
+      console.log(`Updating order ${orderId} status to ${newStatus}`);
+
+      // Show loading alert
+      SweetAlert.fire({
+        title: "Updating Order Status",
+        text: `Changing order status to ${newStatus}...`,
+        icon: "info",
+        allowOutsideClick: false,
+        showConfirmButton: false,
+        willOpen: () => {
+          SweetAlert.showLoading();
+        },
+      });
+
+      const response = await ordersAPI.updateOrderStatus(orderId, newStatus);
+      console.log("Update status response:", response);
+
+      // Update the order in the state
       setOrders(
         orders.map((order) =>
           order._id === orderId ? { ...order, status: newStatus } : order
         )
       );
+
+      // Show success alert
+      SweetAlert.fire({
+        title: "Success!",
+        text: `Order status updated to ${newStatus}`,
+        icon: "success",
+        timer: 2000,
+        showConfirmButton: false,
+      });
     } catch (err) {
       console.error("Error updating order status:", err);
+
+      // Show error alert
+      SweetAlert.fire({
+        title: "Error!",
+        text:
+          err.response?.data?.message ||
+          err.message ||
+          "Failed to update order status",
+        icon: "error",
+        confirmButtonText: "OK",
+      });
+
       setError(
         err.response?.data?.message ||
           err.message ||
           "Failed to update order status"
       );
+    } finally {
+      setLoading(false);
     }
   };
 
   const getStatusColor = (status) => {
     switch (status.toLowerCase()) {
+      case "pending":
+        return "bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-600";
       case "processing":
         return "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 border border-yellow-200 dark:border-yellow-800";
       case "shipped":
@@ -298,21 +343,54 @@ const AdminOrders = () => {
                     className="hover:theme-bg-secondary transition-colors duration-150"
                   >
                     <td className="px-6 py-4 whitespace-nowrap text-sm theme-text-secondary">
-                      #{order._id.substring(0, 8)}
+                      <div className="font-medium theme-text-primary">
+                        #{order._id.substring(0, 8)}
+                      </div>
+                      <div className="text-xs theme-text-secondary mt-1">
+                        {order.orderItems?.length || 0} item(s)
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium theme-text-primary">
-                        {order.shippingAddress.name}
+                        {order.user?.name ||
+                          order.shippingAddress?.name ||
+                          "Unknown"}
                       </div>
-                      <div className="text-sm theme-text-secondary">
-                        {order.shippingAddress.phone}
+                      <div className="text-xs theme-text-secondary">
+                        {order.user?.email || "No email"}
+                      </div>
+                      <div className="text-xs theme-text-secondary mt-1">
+                        {order.shippingAddress?.phone || "No phone"}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm theme-text-secondary">
-                      {new Date(order.createdAt).toLocaleDateString()}
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm theme-text-primary">
+                        {new Date(order.createdAt).toLocaleDateString()}
+                      </div>
+                      <div className="text-xs theme-text-secondary">
+                        {new Date(order.createdAt).toLocaleTimeString()}
+                      </div>
+                      {order.deliveredAt && (
+                        <div className="text-xs text-green-600 mt-1">
+                          Delivered:{" "}
+                          {new Date(order.deliveredAt).toLocaleDateString()}
+                        </div>
+                      )}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium theme-text-primary">
-                      {formatPrice(order.totalPrice)}
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium theme-text-primary">
+                        {formatPrice(order.totalPrice)}
+                      </div>
+                      {order.taxPrice > 0 && (
+                        <div className="text-xs theme-text-secondary">
+                          Inc. GST: {formatPrice(order.taxPrice)}
+                        </div>
+                      )}
+                      {order.shippingPrice > 0 && (
+                        <div className="text-xs theme-text-secondary">
+                          Shipping: {formatPrice(order.shippingPrice)}
+                        </div>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm theme-text-primary capitalize font-medium">
@@ -405,7 +483,7 @@ const AdminOrders = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <select
-                        value={order.status}
+                        value={order.status.toLowerCase()}
                         onChange={(e) =>
                           handleStatusChange(order._id, e.target.value)
                         }
@@ -418,14 +496,21 @@ const AdminOrders = () => {
                         <option value="cancelled">Cancelled</option>
                       </select>
 
-                      <a
-                        href={`/order/${order._id}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="block mt-2 text-primary hover:text-primary-dark text-center"
-                      >
-                        View Details
-                      </a>
+                      <div className="mt-2 flex flex-col space-y-2">
+                        <Link
+                          to={`/admin/orders/${order._id}`}
+                          className="block text-center px-3 py-1 bg-primary text-white rounded-md text-sm hover:bg-primary-dark transition-colors"
+                        >
+                          Edit Order
+                        </Link>
+
+                        <Link
+                          to={`/order/${order._id}`}
+                          className="block text-center px-3 py-1 bg-blue-100 text-blue-800 rounded-md text-sm hover:bg-blue-200 transition-colors"
+                        >
+                          View Details
+                        </Link>
+                      </div>
                     </td>
                   </tr>
                 ))}

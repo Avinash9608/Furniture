@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from "react";
 import AdminLayout from "../../components/admin/AdminLayout";
-import { paymentRequestsAPI } from "../../utils/api";
+import { paymentRequestsAPI, ordersAPI } from "../../utils/api";
 import { formatPrice } from "../../utils/format";
 import Alert from "../../components/Alert";
+import SweetAlert from "sweetalert2";
 
 const PaymentRequests = () => {
   const [requests, setRequests] = useState([]);
@@ -53,28 +54,98 @@ const PaymentRequests = () => {
   }, []);
 
   // Handle status update
-  const handleStatusUpdate = async (id, status) => {
+  const handleStatusUpdate = async (id, status, orderId) => {
     try {
+      // Show confirmation dialog
+      const result = await SweetAlert.fire({
+        title: status === "completed" ? "Approve Payment?" : "Reject Payment?",
+        text:
+          status === "completed"
+            ? "This will mark the payment as approved and update the order status."
+            : "This will mark the payment as rejected.",
+        icon: "question",
+        showCancelButton: true,
+        confirmButtonColor: status === "completed" ? "#3085d6" : "#d33",
+        cancelButtonColor: "#d33",
+        confirmButtonText:
+          status === "completed" ? "Yes, approve it!" : "Yes, reject it!",
+      });
+
+      if (!result.isConfirmed) {
+        return;
+      }
+
       setLoading(true);
+
+      // Show loading alert
+      SweetAlert.fire({
+        title: "Processing",
+        text: `Updating payment request status...`,
+        icon: "info",
+        allowOutsideClick: false,
+        showConfirmButton: false,
+        willOpen: () => {
+          SweetAlert.showLoading();
+        },
+      });
+
       console.log(`Updating payment request ${id} status to ${status}`);
       const response = await paymentRequestsAPI.updateStatus(id, { status });
       console.log("Status update response:", response);
 
-      // Show success message based on status
-      if (status === "completed") {
-        setSuccess(
-          "Payment approved successfully! Order has been marked as paid."
-        );
-      } else if (status === "rejected") {
-        setSuccess("Payment request rejected.");
-      } else {
-        setSuccess(`Payment request status updated to ${status}`);
+      // If payment is approved, also update the order to paid
+      if (status === "completed" && orderId) {
+        try {
+          console.log(`Marking order ${orderId} as paid`);
+          const paymentResult = {
+            id: id,
+            status: "COMPLETED",
+            update_time: new Date().toISOString(),
+            email_address: "admin@shyamfurnitures.com",
+          };
+
+          const orderResponse = await ordersAPI.updateToPaid(
+            orderId,
+            paymentResult
+          );
+          console.log("Order update response:", orderResponse);
+        } catch (orderErr) {
+          console.error(
+            `Error updating order ${orderId} payment status:`,
+            orderErr
+          );
+        }
       }
+
+      // Show success message based on status
+      SweetAlert.fire({
+        title: "Success!",
+        text:
+          status === "completed"
+            ? "Payment approved successfully! Order has been marked as paid."
+            : status === "rejected"
+            ? "Payment request rejected."
+            : `Payment request status updated to ${status}`,
+        icon: "success",
+        timer: 2000,
+        showConfirmButton: false,
+      });
 
       // Fetch updated requests after status change
       await fetchRequests();
     } catch (err) {
       console.error("Error updating payment request status:", err);
+
+      // Show error alert
+      SweetAlert.fire({
+        title: "Error!",
+        text:
+          err.response?.data?.message ||
+          "Failed to update payment request status",
+        icon: "error",
+        confirmButtonText: "OK",
+      });
+
       setError(
         err.response?.data?.message || "Failed to update payment request status"
       );
@@ -254,7 +325,11 @@ const PaymentRequests = () => {
                           <div className="flex flex-col space-y-2">
                             <button
                               onClick={() =>
-                                handleStatusUpdate(request._id, "completed")
+                                handleStatusUpdate(
+                                  request._id,
+                                  "completed",
+                                  request.order?._id
+                                )
                               }
                               className="px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 border border-green-200 dark:border-green-800 rounded-md hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors"
                             >
@@ -262,28 +337,78 @@ const PaymentRequests = () => {
                             </button>
                             <button
                               onClick={() =>
-                                handleStatusUpdate(request._id, "rejected")
+                                handleStatusUpdate(
+                                  request._id,
+                                  "rejected",
+                                  request.order?._id
+                                )
                               }
                               className="px-3 py-1 bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border border-red-200 dark:border-red-800 rounded-md hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors"
                             >
                               Reject Payment
                             </button>
+                            {request.order?._id && (
+                              <a
+                                href={`/order/${request.order._id}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-800 rounded-md hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors text-center"
+                              >
+                                View Order
+                              </a>
+                            )}
                           </div>
                         )}
                         {request.status === "completed" && (
-                          <span className="px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 border border-green-200 dark:border-green-800 rounded-md inline-block">
-                            Payment Approved
-                          </span>
+                          <div className="flex flex-col space-y-2">
+                            <span className="px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 border border-green-200 dark:border-green-800 rounded-md inline-block">
+                              Payment Approved
+                            </span>
+                            {request.order?._id && (
+                              <a
+                                href={`/order/${request.order._id}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-800 rounded-md hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors text-center"
+                              >
+                                View Order
+                              </a>
+                            )}
+                          </div>
                         )}
                         {request.status === "rejected" && (
-                          <span className="px-3 py-1 bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border border-red-200 dark:border-red-800 rounded-md inline-block">
-                            Payment Rejected
-                          </span>
+                          <div className="flex flex-col space-y-2">
+                            <span className="px-3 py-1 bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border border-red-200 dark:border-red-800 rounded-md inline-block">
+                              Payment Rejected
+                            </span>
+                            {request.order?._id && (
+                              <a
+                                href={`/order/${request.order._id}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-800 rounded-md hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors text-center"
+                              >
+                                View Order
+                              </a>
+                            )}
+                          </div>
                         )}
                         {request.status === "cancelled" && (
-                          <span className="px-3 py-1 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-600 rounded-md inline-block">
-                            Payment Cancelled
-                          </span>
+                          <div className="flex flex-col space-y-2">
+                            <span className="px-3 py-1 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-600 rounded-md inline-block">
+                              Payment Cancelled
+                            </span>
+                            {request.order?._id && (
+                              <a
+                                href={`/order/${request.order._id}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-800 rounded-md hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors text-center"
+                              >
+                                View Order
+                              </a>
+                            )}
+                          </div>
                         )}
                       </td>
                     </tr>
