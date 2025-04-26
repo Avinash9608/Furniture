@@ -7,6 +7,7 @@ import { useAuth } from "../context/AuthContext";
 import Loading from "../components/Loading";
 import Alert from "../components/Alert";
 import Button from "../components/Button";
+import Swal from "sweetalert2";
 
 /**
  * A simplified version of the ProductDetail component with minimal dependencies
@@ -154,12 +155,28 @@ const ProductDetailSimple = () => {
     }
   };
 
-  // Handle add to cart
+  // Handle add to cart with SweetAlert
   const handleAddToCart = () => {
     if (product) {
       addToCart(product, quantity);
-      // Show success message
-      alert("Product added to cart successfully!");
+
+      // Show SweetAlert success message
+      Swal.fire({
+        title: "Added to Cart!",
+        text: `${product.name} has been added to your cart.`,
+        icon: "success",
+        confirmButtonText: "Continue Shopping",
+        confirmButtonColor: "#4F46E5",
+        showCancelButton: true,
+        cancelButtonText: "View Cart",
+        cancelButtonColor: "#10B981",
+        timer: 3000,
+        timerProgressBar: true,
+      }).then((result) => {
+        if (result.dismiss === Swal.DismissReason.cancel) {
+          navigate("/cart");
+        }
+      });
     }
   };
 
@@ -167,14 +184,33 @@ const ProductDetailSimple = () => {
   const handleBuyNow = () => {
     if (product) {
       addToCart(product, quantity);
-      navigate("/cart");
+
+      // Show brief SweetAlert before redirecting
+      Swal.fire({
+        title: "Redirecting to Cart",
+        text: `${product.name} has been added to your cart.`,
+        icon: "success",
+        showConfirmButton: false,
+        timer: 1500,
+        timerProgressBar: true,
+      }).then(() => {
+        navigate("/cart");
+      });
     }
   };
 
-  // Handle add to wishlist
+  // Handle add to wishlist with SweetAlert
   const handleAddToWishlist = () => {
     // This would normally add to a wishlist context
-    alert("Product added to wishlist!");
+    Swal.fire({
+      title: "Added to Wishlist!",
+      text: `${product.name} has been added to your wishlist.`,
+      icon: "success",
+      confirmButtonText: "OK",
+      confirmButtonColor: "#4F46E5",
+      timer: 2000,
+      timerProgressBar: true,
+    });
   };
 
   // Handle review form change
@@ -186,17 +222,37 @@ const ProductDetailSimple = () => {
     });
   };
 
-  // Handle review submission
+  // Enhanced review submission with better error handling and SweetAlert
   const handleReviewSubmit = async (e) => {
     e.preventDefault();
 
     if (!isAuthenticated) {
       setReviewError("Please login to submit a review");
+      Swal.fire({
+        title: "Authentication Required",
+        text: "Please login to submit a review",
+        icon: "warning",
+        confirmButtonText: "Login",
+        showCancelButton: true,
+        cancelButtonText: "Cancel",
+        confirmButtonColor: "#4F46E5",
+      }).then((result) => {
+        if (result.isConfirmed) {
+          navigate("/login");
+        }
+      });
       return;
     }
 
     if (!reviewForm.comment.trim()) {
       setReviewError("Please enter a comment");
+      Swal.fire({
+        title: "Review Incomplete",
+        text: "Please enter a comment for your review",
+        icon: "warning",
+        confirmButtonText: "OK",
+        confirmButtonColor: "#4F46E5",
+      });
       return;
     }
 
@@ -204,22 +260,68 @@ const ProductDetailSimple = () => {
       setReviewSubmitting(true);
       setReviewError(null);
 
-      // Try to submit the review
+      // Show loading state with SweetAlert
+      Swal.fire({
+        title: "Submitting Review",
+        text: "Please wait...",
+        allowOutsideClick: false,
+        didOpen: () => {
+          Swal.showLoading();
+        },
+      });
+
+      // Get the token from localStorage
+      const token = localStorage.getItem("token");
+
+      if (!token) {
+        throw new Error("Authentication token not found");
+      }
+
+      // Try to submit the review using the API
+      const reviewData = {
+        rating: parseInt(reviewForm.rating),
+        comment: reviewForm.comment.trim(),
+      };
+
+      console.log("[ProductDetailSimple] Submitting review:", reviewData);
+      console.log(
+        "[ProductDetailSimple] Using token:",
+        token.substring(0, 10) + "..."
+      );
+
+      // Use the productsAPI to submit the review
       const response = await fetch(
         `https://furniture-q3nb.onrender.com/api/products/${id}/reviews`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
+            Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify(reviewForm),
+          body: JSON.stringify(reviewData),
         }
       );
 
+      const responseData = await response.json();
+
       if (!response.ok) {
-        throw new Error(`Server responded with ${response.status}`);
+        console.error(
+          "[ProductDetailSimple] Review submission error:",
+          responseData
+        );
+        throw new Error(
+          responseData.message || `Server responded with ${response.status}`
+        );
       }
+
+      // Success - show success message
+      Swal.fire({
+        title: "Review Submitted!",
+        text: "Thank you for your feedback",
+        icon: "success",
+        confirmButtonText: "OK",
+        confirmButtonColor: "#4F46E5",
+      });
 
       setReviewSuccess("Review submitted successfully!");
       setReviewForm({
@@ -228,24 +330,43 @@ const ProductDetailSimple = () => {
       });
 
       // Refresh product details to show the new review
-      const productResponse = await fetch(
-        `https://furniture-q3nb.onrender.com/api/products/${id}`
-      );
+      try {
+        const productResponse = await fetch(
+          `https://furniture-q3nb.onrender.com/api/products/${id}`
+        );
 
-      if (productResponse.ok) {
-        const data = await productResponse.json();
-        if (data && data.data) {
-          setProduct({
-            ...product,
-            reviews: data.data.reviews || [],
-            ratings: data.data.ratings || 0,
-            numReviews: data.data.numReviews || 0,
-          });
+        if (productResponse.ok) {
+          const data = await productResponse.json();
+          if (data && data.data) {
+            setProduct({
+              ...product,
+              reviews: data.data.reviews || [],
+              ratings: data.data.ratings || 0,
+              numReviews: data.data.numReviews || 0,
+            });
+          }
         }
+      } catch (refreshError) {
+        console.error(
+          "[ProductDetailSimple] Error refreshing product data:",
+          refreshError
+        );
+        // Don't show an error for this, as the review was still submitted successfully
       }
     } catch (error) {
       console.error("[ProductDetailSimple] Error submitting review:", error);
-      setReviewError("Failed to submit review. Please try again.");
+      setReviewError(
+        error.message || "Failed to submit review. Please try again."
+      );
+
+      // Show error message
+      Swal.fire({
+        title: "Review Submission Failed",
+        text: error.message || "Failed to submit review. Please try again.",
+        icon: "error",
+        confirmButtonText: "OK",
+        confirmButtonColor: "#4F46E5",
+      });
     } finally {
       setReviewSubmitting(false);
     }
@@ -579,37 +700,19 @@ const ProductDetailSimple = () => {
                 </Button>
               </div>
 
-              {/* Product Specifications */}
+              {/* Enhanced Product Specifications */}
               <div className="border-t border-gray-200 pt-4 mb-6">
                 <h3 className="text-lg font-medium mb-2">Specifications</h3>
                 <ul className="space-y-2 text-sm">
-                  {product.material && (
-                    <li className="flex">
-                      <span className="font-medium w-24">Material:</span>
-                      <span className="theme-text-primary">
-                        {product.material}
-                      </span>
-                    </li>
-                  )}
-                  {product.color && (
-                    <li className="flex">
-                      <span className="font-medium w-24">Color:</span>
-                      <span className="theme-text-primary">
-                        {product.color}
-                      </span>
-                    </li>
-                  )}
-                  {product.dimensions &&
-                    typeof product.dimensions === "object" && (
-                      <li className="flex">
-                        <span className="font-medium w-24">Dimensions:</span>
-                        <span className="theme-text-primary">
-                          {product.dimensions.length || 0} x{" "}
-                          {product.dimensions.width || 0} x{" "}
-                          {product.dimensions.height || 0} cm
-                        </span>
-                      </li>
-                    )}
+                  {/* SKU/ID */}
+                  <li className="flex">
+                    <span className="font-medium w-24">Product ID:</span>
+                    <span className="theme-text-primary">
+                      {product._id || "N/A"}
+                    </span>
+                  </li>
+
+                  {/* Category */}
                   <li className="flex">
                     <span className="font-medium w-24">Category:</span>
                     {product.category &&
@@ -623,6 +726,94 @@ const ProductDetailSimple = () => {
                     ) : (
                       <span className="theme-text-primary">Uncategorized</span>
                     )}
+                  </li>
+
+                  {/* Material */}
+                  {product.material && (
+                    <li className="flex">
+                      <span className="font-medium w-24">Material:</span>
+                      <span className="theme-text-primary">
+                        {product.material}
+                      </span>
+                    </li>
+                  )}
+
+                  {/* Color */}
+                  {product.color && (
+                    <li className="flex">
+                      <span className="font-medium w-24">Color:</span>
+                      <span className="theme-text-primary">
+                        {product.color}
+                      </span>
+                    </li>
+                  )}
+
+                  {/* Dimensions */}
+                  {product.dimensions &&
+                    typeof product.dimensions === "object" && (
+                      <li className="flex">
+                        <span className="font-medium w-24">Dimensions:</span>
+                        <span className="theme-text-primary">
+                          {product.dimensions.length || 0} x{" "}
+                          {product.dimensions.width || 0} x{" "}
+                          {product.dimensions.height || 0} cm
+                        </span>
+                      </li>
+                    )}
+
+                  {/* Stock */}
+                  <li className="flex">
+                    <span className="font-medium w-24">Availability:</span>
+                    <span
+                      className={`theme-text-primary ${
+                        product.stock > 0 ? "text-green-600" : "text-red-600"
+                      }`}
+                    >
+                      {product.stock > 0
+                        ? `In Stock (${product.stock} available)`
+                        : "Out of Stock"}
+                    </span>
+                  </li>
+
+                  {/* Featured */}
+                  {product.featured !== undefined && (
+                    <li className="flex">
+                      <span className="font-medium w-24">Featured:</span>
+                      <span className="theme-text-primary">
+                        {product.featured ? "Yes" : "No"}
+                      </span>
+                    </li>
+                  )}
+
+                  {/* Date Added */}
+                  {product.createdAt && (
+                    <li className="flex">
+                      <span className="font-medium w-24">Date Added:</span>
+                      <span className="theme-text-primary">
+                        {new Date(product.createdAt).toLocaleDateString()}
+                      </span>
+                    </li>
+                  )}
+
+                  {/* Ratings Summary */}
+                  <li className="flex">
+                    <span className="font-medium w-24">Rating:</span>
+                    <span className="theme-text-primary flex items-center">
+                      <span className="mr-1">
+                        {(product.ratings || 0).toFixed(1)}
+                      </span>
+                      <svg
+                        className="w-4 h-4 text-yellow-400"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path>
+                      </svg>
+                      <span className="ml-1">
+                        ({product.numReviews || 0} reviews)
+                      </span>
+                    </span>
                   </li>
                 </ul>
               </div>
