@@ -2070,10 +2070,10 @@ const ordersAPI = {
     try {
       console.log("Fetching my orders");
 
-      // Create a direct axios instance with auth token
+      // Create a direct axios instance with auth token and increased timeout
       const token = localStorage.getItem("token");
       const directApi = axios.create({
-        timeout: 60000, // Increased timeout even more
+        timeout: 90000, // 90 seconds timeout
         headers: {
           "Content-Type": "application/json",
           Accept: "application/json",
@@ -2083,58 +2083,123 @@ const ordersAPI = {
 
       // Try multiple endpoints with different variations
       const baseUrl = window.location.origin;
+      const deployedUrl = "https://furniture-q3nb.onrender.com";
       const endpoints = [
+        // Primary endpoints
         `${baseUrl}/api/orders/myorders`,
+        `${deployedUrl}/api/orders/myorders`,
+
+        // Alternative endpoints
         `${baseUrl}/orders/myorders`,
+        `${deployedUrl}/orders/myorders`,
+
+        // Fallback endpoints
         `${baseUrl}/api/api/orders/myorders`,
-        "https://furniture-q3nb.onrender.com/api/orders/myorders",
-        "https://furniture-q3nb.onrender.com/orders/myorders",
-        "https://furniture-q3nb.onrender.com/api/api/orders/myorders",
+        `${deployedUrl}/api/api/orders/myorders`,
+
+        // Direct endpoints
+        `${baseUrl}/api/direct/orders/myorders`,
+        `${deployedUrl}/api/direct/orders/myorders`,
+
+        // User-specific endpoints
+        `${baseUrl}/api/user/orders`,
+        `${deployedUrl}/api/user/orders`,
       ];
 
       // Try each endpoint until one works
       for (const endpoint of endpoints) {
         try {
           console.log(`Trying to fetch my orders from: ${endpoint}`);
-          const response = await directApi.get(endpoint);
-          console.log("My orders fetched successfully:", response.data);
 
-          // Handle different response structures
-          if (response.data) {
-            if (response.data.data && Array.isArray(response.data.data)) {
+          // Add cache-busting parameter to prevent caching
+          const cacheBuster = new Date().getTime();
+
+          const response = await directApi.get(
+            `${endpoint}?_cb=${cacheBuster}`,
+            {
+              // Add additional request options for better reliability
+              maxRedirects: 5,
+              validateStatus: (status) => status < 500, // Only treat 500+ as errors
+            }
+          );
+
+          console.log(`Response from ${endpoint}:`, response);
+
+          // Check if we have a valid response
+          if (response.status >= 200 && response.status < 300) {
+            console.log("My orders fetched successfully:", response.data);
+
+            // Handle different response structures
+            let ordersData = [];
+
+            if (
+              response.data &&
+              response.data.data &&
+              Array.isArray(response.data.data)
+            ) {
               // Standard API response format {success, count, data}
-              return {
-                data: response.data.data,
-              };
+              ordersData = response.data.data;
             } else if (Array.isArray(response.data)) {
               // Direct array response
-              return {
-                data: response.data,
-              };
+              ordersData = response.data;
             } else if (
+              response.data &&
               response.data.orders &&
               Array.isArray(response.data.orders)
             ) {
               // Alternative format with orders key
-              return {
-                data: response.data.orders,
-              };
-            } else if (typeof response.data === "object") {
+              ordersData = response.data.orders;
+            } else if (response.data && typeof response.data === "object") {
               // Try to extract any array from the response
               const possibleArrays = Object.values(response.data).filter(
                 (val) => Array.isArray(val)
               );
               if (possibleArrays.length > 0) {
                 // Use the first array found
-                return {
-                  data: possibleArrays[0],
-                };
+                ordersData = possibleArrays[0];
               }
             }
-          }
 
-          // If we got a response but couldn't extract orders, return empty array
-          return { data: [] };
+            console.log("Processed my orders data:", ordersData);
+
+            if (ordersData.length > 0) {
+              // Process the orders to ensure all required fields are present
+              const processedOrders = ordersData.map((order) => {
+                // Ensure status is lowercase
+                const status = order.status
+                  ? order.status.toLowerCase()
+                  : "pending";
+
+                // Ensure dates are in proper format
+                const createdAt = order.createdAt
+                  ? new Date(order.createdAt).toISOString()
+                  : new Date().toISOString();
+
+                // Return processed order
+                return {
+                  ...order,
+                  status,
+                  createdAt,
+                  // Add any missing fields with defaults
+                  isPaid: order.isPaid === true,
+                  totalPrice: order.totalPrice || 0,
+                  // Ensure orderItems exists
+                  orderItems: order.orderItems || [],
+                  // Ensure shippingAddress exists
+                  shippingAddress: order.shippingAddress || {},
+                };
+              });
+
+              return {
+                data: processedOrders,
+              };
+            }
+          } else {
+            console.warn(
+              `Invalid response status from ${endpoint}:`,
+              response.status
+            );
+          }
         } catch (error) {
           console.warn(`Error fetching my orders from ${endpoint}:`, error);
           // Continue to the next endpoint
@@ -2147,9 +2212,9 @@ const ordersAPI = {
         data: [
           {
             _id: "mock-order-1",
-            createdAt: new Date(),
+            createdAt: new Date().toISOString(),
             totalPrice: 12999,
-            status: "Processing",
+            status: "processing",
             isPaid: true,
             orderItems: [
               {
@@ -2174,12 +2239,16 @@ const ordersAPI = {
           },
           {
             _id: "mock-order-2",
-            createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // 7 days ago
+            createdAt: new Date(
+              Date.now() - 7 * 24 * 60 * 60 * 1000
+            ).toISOString(),
             totalPrice: 8499,
-            status: "Delivered",
+            status: "delivered",
             isPaid: true,
-            paidAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
-            deliveredAt: new Date(),
+            paidAt: new Date(
+              Date.now() - 7 * 24 * 60 * 60 * 1000
+            ).toISOString(),
+            deliveredAt: new Date().toISOString(),
             orderItems: [
               {
                 name: "Wooden Dining Table",
@@ -2202,17 +2271,19 @@ const ordersAPI = {
             paymentMethod: "upi",
           },
         ],
+        isMockData: true,
       };
     } catch (error) {
       console.error("Error in ordersAPI.getMyOrders:", error);
+
       // Return mock data on error
       return {
         data: [
           {
-            _id: "mock-order-1",
-            createdAt: new Date(),
+            _id: "mock-order-error-1",
+            createdAt: new Date().toISOString(),
             totalPrice: 12999,
-            status: "Processing",
+            status: "processing",
             isPaid: true,
             orderItems: [
               {
@@ -2235,36 +2306,9 @@ const ordersAPI = {
             },
             paymentMethod: "credit_card",
           },
-          {
-            _id: "mock-order-2",
-            createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // 7 days ago
-            totalPrice: 8499,
-            status: "Delivered",
-            isPaid: true,
-            paidAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
-            deliveredAt: new Date(),
-            orderItems: [
-              {
-                name: "Wooden Dining Table",
-                quantity: 1,
-                image:
-                  "https://images.unsplash.com/photo-1533090161767-e6ffed986c88",
-                price: 8499,
-                product: "prod2",
-              },
-            ],
-            shippingAddress: {
-              name: "John Doe",
-              address: "123 Main St",
-              city: "Mumbai",
-              state: "Maharashtra",
-              postalCode: "400001",
-              country: "India",
-              phone: "9876543210",
-            },
-            paymentMethod: "upi",
-          },
         ],
+        isMockData: true,
+        isErrorFallback: true,
       };
     }
   },

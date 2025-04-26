@@ -183,7 +183,7 @@ const connectDB = async () => {
     // Set the buffering timeout again right before connecting
     mongoose.set("bufferTimeoutMS", 60000); // Ensure it's set to 60 seconds
 
-    // Enhanced connection options specifically targeting the buffering timeout issue
+    // Enhanced connection options with only supported options
     await mongoose.connect(uri, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
@@ -198,8 +198,7 @@ const connectDB = async () => {
       bufferCommands: true, // Buffer commands when connection is lost
       autoIndex: false, // Don't build indexes automatically in production
       family: 4, // Use IPv4, skip trying IPv6
-      keepAlive: true, // Keep connection alive
-      keepAliveInitialDelay: 300000, // 5 minutes delay before first keepAlive
+      // Removed unsupported options: keepAlive and keepAliveInitialDelay
     });
 
     // Set the buffer timeout one more time after connection
