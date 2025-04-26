@@ -2593,6 +2593,34 @@ app.delete("/api/categories/:id", categoryController.deleteCategory);
 app.delete("/categories/:id", categoryController.deleteCategory); // Add additional route for fallback
 app.delete("/api/api/categories/:id", categoryController.deleteCategory); // Add additional route for fallback
 
+// Import order controller
+const orderController = require("./server/controllers/orders");
+
+// Add direct order routes with multiple paths for better accessibility
+app.get("/api/orders/myorders", orderController.getMyOrders);
+app.get("/orders/myorders", orderController.getMyOrders); // Add additional route for fallback
+app.get("/api/api/orders/myorders", orderController.getMyOrders); // Add additional route for fallback
+
+app.get("/api/orders/:id", orderController.getOrderById);
+app.get("/orders/:id", orderController.getOrderById); // Add additional route for fallback
+app.get("/api/api/orders/:id", orderController.getOrderById); // Add additional route for fallback
+
+app.post("/api/orders", orderController.createOrder);
+app.post("/orders", orderController.createOrder); // Add additional route for fallback
+app.post("/api/api/orders", orderController.createOrder); // Add additional route for fallback
+
+app.get("/api/orders", orderController.getOrders);
+app.get("/orders", orderController.getOrders); // Add additional route for fallback
+app.get("/api/api/orders", orderController.getOrders); // Add additional route for fallback
+
+app.put("/api/orders/:id/status", orderController.updateOrderStatus);
+app.put("/orders/:id/status", orderController.updateOrderStatus); // Add additional route for fallback
+app.put("/api/api/orders/:id/status", orderController.updateOrderStatus); // Add additional route for fallback
+
+app.put("/api/orders/:id/pay", orderController.updateOrderToPaid);
+app.put("/orders/:id/pay", orderController.updateOrderToPaid); // Add additional route for fallback
+app.put("/api/api/orders/:id/pay", orderController.updateOrderToPaid); // Add additional route for fallback
+
 // Use routes from server
 app.use("/api", routes);
 
