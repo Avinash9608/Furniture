@@ -261,10 +261,29 @@ const Products = () => {
         <div className="text-center mb-8">
           <h1 className="text-3xl font-serif font-bold mb-2">
             {filters.category
-              ? `${
-                  filters.category.charAt(0).toUpperCase() +
-                  filters.category.slice(1)
-                } Collection`
+              ? (() => {
+                  // If it's a MongoDB ObjectId, map it to a proper category name
+                  if (
+                    filters.category.length === 24 &&
+                    /^[0-9a-f]+$/.test(filters.category)
+                  ) {
+                    const categoryMap = {
+                      "680c9481ab11e96a288ef6d9": "Sofa Beds",
+                      "680c9484ab11e96a288ef6da": "Tables",
+                      "680c9486ab11e96a288ef6db": "Chairs",
+                      "680c9489ab11e96a288ef6dc": "Wardrobes",
+                    };
+                    return `${
+                      categoryMap[filters.category] || "Furniture"
+                    } Collection`;
+                  }
+
+                  // Otherwise, capitalize the first letter
+                  return `${
+                    filters.category.charAt(0).toUpperCase() +
+                    filters.category.slice(1)
+                  } Collection`;
+                })()
               : "All Products"}
           </h1>
           <p className="theme-text-secondary">
@@ -389,9 +408,15 @@ const Products = () => {
                             type="radio"
                             id={category._id}
                             name="category"
-                            checked={filters.category === category.slug}
+                            checked={
+                              filters.category === category.slug ||
+                              filters.category === category._id
+                            }
                             onChange={() =>
-                              handleFilterChange("category", category.slug)
+                              handleFilterChange(
+                                "category",
+                                category.slug || category._id
+                              )
                             }
                             className="w-4 h-4 text-primary focus:ring-primary"
                           />

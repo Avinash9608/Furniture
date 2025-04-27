@@ -51,7 +51,17 @@ const ProductCard = ({ product }) => {
                 product.category.length === 24 &&
                 /^[0-9a-f]+$/.test(product.category)
               ) {
-                return "Furniture";
+                // Direct mapping of known category IDs to their names
+                const categoryMap = {
+                  // Map exact category IDs to their proper names
+                  "680c9481ab11e96a288ef6d9": "Sofa Beds",
+                  "680c9484ab11e96a288ef6da": "Tables",
+                  "680c9486ab11e96a288ef6db": "Chairs",
+                  "680c9489ab11e96a288ef6dc": "Wardrobes",
+                };
+
+                // Return the mapped category name or a default
+                return categoryMap[product.category] || "Furniture";
               }
               // If it's a regular string, use it directly
               return product.category;
