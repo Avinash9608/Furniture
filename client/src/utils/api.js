@@ -1716,14 +1716,16 @@ const ordersAPI = {
 
       // First, try using fetch directly for better debugging
       try {
-        console.log("Trying direct fetch to /api/orders first...");
-        const directFetchResponse = await fetch("/api/orders", {
+        console.log("Trying direct fetch to /admin/orders first...");
+        const directFetchResponse = await fetch("/admin/orders", {
           headers: {
             Accept: "application/json",
             "Content-Type": "application/json",
             Authorization: localStorage.getItem("token")
               ? `Bearer ${localStorage.getItem("token")}`
               : "",
+            "Cache-Control": "no-cache",
+            Pragma: "no-cache",
           },
         });
 
@@ -1859,9 +1861,11 @@ const ordersAPI = {
         console.log("Trying XMLHttpRequest as a last resort...");
         const xhrData = await new Promise((resolve, reject) => {
           const xhr = new XMLHttpRequest();
-          xhr.open("GET", "/api/orders");
+          xhr.open("GET", "/admin/orders");
           xhr.setRequestHeader("Content-Type", "application/json");
           xhr.setRequestHeader("Accept", "application/json");
+          xhr.setRequestHeader("Cache-Control", "no-cache");
+          xhr.setRequestHeader("Pragma", "no-cache");
           if (token) {
             xhr.setRequestHeader("Authorization", `Bearer ${token}`);
           }

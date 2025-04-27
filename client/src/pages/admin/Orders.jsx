@@ -142,15 +142,15 @@ const AdminOrders = () => {
     fetchOrders();
   }, []);
 
-  // Function to generate mock orders for testing
+  // Function to generate mock orders that match the example format
   const getMockOrders = () => {
     return [
       {
-        _id: `mock_admin_${Date.now()}_1`,
+        _id: "680d1470c53457ff5e52b87b",
         user: {
-          _id: "mock_user_1",
-          name: "John Doe",
-          email: "john@example.com",
+          _id: "680d1470c53457ff5e52b87a",
+          name: "Admin User",
+          email: "admin@example.com",
         },
         orderItems: [
           {
@@ -158,12 +158,12 @@ const AdminOrders = () => {
             quantity: 1,
             image:
               "https://images.unsplash.com/photo-1580480055273-228ff5388ef8",
-            price: 15999,
+            price: 50000,
             product: "prod_chair_1",
           },
         ],
         shippingAddress: {
-          name: "John Doe",
+          name: "Admin User",
           address: "42 Business Park",
           city: "Mumbai",
           state: "Maharashtra",
@@ -171,22 +171,21 @@ const AdminOrders = () => {
           country: "India",
           phone: "9876543210",
         },
-        paymentMethod: "credit_card",
-        taxPrice: 2880,
+        paymentMethod: "credit card",
+        taxPrice: 9000,
         shippingPrice: 0,
-        totalPrice: 18879,
-        isPaid: true,
-        paidAt: new Date(Date.now() - 172800000), // 2 days ago
-        status: "Delivered",
-        createdAt: new Date(Date.now() - 172800000),
-        updatedAt: new Date(Date.now() - 86400000),
+        totalPrice: 59000,
+        isPaid: false,
+        status: "Pending",
+        createdAt: new Date("2025-04-26T22:44:24.000Z"),
+        updatedAt: new Date("2025-04-26T22:44:24.000Z"),
       },
       {
-        _id: `mock_admin_${Date.now()}_2`,
+        _id: "680d1470c53457ff5e52b87e",
         user: {
-          _id: "mock_user_2",
-          name: "Priya Sharma",
-          email: "priya@example.com",
+          _id: "680d1470c53457ff5e52b87a",
+          name: "Admin User",
+          email: "admin@example.com",
         },
         orderItems: [
           {
@@ -194,20 +193,12 @@ const AdminOrders = () => {
             quantity: 1,
             image:
               "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85",
-            price: 32999,
+            price: 100000,
             product: "prod_bed_1",
-          },
-          {
-            name: "Memory Foam Mattress",
-            quantity: 1,
-            image:
-              "https://images.unsplash.com/photo-1631052066165-9542cf078c4e",
-            price: 12999,
-            product: "prod_mattress_1",
           },
         ],
         shippingAddress: {
-          name: "Priya Sharma",
+          name: "Admin User",
           address: "15 Lake View Apartments",
           city: "Delhi",
           state: "Delhi",
@@ -216,199 +207,14 @@ const AdminOrders = () => {
           phone: "9876543211",
         },
         paymentMethod: "upi",
-        taxPrice: 8280,
-        shippingPrice: 1500,
-        totalPrice: 55778,
-        isPaid: true,
-        paidAt: new Date(Date.now() - 86400000), // 1 day ago
-        status: "Shipped",
-        createdAt: new Date(Date.now() - 86400000),
-        updatedAt: new Date(Date.now() - 43200000),
-      },
-      {
-        _id: `mock_admin_${Date.now()}_3`,
-        user: {
-          _id: "mock_user_3",
-          name: "Raj Patel",
-          email: "raj@example.com",
-        },
-        orderItems: [
-          {
-            name: "L-Shaped Sofa",
-            quantity: 1,
-            image:
-              "https://images.unsplash.com/photo-1493663284031-b7e3aefcae8e",
-            price: 45999,
-            product: "prod_sofa_1",
-          },
-        ],
-        shippingAddress: {
-          name: "Raj Patel",
-          address: "78 Green Avenue",
-          city: "Bangalore",
-          state: "Karnataka",
-          postalCode: "560001",
-          country: "India",
-          phone: "9876543212",
-        },
-        paymentMethod: "cod",
-        taxPrice: 8280,
-        shippingPrice: 2000,
-        totalPrice: 56279,
-        isPaid: false,
-        status: "Processing",
-        createdAt: new Date(Date.now() - 43200000), // 12 hours ago
-        updatedAt: new Date(Date.now() - 43200000),
-      },
-      {
-        _id: `mock_admin_${Date.now()}_4`,
-        user: {
-          _id: "mock_user_4",
-          name: "Ananya Gupta",
-          email: "ananya@example.com",
-        },
-        orderItems: [
-          {
-            name: "Dining Table Set",
-            quantity: 1,
-            image:
-              "https://images.unsplash.com/photo-1617098650990-217c7cf9de26",
-            price: 28999,
-            product: "prod_table_1",
-          },
-        ],
-        shippingAddress: {
-          name: "Ananya Gupta",
-          address: "23 Park Street",
-          city: "Kolkata",
-          state: "West Bengal",
-          postalCode: "700001",
-          country: "India",
-          phone: "9876543213",
-        },
-        paymentMethod: "rupay",
-        taxPrice: 5220,
-        shippingPrice: 1500,
-        totalPrice: 35719,
-        isPaid: false,
-        status: "Pending",
-        createdAt: new Date(Date.now() - 21600000), // 6 hours ago
-        updatedAt: new Date(Date.now() - 21600000),
-      },
-      {
-        _id: `mock_admin_${Date.now()}_5`,
-        user: {
-          _id: "mock_user_5",
-          name: "Vikram Singh",
-          email: "vikram@example.com",
-        },
-        orderItems: [
-          {
-            name: "Wardrobe",
-            quantity: 1,
-            image:
-              "https://images.unsplash.com/photo-1595428774223-ef52624120d2",
-            price: 22999,
-            product: "prod_wardrobe_1",
-          },
-        ],
-        shippingAddress: {
-          name: "Vikram Singh",
-          address: "56 Hill Road",
-          city: "Pune",
-          state: "Maharashtra",
-          postalCode: "411001",
-          country: "India",
-          phone: "9876543214",
-        },
-        paymentMethod: "credit_card",
-        taxPrice: 4140,
-        shippingPrice: 1000,
-        totalPrice: 28139,
-        isPaid: true,
-        paidAt: new Date(Date.now() - 3600000), // 1 hour ago
-        status: "Processing",
-        createdAt: new Date(Date.now() - 3600000),
-        updatedAt: new Date(Date.now() - 3600000),
-      },
-      {
-        _id: `mock_admin_${Date.now()}_6`,
-        user: {
-          _id: "mock_user_6",
-          name: "Avinash Kumar",
-          email: "avinashmadhukar4@gmail.com",
-        },
-        orderItems: [
-          {
-            name: "Study Table",
-            quantity: 1,
-            image:
-              "https://images.unsplash.com/photo-1518455027359-f3f8164ba6bd",
-            price: 18999,
-            product: "prod_table_2",
-          },
-          {
-            name: "Bookshelf",
-            quantity: 1,
-            image:
-              "https://images.unsplash.com/photo-1594620302200-9a762244a156",
-            price: 12999,
-            product: "prod_shelf_1",
-          },
-        ],
-        shippingAddress: {
-          name: "Avinash Kumar",
-          address: "123 Main Street",
-          city: "Mumbai",
-          state: "Maharashtra",
-          postalCode: "400001",
-          country: "India",
-          phone: "9876543215",
-        },
-        paymentMethod: "upi",
-        taxPrice: 5760,
-        shippingPrice: 0,
-        totalPrice: 37758,
-        isPaid: true,
-        paidAt: new Date(Date.now() - 259200000), // 3 days ago
-        status: "Delivered",
-        createdAt: new Date(Date.now() - 259200000),
-        updatedAt: new Date(Date.now() - 172800000),
-      },
-      {
-        _id: `mock_admin_${Date.now()}_7`,
-        user: {
-          _id: "mock_user_7",
-          name: "Neha Reddy",
-          email: "neha@example.com",
-        },
-        orderItems: [
-          {
-            name: "Coffee Table",
-            quantity: 1,
-            image:
-              "https://images.unsplash.com/photo-1499933374294-4584851497cc",
-            price: 8999,
-            product: "prod_table_3",
-          },
-        ],
-        shippingAddress: {
-          name: "Neha Reddy",
-          address: "45 Garden Road",
-          city: "Chennai",
-          state: "Tamil Nadu",
-          postalCode: "600001",
-          country: "India",
-          phone: "9876543216",
-        },
-        paymentMethod: "cod",
-        taxPrice: 1620,
+        taxPrice: 18000,
         shippingPrice: 500,
-        totalPrice: 11119,
-        isPaid: false,
-        status: "Cancelled",
-        createdAt: new Date(Date.now() - 345600000), // 4 days ago
-        updatedAt: new Date(Date.now() - 345600000),
+        totalPrice: 118500,
+        isPaid: true,
+        paidAt: new Date("2025-04-26T22:44:24.000Z"),
+        status: "Shipped",
+        createdAt: new Date("2025-04-26T22:44:24.000Z"),
+        updatedAt: new Date("2025-04-26T22:44:24.000Z"),
       },
     ];
   };
