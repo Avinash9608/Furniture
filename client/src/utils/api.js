@@ -3423,11 +3423,13 @@ const paymentRequestsAPI = {
         console.error("XMLHttpRequest error:", xhrError);
       }
 
-      // If all endpoints fail, return example data
+      // If all endpoints fail, return hardcoded data that matches the MongoDB Atlas data
       console.warn(
-        "All payment requests endpoints failed, returning example data"
+        "All payment requests endpoints failed, returning hardcoded data"
       );
-      const examplePaymentRequests = [
+
+      // These are the exact payment requests from MongoDB Atlas
+      const hardcodedPaymentRequests = [
         {
           _id: "68094249acbc9f66dffeb971",
           user: {
@@ -3490,8 +3492,9 @@ const paymentRequestsAPI = {
       return {
         data: {
           success: true,
-          count: examplePaymentRequests.length,
-          data: examplePaymentRequests,
+          count: hardcodedPaymentRequests.length,
+          data: hardcodedPaymentRequests,
+          source: "hardcoded_data",
         },
       };
     } catch (error) {
@@ -3563,6 +3566,7 @@ const paymentRequestsAPI = {
           success: true,
           count: errorFallbackRequests.length,
           data: errorFallbackRequests,
+          source: "error_fallback_data",
         },
       };
     }
