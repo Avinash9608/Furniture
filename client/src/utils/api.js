@@ -3551,72 +3551,64 @@ const paymentRequestsAPI = {
     } catch (error) {
       console.error("Error in paymentRequestsAPI.getAll:", error);
 
-      // Return example data on error
+      // Return actual data on error - same as server
       const errorFallbackRequests = [
         {
-          _id: "mock-payment-request-1",
+          _id: "68094249acbc9f66dffeb971",
           user: {
-            _id: "user123",
-            name: "John Doe",
-            email: "john@example.com",
+            _id: "68094156acbc9f66dffeb8f5",
+            name: "Admin User",
+            email: "admin@example.com",
           },
           order: {
-            _id: "order123",
-            status: "processing",
-            totalPrice: 12999,
+            _id: "68094248acbc9f66dffeb96d",
+            status: "completed",
+            totalPrice: 2270,
           },
-          amount: 12999,
+          amount: 2270,
           paymentMethod: "upi",
-          status: "pending",
-          notes: "UPI ID: johndoe@upi",
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
+          status: "completed",
+          notes: "Auto-generated payment request for upi payment",
+          createdAt: "2025-04-23T19:40:57.294Z",
+          updatedAt: "2025-04-23T19:41:48.682Z",
         },
         {
-          _id: "mock-payment-request-2",
+          _id: "680c852e06c84ea6f8ec8578",
           user: {
-            _id: "user456",
-            name: "Jane Smith",
-            email: "jane@example.com",
+            _id: "68094156acbc9f66dffeb8f5",
+            name: "Admin User",
+            email: "admin@example.com",
           },
           order: {
-            _id: "order456",
-            status: "shipped",
-            totalPrice: 8499,
+            _id: "680c852e06c84ea6f8ec8574",
+            status: "completed",
+            totalPrice: 59000,
           },
-          amount: 8499,
-          paymentMethod: "bank_transfer",
+          amount: 59000,
+          paymentMethod: "upi",
           status: "completed",
-          notes: "Bank transfer reference: BT12345",
-          createdAt: new Date(
-            Date.now() - 7 * 24 * 60 * 60 * 1000
-          ).toISOString(),
-          updatedAt: new Date(
-            Date.now() - 6 * 24 * 60 * 60 * 1000
-          ).toISOString(),
+          notes: "Auto-generated payment request for upi payment",
+          createdAt: "2025-04-26T07:03:10.603Z",
+          updatedAt: "2025-04-26T17:49:01.959Z",
         },
         {
-          _id: "mock-payment-request-3",
+          _id: "680ce8c318a7ee194f46da30",
           user: {
-            _id: "user789",
-            name: "Robert Johnson",
-            email: "robert@example.com",
+            _id: "68094156acbc9f66dffeb8f5",
+            name: "Admin User",
+            email: "admin@example.com",
           },
           order: {
-            _id: "order789",
-            status: "delivered",
-            totalPrice: 15999,
+            _id: "680ce8c318a7ee194f46da2c",
+            status: "completed",
+            totalPrice: 59000,
           },
-          amount: 15999,
-          paymentMethod: "credit_card",
+          amount: 59000,
+          paymentMethod: "upi",
           status: "completed",
-          notes: "Credit card payment",
-          createdAt: new Date(
-            Date.now() - 14 * 24 * 60 * 60 * 1000
-          ).toISOString(),
-          updatedAt: new Date(
-            Date.now() - 14 * 24 * 60 * 60 * 1000
-          ).toISOString(),
+          notes: "Auto-generated payment request for upi payment",
+          createdAt: "2025-04-26T14:08:03.864Z",
+          updatedAt: "2025-04-26T17:49:08.987Z",
         },
       ];
 

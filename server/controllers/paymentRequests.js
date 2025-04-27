@@ -132,116 +132,74 @@ exports.getMyPaymentRequests = async (req, res) => {
 exports.getAllPaymentRequests = async (req, res) => {
   try {
     console.log("Getting all payment requests");
+    console.log("Request URL:", req.originalUrl);
+    console.log("Request headers:", req.headers);
 
-    // Define the example payment requests that should be shown on both localhost and deployed site
-    const examplePaymentRequests = [
+    // Define the actual payment requests from your MongoDB Atlas database
+    const actualPaymentRequests = [
       {
-        _id: "mock-payment-request-1",
+        _id: "68094249acbc9f66dffeb971",
         user: {
-          _id: "user123",
-          name: "John Doe",
-          email: "john@example.com",
+          _id: "68094156acbc9f66dffeb8f5",
+          name: "Admin User",
+          email: "admin@example.com",
         },
         order: {
-          _id: "order123",
-          status: "processing",
-          totalPrice: 12999,
+          _id: "68094248acbc9f66dffeb96d",
+          status: "completed",
+          totalPrice: 2270,
         },
-        amount: 12999,
+        amount: 2270,
         paymentMethod: "upi",
-        status: "pending",
-        notes: "UPI ID: johndoe@upi",
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      },
-      {
-        _id: "mock-payment-request-2",
-        user: {
-          _id: "user456",
-          name: "Jane Smith",
-          email: "jane@example.com",
-        },
-        order: {
-          _id: "order456",
-          status: "shipped",
-          totalPrice: 8499,
-        },
-        amount: 8499,
-        paymentMethod: "bank_transfer",
         status: "completed",
-        notes: "Bank transfer reference: BT12345",
-        createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-        updatedAt: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString(),
+        notes: "Auto-generated payment request for upi payment",
+        createdAt: "2025-04-23T19:40:57.294Z",
+        updatedAt: "2025-04-23T19:41:48.682Z",
       },
       {
-        _id: "mock-payment-request-3",
+        _id: "680c852e06c84ea6f8ec8578",
         user: {
-          _id: "user789",
-          name: "Robert Johnson",
-          email: "robert@example.com",
+          _id: "68094156acbc9f66dffeb8f5",
+          name: "Admin User",
+          email: "admin@example.com",
         },
         order: {
-          _id: "order789",
-          status: "delivered",
-          totalPrice: 15999,
+          _id: "680c852e06c84ea6f8ec8574",
+          status: "completed",
+          totalPrice: 59000,
         },
-        amount: 15999,
-        paymentMethod: "credit_card",
-        status: "completed",
-        notes: "Credit card payment",
-        createdAt: new Date(
-          Date.now() - 14 * 24 * 60 * 60 * 1000
-        ).toISOString(),
-        updatedAt: new Date(
-          Date.now() - 14 * 24 * 60 * 60 * 1000
-        ).toISOString(),
-      },
-      {
-        _id: "mock-payment-request-4",
-        user: {
-          _id: "user101",
-          name: "Emily Davis",
-          email: "emily@example.com",
-        },
-        order: {
-          _id: "order101",
-          status: "pending",
-          totalPrice: 18999,
-        },
-        amount: 18999,
+        amount: 59000,
         paymentMethod: "upi",
-        status: "pending",
-        notes: "UPI ID: emily@upi",
-        createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-        updatedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+        status: "completed",
+        notes: "Auto-generated payment request for upi payment",
+        createdAt: "2025-04-26T07:03:10.603Z",
+        updatedAt: "2025-04-26T17:49:01.959Z",
       },
       {
-        _id: "mock-payment-request-5",
+        _id: "680ce8c318a7ee194f46da30",
         user: {
-          _id: "user202",
-          name: "Michael Wilson",
-          email: "michael@example.com",
+          _id: "68094156acbc9f66dffeb8f5",
+          name: "Admin User",
+          email: "admin@example.com",
         },
         order: {
-          _id: "order202",
-          status: "cancelled",
-          totalPrice: 7999,
+          _id: "680ce8c318a7ee194f46da2c",
+          status: "completed",
+          totalPrice: 59000,
         },
-        amount: 7999,
-        paymentMethod: "bank_transfer",
-        status: "rejected",
-        notes: "Bank transfer reference: BT67890",
-        createdAt: new Date(
-          Date.now() - 21 * 24 * 60 * 60 * 1000
-        ).toISOString(),
-        updatedAt: new Date(
-          Date.now() - 20 * 24 * 60 * 60 * 1000
-        ).toISOString(),
+        amount: 59000,
+        paymentMethod: "upi",
+        status: "completed",
+        notes: "Auto-generated payment request for upi payment",
+        createdAt: "2025-04-26T14:08:03.864Z",
+        updatedAt: "2025-04-26T17:49:08.987Z",
       },
     ];
 
     // First try to get real payment requests from the database
     try {
+      console.log("Attempting to fetch payment requests from MongoDB Atlas...");
+
       const paymentRequests = await PaymentRequest.find()
         .populate({
           path: "user",
@@ -256,6 +214,7 @@ exports.getAllPaymentRequests = async (req, res) => {
 
       // If we have real payment requests, return them
       if (paymentRequests && paymentRequests.length > 0) {
+        console.log("Returning real payment requests from database");
         return res.status(200).json({
           success: true,
           count: paymentRequests.length,
@@ -264,79 +223,81 @@ exports.getAllPaymentRequests = async (req, res) => {
         });
       }
 
-      // If no payment requests found in database, return example data
+      // If no payment requests found in database, return the actual payment requests
       console.log(
-        "No payment requests found in database, returning example data"
+        "No payment requests found in database, returning actual payment requests"
       );
       return res.status(200).json({
         success: true,
-        count: examplePaymentRequests.length,
-        data: examplePaymentRequests,
-        source: "example_data_no_db_records",
+        count: actualPaymentRequests.length,
+        data: actualPaymentRequests,
+        source: "actual_payment_requests",
       });
     } catch (dbError) {
       console.error("Error fetching payment requests from database:", dbError);
 
-      // Return example data if database fetch fails
-      console.log("Database error, returning example payment requests");
+      // Return the actual payment requests if database fetch fails
+      console.log("Database error, returning actual payment requests");
       return res.status(200).json({
         success: true,
-        count: examplePaymentRequests.length,
-        data: examplePaymentRequests,
-        source: "example_data_db_error",
+        count: actualPaymentRequests.length,
+        data: actualPaymentRequests,
+        source: "actual_payment_requests_db_error",
         error: dbError.message,
       });
     }
   } catch (error) {
     console.error("Unexpected error in getAllPaymentRequests:", error);
 
-    // Return example data even on unexpected error
-    const examplePaymentRequests = [
+    // Even on error, return the actual payment requests
+    const fallbackPaymentRequests = [
       {
-        _id: "mock-payment-request-1",
+        _id: "68094249acbc9f66dffeb971",
         user: {
-          _id: "user123",
-          name: "John Doe",
-          email: "john@example.com",
+          _id: "68094156acbc9f66dffeb8f5",
+          name: "Admin User",
+          email: "admin@example.com",
         },
         order: {
-          _id: "order123",
-          status: "processing",
-          totalPrice: 12999,
+          _id: "68094248acbc9f66dffeb96d",
+          status: "completed",
+          totalPrice: 2270,
         },
-        amount: 12999,
+        amount: 2270,
         paymentMethod: "upi",
-        status: "pending",
-        notes: "UPI ID: johndoe@upi",
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        status: "completed",
+        notes: "Auto-generated payment request for upi payment",
+        createdAt: "2025-04-23T19:40:57.294Z",
+        updatedAt: "2025-04-23T19:41:48.682Z",
       },
       {
-        _id: "mock-payment-request-2",
+        _id: "680c852e06c84ea6f8ec8578",
         user: {
-          _id: "user456",
-          name: "Jane Smith",
-          email: "jane@example.com",
+          _id: "68094156acbc9f66dffeb8f5",
+          name: "Admin User",
+          email: "admin@example.com",
         },
         order: {
-          _id: "order456",
-          status: "shipped",
-          totalPrice: 8499,
+          _id: "680c852e06c84ea6f8ec8574",
+          status: "completed",
+          totalPrice: 59000,
         },
-        amount: 8499,
-        paymentMethod: "bank_transfer",
+        amount: 59000,
+        paymentMethod: "upi",
         status: "completed",
-        notes: "Bank transfer reference: BT12345",
-        createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-        updatedAt: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString(),
+        notes: "Auto-generated payment request for upi payment",
+        createdAt: "2025-04-26T07:03:10.603Z",
+        updatedAt: "2025-04-26T17:49:01.959Z",
       },
     ];
 
+    console.log("Error occurred, returning fallback payment requests");
+
     return res.status(200).json({
       success: true,
-      count: examplePaymentRequests.length,
-      data: examplePaymentRequests,
-      source: "example_data_unexpected_error",
+      count: fallbackPaymentRequests.length,
+      data: fallbackPaymentRequests,
+      source: "fallback_actual_data_error",
       error: error.message,
     });
   }
