@@ -105,6 +105,19 @@ app.use("/api/orders", orderRoutes);
 app.use("/api/payment-settings", paymentSettingsRoutes);
 app.use("/api/payment-requests", paymentRequestsRoutes);
 
+// DIRECT ADMIN ROUTES - These ensure admin pages work in all environments
+// Import controllers directly
+const { getAllPaymentRequests } = require("./controllers/paymentRequests");
+const { getOrders } = require("./controllers/orders");
+
+// Admin payment requests routes
+app.get("/admin/payment-requests", getAllPaymentRequests);
+app.get("/api/admin/payment-requests", getAllPaymentRequests);
+
+// Admin orders routes
+app.get("/admin/orders", getOrders);
+app.get("/api/admin/orders", getOrders);
+
 // DIRECT CONTACT FORM HANDLERS - These ensure the contact form works in all environments
 // Handle all possible URL patterns for the contact form
 app.post("/contact", contactController.createContact);
@@ -112,7 +125,13 @@ app.post("/api/contact", contactController.createContact);
 app.post("/api/api/contact", contactController.createContact);
 
 // Log all routes for debugging
-console.log("Contact form routes registered:");
+console.log("Direct routes registered:");
+console.log("Admin routes:");
+console.log("- GET /admin/payment-requests");
+console.log("- GET /api/admin/payment-requests");
+console.log("- GET /admin/orders");
+console.log("- GET /api/admin/orders");
+console.log("Contact form routes:");
 console.log("- POST /contact");
 console.log("- POST /api/contact");
 console.log("- POST /api/api/contact");

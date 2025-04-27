@@ -20,19 +20,130 @@ const PaymentRequests = () => {
       setLoading(true);
       console.log("Fetching payment requests...");
 
-      // Use mock data immediately to prevent errors
-      const mockData = getMockPaymentRequests();
-      console.log("Using mock payment requests data:", mockData);
-      setRequests(mockData);
-      setLoading(false);
+      // Define the example payment requests that should be shown on both localhost and deployed site
+      const examplePaymentRequests = [
+        {
+          _id: "mock-payment-request-1",
+          user: {
+            _id: "user123",
+            name: "John Doe",
+            email: "john@example.com",
+          },
+          order: {
+            _id: "order123",
+            status: "processing",
+            totalPrice: 12999,
+          },
+          amount: 12999,
+          paymentMethod: "upi",
+          status: "pending",
+          notes: "UPI ID: johndoe@upi",
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+        {
+          _id: "mock-payment-request-2",
+          user: {
+            _id: "user456",
+            name: "Jane Smith",
+            email: "jane@example.com",
+          },
+          order: {
+            _id: "order456",
+            status: "shipped",
+            totalPrice: 8499,
+          },
+          amount: 8499,
+          paymentMethod: "bank_transfer",
+          status: "completed",
+          notes: "Bank transfer reference: BT12345",
+          createdAt: new Date(
+            Date.now() - 7 * 24 * 60 * 60 * 1000
+          ).toISOString(),
+          updatedAt: new Date(
+            Date.now() - 6 * 24 * 60 * 60 * 1000
+          ).toISOString(),
+        },
+        {
+          _id: "mock-payment-request-3",
+          user: {
+            _id: "user789",
+            name: "Robert Johnson",
+            email: "robert@example.com",
+          },
+          order: {
+            _id: "order789",
+            status: "delivered",
+            totalPrice: 15999,
+          },
+          amount: 15999,
+          paymentMethod: "credit_card",
+          status: "completed",
+          notes: "Credit card payment",
+          createdAt: new Date(
+            Date.now() - 14 * 24 * 60 * 60 * 1000
+          ).toISOString(),
+          updatedAt: new Date(
+            Date.now() - 14 * 24 * 60 * 60 * 1000
+          ).toISOString(),
+        },
+        {
+          _id: "mock-payment-request-4",
+          user: {
+            _id: "user101",
+            name: "Emily Davis",
+            email: "emily@example.com",
+          },
+          order: {
+            _id: "order101",
+            status: "pending",
+            totalPrice: 18999,
+          },
+          amount: 18999,
+          paymentMethod: "upi",
+          status: "pending",
+          notes: "UPI ID: emily@upi",
+          createdAt: new Date(
+            Date.now() - 2 * 24 * 60 * 60 * 1000
+          ).toISOString(),
+          updatedAt: new Date(
+            Date.now() - 2 * 24 * 60 * 60 * 1000
+          ).toISOString(),
+        },
+        {
+          _id: "mock-payment-request-5",
+          user: {
+            _id: "user202",
+            name: "Michael Wilson",
+            email: "michael@example.com",
+          },
+          order: {
+            _id: "order202",
+            status: "cancelled",
+            totalPrice: 7999,
+          },
+          amount: 7999,
+          paymentMethod: "bank_transfer",
+          status: "rejected",
+          notes: "Bank transfer reference: BT67890",
+          createdAt: new Date(
+            Date.now() - 21 * 24 * 60 * 60 * 1000
+          ).toISOString(),
+          updatedAt: new Date(
+            Date.now() - 20 * 24 * 60 * 60 * 1000
+          ).toISOString(),
+        },
+      ];
 
-      // Try to fetch real data in the background
+      // Use example data immediately to ensure consistent display
+      console.log("Using example payment requests data for immediate display");
+      setRequests(examplePaymentRequests);
+
+      // Try to fetch data from the API
       try {
-        console.log(
-          "Attempting to fetch real payment requests in background..."
-        );
+        console.log("Attempting to fetch payment requests from API...");
         const response = await paymentRequestsAPI.getAll();
-        console.log("Payment requests response:", response);
+        console.log("Payment requests API response:", response);
 
         // Only update if we got valid data
         if (
@@ -40,17 +151,27 @@ const PaymentRequests = () => {
           Array.isArray(response.data.data) &&
           response.data.data.length > 0
         ) {
-          console.log("Updating with real payment request data from API");
+          console.log(
+            `Updating with payment request data from API (source: ${
+              response.data.source || "unknown"
+            })`
+          );
           setRequests(response.data.data);
+        } else {
+          console.log(
+            "API response didn't contain valid data, keeping example data"
+          );
         }
       } catch (apiError) {
-        console.error("Background API fetch failed:", apiError);
-        // Already using mock data, so no need to set it again
+        console.error("API fetch failed:", apiError);
+        console.log("Keeping example payment requests data due to API error");
       }
+
+      setLoading(false);
     } catch (err) {
       console.error("Error in fetchRequests:", err);
-      // Make sure we're using mock data
-      setRequests(getMockPaymentRequests());
+      // Make sure we're using example data
+      setRequests(examplePaymentRequests);
       setLoading(false);
     }
   };

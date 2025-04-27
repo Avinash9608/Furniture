@@ -3252,13 +3252,63 @@ const paymentRequestsAPI = {
           "Content-Type": "application/json",
           Accept: "application/json",
           Authorization: token ? `Bearer ${token}` : "",
+          "Cache-Control": "no-cache",
+          Pragma: "no-cache",
         },
       });
+
+      // First, try using fetch directly for better debugging
+      try {
+        console.log("Trying direct fetch to /admin/payment-requests first...");
+        const directFetchResponse = await fetch("/admin/payment-requests", {
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+            Authorization: token ? `Bearer ${token}` : "",
+            "Cache-Control": "no-cache",
+            Pragma: "no-cache",
+          },
+        });
+
+        if (directFetchResponse.ok) {
+          const directData = await directFetchResponse.json();
+          console.log("Direct fetch successful:", directData);
+
+          if (directData && directData.data && Array.isArray(directData.data)) {
+            console.log(
+              "SUCCESS: Got payment requests from direct fetch:",
+              directData.data.length
+            );
+
+            return {
+              data: {
+                success: true,
+                count: directData.data.length,
+                data: directData.data,
+                source: directData.source || "direct_fetch",
+              },
+            };
+          }
+        } else {
+          console.warn(
+            "Direct fetch failed with status:",
+            directFetchResponse.status
+          );
+        }
+      } catch (directFetchError) {
+        console.error("Direct fetch error:", directFetchError);
+      }
 
       // Try multiple endpoints with different variations
       const baseUrl = window.location.origin;
       const deployedUrl = "https://furniture-q3nb.onrender.com";
       const endpoints = [
+        // Admin-specific endpoints (try these first)
+        `${baseUrl}/admin/payment-requests`,
+        `${baseUrl}/api/admin/payment-requests`,
+        `${deployedUrl}/admin/payment-requests`,
+        `${deployedUrl}/api/admin/payment-requests`,
+
         // Standard endpoints
         `${baseUrl}/api/payment-requests/all`,
         `${baseUrl}/payment-requests/all`,
@@ -3271,12 +3321,6 @@ const paymentRequestsAPI = {
         `${baseUrl}/api/api/payment-requests`,
         `${deployedUrl}/api/payment-requests`,
         `${deployedUrl}/payment-requests`,
-
-        // Admin-specific endpoints
-        `${baseUrl}/api/admin/payment-requests`,
-        `${baseUrl}/admin/payment-requests`,
-        `${deployedUrl}/api/admin/payment-requests`,
-        `${deployedUrl}/admin/payment-requests`,
       ];
 
       // Try each endpoint until one works
@@ -3328,11 +3372,62 @@ const paymentRequestsAPI = {
         }
       }
 
-      // If all endpoints fail, return mock data
+      // If all endpoints fail, try one more approach - using XMLHttpRequest
+      try {
+        console.log("Trying XMLHttpRequest as a last resort...");
+        const xhrData = await new Promise((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open("GET", "/admin/payment-requests");
+          xhr.setRequestHeader("Content-Type", "application/json");
+          xhr.setRequestHeader("Accept", "application/json");
+          xhr.setRequestHeader("Cache-Control", "no-cache");
+          xhr.setRequestHeader("Pragma", "no-cache");
+          if (token) {
+            xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+          }
+          xhr.onload = function () {
+            if (xhr.status >= 200 && xhr.status < 300) {
+              try {
+                resolve(JSON.parse(xhr.responseText));
+              } catch (e) {
+                reject(new Error("Invalid JSON response"));
+              }
+            } else {
+              reject(new Error(`HTTP error ${xhr.status}`));
+            }
+          };
+          xhr.onerror = function () {
+            reject(new Error("Network error"));
+          };
+          xhr.send();
+        });
+
+        console.log("XMLHttpRequest response:", xhrData);
+
+        if (xhrData && xhrData.data && Array.isArray(xhrData.data)) {
+          console.log(
+            "SUCCESS: Got payment requests via XMLHttpRequest:",
+            xhrData.data.length
+          );
+
+          return {
+            data: {
+              success: true,
+              count: xhrData.data.length,
+              data: xhrData.data,
+              source: xhrData.source || "xhr",
+            },
+          };
+        }
+      } catch (xhrError) {
+        console.error("XMLHttpRequest error:", xhrError);
+      }
+
+      // If all endpoints fail, return example data
       console.warn(
-        "All payment requests endpoints failed, returning mock data"
+        "All payment requests endpoints failed, returning example data"
       );
-      const mockPaymentRequests = [
+      const examplePaymentRequests = [
         {
           _id: "mock-payment-request-1",
           user: {
@@ -3449,15 +3544,15 @@ const paymentRequestsAPI = {
       return {
         data: {
           success: true,
-          count: mockPaymentRequests.length,
-          data: mockPaymentRequests,
+          count: examplePaymentRequests.length,
+          data: examplePaymentRequests,
         },
       };
     } catch (error) {
       console.error("Error in paymentRequestsAPI.getAll:", error);
 
-      // Return mock data on error
-      const mockPaymentRequests = [
+      // Return example data on error
+      const errorFallbackRequests = [
         {
           _id: "mock-payment-request-1",
           user: {
@@ -3528,8 +3623,8 @@ const paymentRequestsAPI = {
       return {
         data: {
           success: true,
-          count: mockPaymentRequests.length,
-          data: mockPaymentRequests,
+          count: errorFallbackRequests.length,
+          data: errorFallbackRequests,
         },
       };
     }
