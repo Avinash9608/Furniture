@@ -20,9 +20,36 @@ const PaymentRequests = () => {
       setLoading(true);
       console.log("Fetching payment requests...");
 
-      // Define the actual payment requests from your MongoDB Atlas database
-      // This is the exact same data that's returned by the server
-      const actualPaymentRequests = [
+      // Try to fetch data from the API directly
+      try {
+        console.log("Attempting to fetch payment requests from API...");
+        const response = await paymentRequestsAPI.getAll();
+        console.log("Payment requests API response:", response);
+
+        // Only update if we got valid data
+        if (
+          response?.data?.data &&
+          Array.isArray(response.data.data) &&
+          response.data.data.length > 0
+        ) {
+          console.log(
+            `Setting payment request data from API (source: ${
+              response.data.source || "unknown"
+            })`
+          );
+          setRequests(response.data.data);
+          setLoading(false);
+          return;
+        } else {
+          console.log("API response didn't contain valid data");
+        }
+      } catch (apiError) {
+        console.error("API fetch failed:", apiError);
+      }
+
+      // If API fetch fails or returns invalid data, use fallback data
+      console.log("Using fallback payment requests data");
+      const fallbackPaymentRequests = [
         {
           _id: "68094249acbc9f66dffeb971",
           user: {
@@ -82,43 +109,12 @@ const PaymentRequests = () => {
         },
       ];
 
-      // Use actual data immediately to ensure consistent display
-      console.log("Using actual payment requests data for immediate display");
-      setRequests(actualPaymentRequests);
-
-      // Try to fetch data from the API
-      try {
-        console.log("Attempting to fetch payment requests from API...");
-        const response = await paymentRequestsAPI.getAll();
-        console.log("Payment requests API response:", response);
-
-        // Only update if we got valid data
-        if (
-          response?.data?.data &&
-          Array.isArray(response.data.data) &&
-          response.data.data.length > 0
-        ) {
-          console.log(
-            `Updating with payment request data from API (source: ${
-              response.data.source || "unknown"
-            })`
-          );
-          setRequests(response.data.data);
-        } else {
-          console.log(
-            "API response didn't contain valid data, keeping actual data"
-          );
-        }
-      } catch (apiError) {
-        console.error("API fetch failed:", apiError);
-        console.log("Keeping actual payment requests data due to API error");
-      }
-
+      setRequests(fallbackPaymentRequests);
       setLoading(false);
     } catch (err) {
       console.error("Error in fetchRequests:", err);
 
-      // Even on error, use the actual data
+      // Even on error, use the fallback data
       const fallbackPaymentRequests = [
         {
           _id: "68094249acbc9f66dffeb971",

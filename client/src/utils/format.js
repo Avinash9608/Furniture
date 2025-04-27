@@ -5,14 +5,32 @@
  * @returns {string} Formatted price
  */
 export const formatPrice = (price, showSymbol = true) => {
-  const formatter = new Intl.NumberFormat("en-IN", {
-    style: showSymbol ? "currency" : "decimal",
-    currency: "INR",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  });
+  // Handle null, undefined, or NaN values
+  if (price === null || price === undefined || isNaN(price)) {
+    return showSymbol ? "₹0" : "0";
+  }
 
-  return formatter.format(price);
+  // Convert to number if it's a string
+  const numericPrice = typeof price === "string" ? parseFloat(price) : price;
+
+  // Check if conversion resulted in a valid number
+  if (isNaN(numericPrice)) {
+    return showSymbol ? "₹0" : "0";
+  }
+
+  try {
+    const formatter = new Intl.NumberFormat("en-IN", {
+      style: showSymbol ? "currency" : "decimal",
+      currency: "INR",
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    });
+
+    return formatter.format(numericPrice);
+  } catch (error) {
+    console.error("Error formatting price:", error, "for price:", price);
+    return showSymbol ? "₹0" : "0";
+  }
 };
 
 /**

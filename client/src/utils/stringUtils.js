@@ -33,6 +33,7 @@ export const formatId = (id, length = 8, addEllipsis = true) => {
   if (id == null) return "ID Not Available";
 
   try {
+    // Convert to string safely
     const str = String(id);
 
     // Handle MongoDB ObjectIds (24 characters) specially
@@ -43,10 +44,10 @@ export const formatId = (id, length = 8, addEllipsis = true) => {
     }
 
     // For mock IDs or other IDs, truncate from the beginning
-    const shortened = str.substring(0, length);
-    return addEllipsis ? `${shortened}...` : shortened;
+    const shortened = str.substring(0, Math.min(length, str.length));
+    return addEllipsis && str.length > length ? `${shortened}...` : shortened;
   } catch (error) {
-    console.error("Error in formatId:", error);
+    console.error("Error in formatId:", error, "for id:", id);
     return "ID Not Available";
   }
 };
