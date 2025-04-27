@@ -48,15 +48,36 @@ export const validateCategories = (data) => {
       const imageField = item.image || null;
       console.log(`Category ${index} (${item.name}) image:`, imageField);
 
+      // Generate a better name if it's a MongoDB ObjectId
+      let categoryName = item.name;
+      if (
+        !categoryName &&
+        typeof safeId === "string" &&
+        safeId.length === 24 &&
+        /^[0-9a-f]+$/.test(safeId)
+      ) {
+        // This is likely a MongoDB ObjectId, use a friendly name
+        const categoryMap = {
+          // Map common category IDs to friendly names
+          "680c9481ab11e96a288ef6d9": "Sofa Beds",
+          "680c9484ab11e96a288ef6da": "Tables",
+          "680c9486ab11e96a288ef6db": "Chairs",
+          "680c9489ab11e96a288ef6dc": "Wardrobes",
+        };
+
+        // Try to find a mapped name or use a generic one
+        categoryName = categoryMap[safeId] || `Furniture ${index + 1}`;
+      }
+
       const validatedItem = {
         _id: safeId,
-        name: item.name || `Category ${index + 1}`,
+        name: categoryName || `Category ${index + 1}`,
         description: item.description || "",
         image: imageField,
         slug:
           item.slug ||
-          (item.name
-            ? item.name.toLowerCase().replace(/\s+/g, "-")
+          (categoryName
+            ? categoryName.toLowerCase().replace(/\s+/g, "-")
             : `category-${index}`),
         ...item, // Keep any additional properties
         __validated: true,

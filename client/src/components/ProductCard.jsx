@@ -33,13 +33,33 @@ const ProductCard = ({ product }) => {
       </div>
       <div className="p-4">
         <span className="text-sm theme-text-secondary">
-          {product && product.category
-            ? typeof product.category === "object" && product.category.name
-              ? product.category.name
-              : typeof product.category === "string"
-              ? product.category
-              : "Uncategorized"
-            : "Uncategorized"}
+          {(() => {
+            // Handle different category formats
+            if (!product || !product.category) {
+              return "Uncategorized";
+            }
+
+            // If category is an object with a name property
+            if (typeof product.category === "object" && product.category.name) {
+              return product.category.name;
+            }
+
+            // If category is a string (MongoDB ID)
+            if (typeof product.category === "string") {
+              // Check if it's a MongoDB ObjectId (24 hex chars)
+              if (
+                product.category.length === 24 &&
+                /^[0-9a-f]+$/.test(product.category)
+              ) {
+                return "Furniture";
+              }
+              // If it's a regular string, use it directly
+              return product.category;
+            }
+
+            // Fallback
+            return "Uncategorized";
+          })()}
         </span>
         <h3 className="text-lg font-medium mb-2 theme-text-primary">
           {product.name}

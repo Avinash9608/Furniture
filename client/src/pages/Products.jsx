@@ -38,6 +38,7 @@ const Products = () => {
 
         // Fetch categories
         const categoriesResponse = await categoriesAPI.getAll();
+        console.log("Raw categories response:", categoriesResponse);
 
         // Validate and filter categories
         const validCategoryNames = [
@@ -48,13 +49,49 @@ const Products = () => {
         ];
 
         // First validate the categories to ensure they all have required properties
-        const validatedCategories = validateCategories(
-          categoriesResponse.data.data
-        );
+        let validatedCategories = [];
 
-        // Then filter them by name
-        const filteredCategories = validatedCategories.filter((category) =>
-          validCategoryNames.includes(category.name)
+        try {
+          // Handle different response formats
+          if (
+            categoriesResponse.data &&
+            Array.isArray(categoriesResponse.data)
+          ) {
+            validatedCategories = validateCategories(categoriesResponse.data);
+          } else if (
+            categoriesResponse.data &&
+            categoriesResponse.data.data &&
+            Array.isArray(categoriesResponse.data.data)
+          ) {
+            validatedCategories = validateCategories(
+              categoriesResponse.data.data
+            );
+          } else if (Array.isArray(categoriesResponse)) {
+            validatedCategories = validateCategories(categoriesResponse);
+          } else {
+            console.error(
+              "Unexpected categories response format:",
+              categoriesResponse
+            );
+            validatedCategories = validateCategories([]);
+          }
+        } catch (validationError) {
+          console.error("Error validating categories:", validationError);
+          validatedCategories = validateCategories([]);
+        }
+
+        console.log("Validated categories:", validatedCategories);
+
+        // Then filter them by name if they have valid names
+        const filteredCategories = validatedCategories.filter(
+          (category) =>
+            category &&
+            category.name &&
+            (validCategoryNames.includes(category.name) ||
+              // Also include categories with MongoDB IDs that might not have proper names yet
+              (typeof category._id === "string" &&
+                category._id.length === 24 &&
+                /^[0-9a-f]+$/.test(category._id)))
         );
 
         console.log(
