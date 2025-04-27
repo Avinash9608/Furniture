@@ -67,86 +67,15 @@ const AdminProducts = () => {
         setLoading(true);
         setError(null);
 
-        // Fetch products
-        try {
-          console.log("Fetching products...");
-          const productsResponse = await productsAPI.getAll();
-          console.log("Products API response:", productsResponse);
+        // Fetch categories first
+        console.log("Fetching categories first...");
+        let fetchedCategories = [];
 
-          // Handle different response structures
-          let productsData = [];
-
-          if (
-            productsResponse &&
-            productsResponse.data &&
-            productsResponse.data.data &&
-            Array.isArray(productsResponse.data.data)
-          ) {
-            productsData = productsResponse.data.data;
-          } else if (
-            productsResponse &&
-            productsResponse.data &&
-            Array.isArray(productsResponse.data)
-          ) {
-            productsData = productsResponse.data;
-          } else if (productsResponse && Array.isArray(productsResponse)) {
-            productsData = productsResponse;
-          }
-
-          console.log("Processed products data:", productsData);
-
-          if (productsData && productsData.length > 0) {
-            // Process products to ensure they have all required fields
-            const processedProducts = productsData.map((product) => {
-              // Ensure product has a category object
-              if (!product.category || typeof product.category !== "object") {
-                product.category = { _id: "unknown", name: "Unknown" };
-              }
-
-              // Ensure product has images array
-              if (
-                !product.images ||
-                !Array.isArray(product.images) ||
-                product.images.length === 0
-              ) {
-                product.images = [
-                  "https://placehold.co/300x300/gray/white?text=Product",
-                ];
-              }
-
-              // Ensure product has stock value
-              if (product.stock === undefined || product.stock === null) {
-                product.stock = 0;
-              }
-
-              return product;
-            });
-
-            setProducts(processedProducts);
-            setFilteredProducts(processedProducts);
-          } else {
-            console.log(
-              "No products found or invalid data format, using mock data"
-            );
-            const mockProducts = getMockProducts();
-            setProducts(mockProducts);
-            setFilteredProducts(mockProducts);
-          }
-        } catch (apiError) {
-          console.error("Error fetching products from API:", apiError);
-          // Use mock data as fallback
-          const mockProducts = getMockProducts();
-          setProducts(mockProducts);
-          setFilteredProducts(mockProducts);
-        }
-
-        // Fetch categories
         try {
           const categoriesResponse = await categoriesAPI.getAll();
           console.log("Categories API response:", categoriesResponse);
 
-          // Check if we have categories data and it's in the expected format
-          let fetchedCategories = [];
+          // Process categories before fetching products
           if (
             categoriesResponse.data &&
             Array.isArray(categoriesResponse.data)
@@ -166,31 +95,145 @@ const AdminProducts = () => {
             // Use mock categories
             fetchedCategories = getMockCategories();
           }
+        } catch (categoryError) {
+          console.error("Error fetching categories:", categoryError);
+          fetchedCategories = getMockCategories();
+        }
 
-          // If no categories exist, create default ones
-          if (fetchedCategories.length === 0) {
-            console.log("No categories found, using mock categories...");
-            fetchedCategories = getMockCategories();
+        // If no categories exist, create default ones
+        if (fetchedCategories.length === 0) {
+          console.log("No categories found, using mock categories...");
+          fetchedCategories = getMockCategories();
+        }
+
+        // Process categories to ensure they have all required fields
+        fetchedCategories = fetchedCategories.map((category) => {
+          // Ensure category has an _id
+          if (!category._id) {
+            category._id = `temp_${Date.now()}_${Math.random()
+              .toString(36)
+              .substring(2, 9)}`;
           }
 
-          // Filter out test categories and only keep the specific ones we want
-          const validCategoryNames = [
-            "Sofa Beds",
-            "Tables",
-            "Chairs",
-            "Wardrobes",
-          ];
-          fetchedCategories = fetchedCategories.filter((category) =>
-            validCategoryNames.includes(category.name)
+          // Ensure category has a name
+          if (!category.name) {
+            category.name = `Category ${category._id.substring(
+              category._id.length - 6
+            )}`;
+          }
+
+          return category;
+        });
+
+        console.log("Processed categories:", fetchedCategories);
+
+        // Set categories immediately so they're available for product processing
+        setCategories(fetchedCategories);
+
+        // Now fetch products after categories are loaded
+        console.log("Now fetching products...");
+        let productsData = [];
+
+        try {
+          const productsResponse = await productsAPI.getAll();
+          console.log("Products API response:", productsResponse);
+
+          // Handle different response structures
+          if (
+            productsResponse &&
+            productsResponse.data &&
+            productsResponse.data.data &&
+            Array.isArray(productsResponse.data.data)
+          ) {
+            productsData = productsResponse.data.data;
+          } else if (
+            productsResponse &&
+            productsResponse.data &&
+            Array.isArray(productsResponse.data)
+          ) {
+            productsData = productsResponse.data;
+          } else if (productsResponse && Array.isArray(productsResponse)) {
+            productsData = productsResponse;
+          }
+        } catch (productError) {
+          console.error("Error fetching products:", productError);
+          productsData = [];
+        }
+
+        console.log("Processed products data:", productsData);
+
+        if (productsData && productsData.length > 0) {
+          // Process products to ensure they have all required fields
+          const processedProducts = productsData.map((product) => {
+            // Ensure product has a category object
+            if (!product.category) {
+              product.category = { _id: "unknown", name: "Unknown" };
+            } else if (typeof product.category === "string") {
+              // If category is a string (ID), try to find the corresponding category object
+              const categoryObj = fetchedCategories.find(
+                (c) => c._id === product.category
+              );
+              if (categoryObj) {
+                product.category = categoryObj;
+              } else {
+                // If we can't find the category, create a placeholder with the ID
+                // Check if it's a MongoDB ObjectId (24 hex chars)
+                if (
+                  product.category.length === 24 &&
+                  /^[0-9a-f]+$/.test(product.category)
+                ) {
+                  product.category = {
+                    _id: product.category,
+                    name: `Category ${product.category.substring(
+                      product.category.length - 6
+                    )}`,
+                  };
+                } else {
+                  // Otherwise try to make a readable name from the ID
+                  product.category = {
+                    _id: product.category,
+                    name: `Category ${product.category
+                      .replace(/[^a-zA-Z0-9]/g, " ")
+                      .trim()}`,
+                  };
+                }
+              }
+            } else if (
+              typeof product.category === "object" &&
+              !product.category.name
+            ) {
+              // If category is an object but missing name
+              product.category.name = "Unknown";
+            }
+
+            // Ensure product has images array
+            if (
+              !product.images ||
+              !Array.isArray(product.images) ||
+              product.images.length === 0
+            ) {
+              product.images = [
+                "https://placehold.co/300x300/gray/white?text=Product",
+              ];
+            }
+
+            // Ensure product has stock value
+            if (product.stock === undefined || product.stock === null) {
+              product.stock = 0;
+            }
+
+            return product;
+          });
+
+          setProducts(processedProducts);
+          setFilteredProducts(processedProducts);
+        } else {
+          console.log(
+            "No products found or invalid data format, using mock data"
           );
-
-          console.log("Filtered categories for admin:", fetchedCategories);
-
-          setCategories(fetchedCategories);
-        } catch (apiError) {
-          console.error("Error fetching categories from API:", apiError);
-          // Use mock categories as fallback
-          setCategories(getMockCategories());
+          const mockProducts = getMockProducts();
+          setProducts(mockProducts);
+          setFilteredProducts(mockProducts);
         }
       } catch (error) {
         console.error("Error in fetchData effect:", error);
@@ -658,14 +701,48 @@ const AdminProducts = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="px-2 py-1 text-xs font-medium rounded-full theme-bg-secondary border theme-border">
-                        {product.category &&
-                        typeof product.category === "object" &&
-                        product.category.name
-                          ? product.category.name
-                          : typeof product.category === "string"
-                          ? categories.find((c) => c._id === product.category)
-                              ?.name || "Uncategorized"
-                          : "Uncategorized"}
+                        {(() => {
+                          // Handle different category formats
+                          if (!product.category) {
+                            return "Uncategorized";
+                          }
+
+                          if (
+                            typeof product.category === "object" &&
+                            product.category.name
+                          ) {
+                            return product.category.name;
+                          }
+
+                          if (typeof product.category === "string") {
+                            // Try to find category by ID
+                            const foundCategory = categories.find(
+                              (c) =>
+                                c._id === product.category ||
+                                c.id === product.category
+                            );
+                            if (foundCategory) {
+                              return foundCategory.name;
+                            }
+                            // If not found, try to extract a meaningful name from the ID
+                            // Check if it's a MongoDB ObjectId (24 hex chars)
+                            if (
+                              product.category.length === 24 &&
+                              /^[0-9a-f]+$/.test(product.category)
+                            ) {
+                              return `Category ${product.category.substring(
+                                product.category.length - 6
+                              )}`;
+                            }
+                            // Otherwise try to make a readable name from the ID
+                            return `Category ${product.category
+                              .replace(/[^a-zA-Z0-9]/g, " ")
+                              .trim()}`;
+                          }
+
+                          // Fallback
+                          return "Unknown Category";
+                        })()}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
