@@ -736,50 +736,59 @@ const ProductForm = ({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form
+      onSubmit={handleSubmit}
+      className="space-y-6 dark:bg-gray-900 dark:text-gray-100"
+    >
       {/* Basic Information */}
-      <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
-        <h3 className="text-lg font-medium text-gray-900 mb-4">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 sm:p-6 border border-gray-200 dark:border-gray-700">
+        <h3 className="text-base sm:text-lg font-medium text-gray-900 dark:text-gray-100 mb-3 sm:mb-4">
           Basic Information
         </h3>
 
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:gap-6 sm:grid-cols-2">
           {/* Product Name */}
-          <div className="col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+          <div className="sm:col-span-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Product Name <span className="text-red-500">*</span>
               <input
                 type="text"
                 name="name"
                 value={formData.name}
                 onChange={handleChange}
-                className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary ${
-                  errors.name && touched.name
-                    ? "border-red-500"
-                    : "border-gray-300"
-                }`}
+                className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary text-sm sm:text-base
+                  ${
+                    errors.name && touched.name
+                      ? "border-red-500"
+                      : "border-gray-300 dark:border-gray-600"
+                  }
+                  bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100`}
                 placeholder="Enter product name"
               />
             </label>
             {errors.name && touched.name && (
-              <p className="mt-1 text-sm text-red-500">{errors.name}</p>
+              <p className="mt-1 text-xs sm:text-sm text-red-500 dark:text-red-400">
+                {errors.name}
+              </p>
             )}
           </div>
 
-          {/* Category */}
+          {/* Category - Always full width on mobile */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Category <span className="text-red-500">*</span>
               <div className="flex space-x-2">
                 <select
                   name="category"
                   value={formData.category}
                   onChange={handleChange}
-                  className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary ${
-                    errors.category && touched.category
-                      ? "border-red-500"
-                      : "border-gray-300"
-                  }`}
+                  className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary text-sm sm:text-base
+                    ${
+                      errors.category && touched.category
+                        ? "border-red-500"
+                        : "border-gray-300 dark:border-gray-600"
+                    }
+                    bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100`}
                 >
                   <option value="">Select a category</option>
                   {categories.map((category) => (
@@ -791,13 +800,15 @@ const ProductForm = ({
               </div>
             </label>
             {errors.category && touched.category && (
-              <p className="mt-1 text-sm text-red-500">{errors.category}</p>
+              <p className="mt-1 text-xs sm:text-sm text-red-500 dark:text-red-400">
+                {errors.category}
+              </p>
             )}
           </div>
 
-          {/* Price */}
+          {/* Price - Always full width on mobile */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Price (₹) <span className="text-red-500">*</span>
               <input
                 type="number"
@@ -806,24 +817,28 @@ const ProductForm = ({
                 onChange={handleChange}
                 min="0"
                 step="0.01"
-                className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary ${
-                  errors.price && touched.price
-                    ? "border-red-500"
-                    : "border-gray-300"
-                }`}
+                className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary text-sm sm:text-base
+                  ${
+                    errors.price && touched.price
+                      ? "border-red-500"
+                      : "border-gray-300 dark:border-gray-600"
+                  }
+                  bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100`}
                 placeholder="Enter price"
               />
             </label>
             {errors.price && touched.price && (
-              <p className="mt-1 text-sm text-red-500">{errors.price}</p>
+              <p className="mt-1 text-xs sm:text-sm text-red-500 dark:text-red-400">
+                {errors.price}
+              </p>
             )}
           </div>
 
           {/* Discount Section */}
-          <div className="col-span-2 grid grid-cols-2 gap-4">
+          <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Discount Percentage */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Discount Percentage (%)
                 <input
                   type="number"
@@ -859,18 +874,18 @@ const ProductForm = ({
                   min="0"
                   max="99"
                   step="1"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary text-sm sm:text-base bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                   placeholder="Enter discount percentage"
                 />
               </label>
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                 Enter a percentage (e.g., 5 for 5% off)
               </p>
             </div>
 
             {/* Discount Price (calculated) */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Discount Price (₹)
                 <input
                   type="number"
@@ -905,16 +920,18 @@ const ProductForm = ({
                   }}
                   min="0"
                   step="1"
-                  className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary ${
-                    errors.discountPrice && touched.discountPrice
-                      ? "border-red-500"
-                      : "border-gray-300"
-                  }`}
+                  className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary text-sm sm:text-base
+                    ${
+                      errors.discountPrice && touched.discountPrice
+                        ? "border-red-500"
+                        : "border-gray-300 dark:border-gray-600"
+                    }
+                    bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100`}
                   placeholder="Enter discount price"
                 />
               </label>
               {errors.discountPrice && touched.discountPrice && (
-                <p className="mt-1 text-sm text-red-500">
+                <p className="mt-1 text-xs sm:text-sm text-red-500 dark:text-red-400">
                   {errors.discountPrice}
                 </p>
               )}
@@ -923,7 +940,7 @@ const ProductForm = ({
 
           {/* Stock */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Stock <span className="text-red-500">*</span>
               <input
                 type="number"
@@ -931,77 +948,92 @@ const ProductForm = ({
                 value={formData.stock}
                 onChange={handleChange}
                 min="0"
-                className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary ${
-                  errors.stock && touched.stock
-                    ? "border-red-500"
-                    : "border-gray-300"
-                }`}
+                className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary text-sm sm:text-base
+                  ${
+                    errors.stock && touched.stock
+                      ? "border-red-500"
+                      : "border-gray-300 dark:border-gray-600"
+                  }
+                  bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100`}
                 placeholder="Enter stock quantity"
               />
             </label>
             {errors.stock && touched.stock && (
-              <p className="mt-1 text-sm text-red-500">{errors.stock}</p>
+              <p className="mt-1 text-xs sm:text-sm text-red-500 dark:text-red-400">
+                {errors.stock}
+              </p>
             )}
           </div>
 
-          {/* Featured */}
-          <div className="flex items-center">
-            <input
-              type="checkbox"
-              name="featured"
-              checked={formData.featured}
-              onChange={handleChange}
-              className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
-            />
-            <label className="ml-2 block text-sm text-gray-700">
-              Featured Product
+          {/* Featured - Separate section on mobile */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 sm:opacity-0">
+              &nbsp;
+              <div className="flex items-center mt-2 sm:mt-6">
+                <input
+                  type="checkbox"
+                  name="featured"
+                  checked={formData.featured}
+                  onChange={handleChange}
+                  className="h-4 w-4 sm:h-5 sm:w-5 text-primary focus:ring-primary border-gray-300 dark:border-gray-600 rounded"
+                />
+                <span className="ml-2 block text-sm sm:text-base text-gray-700 dark:text-gray-300">
+                  Featured Product
+                </span>
+              </div>
             </label>
           </div>
         </div>
       </div>
 
       {/* Description */}
-      <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
-        <h3 className="text-lg font-medium text-gray-900 mb-4">Description</h3>
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 sm:p-6 border border-gray-200 dark:border-gray-700">
+        <h3 className="text-base sm:text-lg font-medium text-gray-900 dark:text-gray-100 mb-3 sm:mb-4">
+          Description
+        </h3>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             Product Description <span className="text-red-500">*</span>
             <textarea
               name="description"
               value={formData.description}
               onChange={handleChange}
-              rows="5"
-              className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary ${
-                errors.description && touched.description
-                  ? "border-red-500"
-                  : "border-gray-300"
-              }`}
+              rows="4"
+              className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary text-sm sm:text-base
+                ${
+                  errors.description && touched.description
+                    ? "border-red-500"
+                    : "border-gray-300 dark:border-gray-600"
+                }
+                bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100`}
               placeholder="Enter product description"
             />
           </label>
           {errors.description && touched.description && (
-            <p className="mt-1 text-sm text-red-500">{errors.description}</p>
+            <p className="mt-1 text-xs sm:text-sm text-red-500 dark:text-red-400">
+              {errors.description}
+            </p>
           )}
         </div>
       </div>
 
       {/* Additional Details */}
-      <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
-        <h3 className="text-lg font-medium text-gray-900 mb-4">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 sm:p-6 border border-gray-200 dark:border-gray-700">
+        <h3 className="text-base sm:text-lg font-medium text-gray-900 dark:text-gray-100 mb-3 sm:mb-4">
           Additional Details
         </h3>
 
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:gap-6 sm:grid-cols-2">
           {/* Material */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Material
               <input
                 type="text"
                 name="material"
                 value={formData.material}
                 onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary text-sm sm:text-base bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                 placeholder="e.g., Wood, Metal, Plastic"
               />
             </label>
@@ -1009,27 +1041,27 @@ const ProductForm = ({
 
           {/* Color */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Color
               <input
                 type="text"
                 name="color"
                 value={formData.color}
                 onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary text-sm sm:text-base bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                 placeholder="e.g., Brown, Black, White"
               />
             </label>
           </div>
 
           {/* Dimensions */}
-          <div className="col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+          <div className="col-span-1 sm:col-span-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Dimensions (cm)
             </label>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
               <div>
-                <label className="block text-xs text-gray-500 mb-1">
+                <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
                   Length
                   <input
                     type="number"
@@ -1038,13 +1070,13 @@ const ProductForm = ({
                     onChange={handleChange}
                     min="0"
                     step="0.1"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary text-sm sm:text-base bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                     placeholder="Length"
                   />
                 </label>
               </div>
               <div>
-                <label className="block text-xs text-gray-500 mb-1">
+                <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
                   Width
                   <input
                     type="number"
@@ -1053,13 +1085,13 @@ const ProductForm = ({
                     onChange={handleChange}
                     min="0"
                     step="0.1"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary text-sm sm:text-base bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                     placeholder="Width"
                   />
                 </label>
               </div>
               <div>
-                <label className="block text-xs text-gray-500 mb-1">
+                <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
                   Height
                   <input
                     type="number"
@@ -1068,7 +1100,7 @@ const ProductForm = ({
                     onChange={handleChange}
                     min="0"
                     step="0.1"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary text-sm sm:text-base bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                     placeholder="Height"
                   />
                 </label>
@@ -1079,8 +1111,8 @@ const ProductForm = ({
       </div>
 
       {/* Images */}
-      <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
-        <h3 className="text-lg font-medium text-gray-900 mb-4">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 sm:p-6 border border-gray-200 dark:border-gray-700">
+        <h3 className="text-base sm:text-lg font-medium text-gray-900 dark:text-gray-100 mb-3 sm:mb-4">
           Product Images
         </h3>
         <FileUpload
@@ -1097,21 +1129,26 @@ const ProductForm = ({
 
       {/* Submit Error */}
       {submitError && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-md text-sm sm:text-base">
           {submitError}
         </div>
       )}
 
       {/* Form Actions */}
-      <div className="flex justify-end space-x-3">
+      <div className="flex flex-col sm:flex-row sm:justify-end space-y-3 sm:space-y-0 sm:space-x-3">
         <Button
           type="button"
           variant="secondary"
           onClick={() => window.history.back()}
+          className="w-full sm:w-auto"
         >
           Cancel
         </Button>
-        <Button type="submit" disabled={isSubmitting}>
+        <Button
+          type="submit"
+          disabled={isSubmitting}
+          className="w-full sm:w-auto"
+        >
           {isSubmitting
             ? "Saving..."
             : initialData._id

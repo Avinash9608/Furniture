@@ -217,101 +217,106 @@ const AddProduct = () => {
 
   return (
     <AdminLayout title="Add Product">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-      >
-        {/* Back button */}
-        <button
-          onClick={() => navigate("/admin/products")}
-          className="flex items-center text-gray-600 hover:text-primary mb-6"
+      <div className="px-4 sm:px-6 py-4 sm:py-6 dark:bg-gray-900">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
         >
-          <svg
-            className="w-5 h-5 mr-1"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-            xmlns="http://www.w3.org/2000/svg"
+          {/* Back button */}
+          <button
+            onClick={() => navigate("/admin/products")}
+            className="flex items-center text-gray-600 dark:text-gray-400 hover:text-primary dark:hover:text-primary mb-4 sm:mb-6 text-sm sm:text-base"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              d="M10 19l-7-7m0 0l7-7m-7 7h18"
-            ></path>
-          </svg>
-          Back to Products
-        </button>
+            <svg
+              className="w-4 h-4 sm:w-5 sm:h-5 mr-1"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M10 19l-7-7m0 0l7-7m-7 7h18"
+              ></path>
+            </svg>
+            Back to Products
+          </button>
 
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <h1 className="text-2xl font-bold mb-6">Add New Product</h1>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-6 mb-4 sm:mb-6 border border-gray-200 dark:border-gray-700">
+            <h1 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 text-gray-900 dark:text-gray-100">
+              Add New Product
+            </h1>
 
-          {error ? (
-            <Alert
-              type="error"
-              message={error}
-              onClose={() => setError(null)}
-            />
-          ) : loading ? (
-            <div className="flex justify-center py-8">
-              <Loading size="large" />
-            </div>
-          ) : (
-            <>
-              {/* Category success message */}
-              {categorySuccess && (
-                <Alert
-                  type="success"
-                  message={categorySuccess}
-                  onClose={() => setCategorySuccess(null)}
-                  className="mb-4"
-                />
-              )}
-
-              {/* Add category button if no categories */}
-              {(!categories || categories.length === 0) && (
-                <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-md">
-                  <div className="flex items-center">
-                    <svg
-                      className="w-5 h-5 text-yellow-400 mr-2"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
-                        clipRule="evenodd"
-                      ></path>
-                    </svg>
-                    <p className="text-sm text-yellow-700">
-                      No categories found. You need to create at least one
-                      category before adding products.
-                    </p>
-                  </div>
-                  <div className="mt-3">
-                    <Button
-                      onClick={() => setShowCategoryModal(true)}
-                      variant="secondary"
-                      className="text-sm"
-                    >
-                      Add New Category
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              <ProductForm
-                categories={categories}
-                onSubmit={handleSubmit}
-                isSubmitting={isSubmitting}
-                submitError={submitError}
+            {error ? (
+              <Alert
+                type="error"
+                message={error}
+                onClose={() => setError(null)}
+                className="text-sm sm:text-base"
               />
-            </>
-          )}
-        </div>
-      </motion.div>
+            ) : loading ? (
+              <div className="flex justify-center py-6 sm:py-8">
+                <Loading size="large" />
+              </div>
+            ) : (
+              <>
+                {/* Category success message */}
+                {categorySuccess && (
+                  <Alert
+                    type="success"
+                    message={categorySuccess}
+                    onClose={() => setCategorySuccess(null)}
+                    className="mb-3 sm:mb-4 text-sm sm:text-base"
+                  />
+                )}
+
+                {/* Add category button if no categories */}
+                {(!categories || categories.length === 0) && (
+                  <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-md">
+                    <div className="flex items-start sm:items-center">
+                      <svg
+                        className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-400 dark:text-yellow-300 mr-2 mt-0.5 sm:mt-0"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                          clipRule="evenodd"
+                        ></path>
+                      </svg>
+                      <p className="text-xs sm:text-sm text-yellow-700 dark:text-yellow-200 flex-1">
+                        No categories found. You need to create at least one
+                        category before adding products.
+                      </p>
+                    </div>
+                    <div className="mt-3">
+                      <Button
+                        onClick={() => setShowCategoryModal(true)}
+                        variant="secondary"
+                        className="text-xs sm:text-sm w-full sm:w-auto"
+                      >
+                        Add New Category
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                <ProductForm
+                  categories={categories}
+                  onSubmit={handleSubmit}
+                  isSubmitting={isSubmitting}
+                  submitError={submitError}
+                />
+              </>
+            )}
+          </div>
+        </motion.div>
+      </div>
 
       {/* Category Modal */}
       <Modal

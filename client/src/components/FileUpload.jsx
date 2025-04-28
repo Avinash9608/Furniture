@@ -138,10 +138,10 @@ const FileUpload = ({
       <div
         className={`border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-colors ${
           isDragging
-            ? "border-primary bg-primary bg-opacity-10"
+            ? "border-primary bg-primary bg-opacity-10 dark:bg-primary-dark dark:bg-opacity-20"
             : error
-            ? "border-red-500 bg-red-50"
-            : "border-gray-300 hover:border-primary"
+            ? "border-red-500 bg-red-50 dark:bg-red-900/10"
+            : "border-gray-300 dark:border-gray-600 hover:border-primary dark:hover:border-primary"
         } ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
         onDragEnter={handleDragEnter}
         onDragLeave={handleDragLeave}
@@ -161,7 +161,7 @@ const FileUpload = ({
 
         <div className="flex flex-col items-center justify-center py-4">
           <svg
-            className="w-10 h-10 text-gray-400 mb-3"
+            className="w-10 h-10 text-gray-400 dark:text-gray-500 mb-3"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -175,13 +175,13 @@ const FileUpload = ({
             ></path>
           </svg>
 
-          <p className="text-sm text-gray-600 mb-1">
+          <p className="text-sm text-gray-600 dark:text-gray-300 mb-1">
             {isDragging
               ? "Drop files here"
               : "Drag and drop files here, or click to select files"}
           </p>
 
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-gray-500 dark:text-gray-400">
             {multiple
               ? `Upload up to ${maxFiles} images (max ${maxSize}MB each)`
               : `Upload an image (max ${maxSize}MB)`}
@@ -191,7 +191,13 @@ const FileUpload = ({
 
       {/* Helper text or error message */}
       {(helperText || error) && (
-        <p className={`text-xs ${error ? "text-red-500" : "text-gray-500"}`}>
+        <p
+          className={`text-xs ${
+            error
+              ? "text-red-500 dark:text-red-400"
+              : "text-gray-500 dark:text-gray-400"
+          }`}
+        >
           {error || helperText}
         </p>
       )}
@@ -199,7 +205,7 @@ const FileUpload = ({
       {/* Preview of uploaded files */}
       {value.length > 0 && (
         <div className="mt-4">
-          <h4 className="text-sm font-medium text-gray-700 mb-2">
+          <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             {multiple ? "Uploaded Files" : "Uploaded File"}
           </h4>
 
@@ -215,7 +221,7 @@ const FileUpload = ({
                     scale: 0.8,
                     transition: { duration: 0.2 },
                   }}
-                  className="relative group border rounded-lg overflow-hidden bg-gray-100"
+                  className="relative group border rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700 dark:border-gray-600"
                 >
                   {/* Image preview */}
                   <div className="aspect-w-1 aspect-h-1">

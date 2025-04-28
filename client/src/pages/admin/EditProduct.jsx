@@ -164,71 +164,73 @@ const EditProduct = () => {
 
   return (
     <AdminLayout title="Edit Product">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-      >
-        {/* Back button */}
-        <button
-          onClick={() => navigate("/admin/products")}
-          className="flex items-center text-gray-600 hover:text-primary mb-6"
+      <div className="px-4 sm:px-6 py-4 sm:py-6 dark:bg-gray-900">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
         >
-          <svg
-            className="w-5 h-5 mr-1"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-            xmlns="http://www.w3.org/2000/svg"
+          {/* Back button */}
+          <button
+            onClick={() => navigate("/admin/products")}
+            className="flex items-center text-gray-600 dark:text-gray-400 hover:text-primary dark:hover:text-primary mb-6"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              d="M10 19l-7-7m0 0l7-7m-7 7h18"
-            ></path>
-          </svg>
-          Back to Products
-        </button>
+            <svg
+              className="w-5 h-5 mr-1"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M10 19l-7-7m0 0l7-7m-7 7h18"
+              ></path>
+            </svg>
+            Back to Products
+          </button>
 
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <h1 className="text-2xl font-bold mb-6">
-            Edit Product: {product?.name || ""}
-          </h1>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6 border border-gray-200 dark:border-gray-700">
+            <h1 className="text-2xl font-bold mb-6 text-gray-900 dark:text-gray-100">
+              Edit Product: {product?.name || ""}
+            </h1>
 
-          {error ? (
-            <Alert
-              type="error"
-              message={error}
-              onClose={() => setError(null)}
-            />
-          ) : loading ? (
-            <div className="flex justify-center py-8">
-              <Loading size="large" />
-            </div>
-          ) : (
-            <>
-              {/* Category success message */}
-              {categorySuccess && (
-                <Alert
-                  type="success"
-                  message={categorySuccess}
-                  onClose={() => setCategorySuccess(null)}
-                  className="mb-4"
-                />
-              )}
-
-              <ProductForm
-                initialData={product}
-                categories={categories}
-                onSubmit={handleSubmit}
-                isSubmitting={isSubmitting}
-                submitError={submitError}
+            {error ? (
+              <Alert
+                type="error"
+                message={error}
+                onClose={() => setError(null)}
               />
-            </>
-          )}
-        </div>
-      </motion.div>
+            ) : loading ? (
+              <div className="flex justify-center py-8">
+                <Loading size="large" />
+              </div>
+            ) : (
+              <>
+                {/* Category success message */}
+                {categorySuccess && (
+                  <Alert
+                    type="success"
+                    message={categorySuccess}
+                    onClose={() => setCategorySuccess(null)}
+                    className="mb-4"
+                  />
+                )}
+
+                <ProductForm
+                  initialData={product}
+                  categories={categories}
+                  onSubmit={handleSubmit}
+                  isSubmitting={isSubmitting}
+                  submitError={submitError}
+                />
+              </>
+            )}
+          </div>
+        </motion.div>
+      </div>
 
       {/* Category Modal */}
       <Modal
