@@ -89,17 +89,33 @@ const connectDB = async (retryCount = 0, maxRetries = 5) => {
     );
     console.log("Using connection string:", redactedUri);
 
+    // Close any existing connection first
+    if (mongoose.connection.readyState !== 0) {
+      console.log("Closing existing MongoDB connection before reconnecting...");
+      await mongoose.connection.close();
+    }
+
     // Significantly increased timeouts for Render deployment
-    await mongoose.connect(uri, {
-      serverSelectionTimeoutMS: 60000, // 60 seconds
-      socketTimeoutMS: 90000, // 90 seconds
-      connectTimeoutMS: 60000, // 60 seconds
+    const connectionOptions = {
+      serverSelectionTimeoutMS: 120000, // 120 seconds (2 minutes)
+      socketTimeoutMS: 120000, // 120 seconds (2 minutes)
+      connectTimeoutMS: 120000, // 120 seconds (2 minutes)
       heartbeatFrequencyMS: 30000, // 30 seconds
       retryWrites: true,
       w: "majority",
       maxPoolSize: 10,
       bufferCommands: false, // Disable command buffering
-    });
+      autoIndex: true, // Build indexes
+      family: 4, // Use IPv4, skip trying IPv6
+    };
+
+    console.log(
+      "Connection options:",
+      JSON.stringify(connectionOptions, null, 2)
+    );
+
+    // Connect with the options
+    await mongoose.connect(uri, connectionOptions);
 
     // Set up connection event listeners
     mongoose.connection.on("error", (err) => {
@@ -116,6 +132,24 @@ const connectDB = async (retryCount = 0, maxRetries = 5) => {
       console.log("MongoDB connected successfully");
     });
 
+    // Test the connection by running a simple query
+    try {
+      const adminDb = mongoose.connection.db.admin();
+      const result = await adminDb.ping();
+      console.log("MongoDB ping result:", result);
+
+      // List all collections to verify access
+      const collections = await mongoose.connection.db
+        .listCollections()
+        .toArray();
+      console.log(
+        `Available collections (${collections.length}):`,
+        collections.map((c) => c.name).join(", ")
+      );
+    } catch (pingError) {
+      console.error("Error pinging MongoDB:", pingError);
+    }
+
     console.log("✅ MongoDB Atlas connected successfully");
 
     // Create mock data for development/fallback
@@ -129,6 +163,7 @@ const connectDB = async (retryCount = 0, maxRetries = 5) => {
       }):`,
       error.message
     );
+    console.error("Error stack:", error.stack);
 
     if (retryCount < maxRetries) {
       console.log(
@@ -147,6 +182,7 @@ const connectDB = async (retryCount = 0, maxRetries = 5) => {
         "- Connection string is correct (no spaces in username/password)"
       );
       console.log("- Database user exists and has correct permissions");
+      console.log("- Network connectivity to MongoDB Atlas is available");
 
       // Create mock data for fallback
       createMockData();
@@ -520,11 +556,50 @@ if (!staticPath) {
           status: connectionStates[connectionState] || "unknown",
         };
 
+        // Try to fetch a sample from each collection to verify database access
+        const sampleData = {};
+        if (mongoose.connection.readyState === 1) {
+          try {
+            // Try to get a sample contact
+            if (mongoose.models.Contact) {
+              const contactSample = await mongoose.models.Contact.findOne()
+                .lean()
+                .maxTimeMS(5000);
+              sampleData.contact = contactSample
+                ? { found: true, _id: contactSample._id }
+                : { found: false };
+            }
+
+            // Try to get a sample product
+            if (mongoose.models.Product) {
+              const productSample = await mongoose.models.Product.findOne()
+                .lean()
+                .maxTimeMS(5000);
+              sampleData.product = productSample
+                ? { found: true, _id: productSample._id }
+                : { found: false };
+            }
+
+            // Try to get a sample order
+            if (mongoose.models.Order) {
+              const orderSample = await mongoose.models.Order.findOne()
+                .lean()
+                .maxTimeMS(5000);
+              sampleData.order = orderSample
+                ? { found: true, _id: orderSample._id }
+                : { found: false };
+            }
+          } catch (sampleError) {
+            sampleData.error = sampleError.message;
+          }
+        }
+
         // Create response object
         const dbStatus = {
           connection: connectionDetails,
           models: models,
           collections: collections,
+          sampleData: sampleData,
           environment: process.env.NODE_ENV,
           timestamp: new Date().toISOString(),
         };
@@ -545,6 +620,78 @@ if (!staticPath) {
                 : "disconnected",
           },
           timestamp: new Date().toISOString(),
+        });
+      }
+    });
+
+    // Direct test route for contacts collection
+    app.get("/api/test/contacts", async (_req, res) => {
+      try {
+        console.log("Testing direct access to contacts collection");
+
+        // Check MongoDB connection
+        if (mongoose.connection.readyState !== 1) {
+          return res.json({
+            success: false,
+            message: "MongoDB not connected",
+            connectionState: mongoose.connection.readyState,
+          });
+        }
+
+        // Try to get contacts directly
+        const Contact =
+          mongoose.models.Contact || require("./server/models/Contact");
+        const contacts = await Contact.find().limit(5).lean().maxTimeMS(10000);
+
+        return res.json({
+          success: true,
+          count: contacts.length,
+          data: contacts,
+          connectionState: mongoose.connection.readyState,
+        });
+      } catch (error) {
+        console.error("Error in direct contacts test:", error);
+        return res.json({
+          success: false,
+          error: error.message,
+          stack: error.stack,
+          connectionState: mongoose.connection.readyState,
+        });
+      }
+    });
+
+    // Direct test route for products collection
+    app.get("/api/test/products", async (_req, res) => {
+      try {
+        console.log("Testing direct access to products collection");
+
+        // Check MongoDB connection
+        if (mongoose.connection.readyState !== 1) {
+          return res.json({
+            success: false,
+            message: "MongoDB not connected",
+            connectionState: mongoose.connection.readyState,
+          });
+        }
+
+        // Try to get products directly
+        const Product =
+          mongoose.models.Product || require("./server/models/Product");
+        const products = await Product.find().limit(5).lean().maxTimeMS(10000);
+
+        return res.json({
+          success: true,
+          count: products.length,
+          data: products,
+          connectionState: mongoose.connection.readyState,
+        });
+      } catch (error) {
+        console.error("Error in direct products test:", error);
+        return res.json({
+          success: false,
+          error: error.message,
+          stack: error.stack,
+          connectionState: mongoose.connection.readyState,
         });
       }
     });
