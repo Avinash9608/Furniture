@@ -15,30 +15,63 @@ exports.getAllMessages = async (req, res) => {
       require("mongoose").connection.readyState
     );
 
-    // Define mock messages for fallback
-    const mockMessages = [
-      {
-        _id: "mock1",
-        name: "John Doe",
-        email: "john@example.com",
-        message: "I'm interested in your furniture",
-        createdAt: new Date(),
-      },
-      {
-        _id: "mock2",
-        name: "Jane Smith",
-        email: "jane@example.com",
-        message: "Do you deliver to my area?",
-        createdAt: new Date(Date.now() - 86400000), // 1 day ago
-      },
-      {
-        _id: "mock3",
-        name: "Robert Johnson",
-        email: "robert@example.com",
-        message: "What's the warranty period for your furniture?",
-        createdAt: new Date(Date.now() - 172800000), // 2 days ago
-      },
-    ];
+    // Get mock messages from the model
+    let mockMessages;
+    try {
+      // Try to use the model's getMockData method if available
+      if (Contact.getMockData) {
+        console.log("Using Contact.getMockData() for mock messages");
+        mockMessages = Contact.getMockData();
+      } else if (Contact.schema.statics.mockData) {
+        console.log("Using Contact.schema.statics.mockData for mock messages");
+        mockMessages = Contact.schema.statics.mockData;
+      } else {
+        // Fallback to hardcoded mock data
+        console.log("Using hardcoded mock messages");
+        mockMessages = [
+          {
+            _id: "mock1",
+            name: "John Doe",
+            email: "john@example.com",
+            message: "I'm interested in your furniture",
+            createdAt: new Date(),
+          },
+          {
+            _id: "mock2",
+            name: "Jane Smith",
+            email: "jane@example.com",
+            message: "Do you deliver to my area?",
+            createdAt: new Date(Date.now() - 86400000), // 1 day ago
+          },
+          {
+            _id: "mock3",
+            name: "Robert Johnson",
+            email: "robert@example.com",
+            message: "What's the warranty period for your furniture?",
+            createdAt: new Date(Date.now() - 172800000), // 2 days ago
+          },
+        ];
+      }
+    } catch (mockError) {
+      console.error("Error getting mock data:", mockError);
+      // Fallback to hardcoded mock data
+      mockMessages = [
+        {
+          _id: "mock1",
+          name: "John Doe",
+          email: "john@example.com",
+          message: "I'm interested in your furniture",
+          createdAt: new Date(),
+        },
+        {
+          _id: "mock2",
+          name: "Jane Smith",
+          email: "jane@example.com",
+          message: "Do you deliver to my area?",
+          createdAt: new Date(Date.now() - 86400000), // 1 day ago
+        },
+      ];
+    }
 
     // First try to get real messages from the database
     try {

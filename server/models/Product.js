@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const timeoutPlugin = require("../utils/mongooseTimeoutPlugin");
 
 // Try to require slugify, but provide a fallback if it's not available
 let slugify;
@@ -220,5 +221,75 @@ ProductSchema.pre("save", function (next) {
   }
   next();
 });
+
+// Add mock data for fallback
+ProductSchema.statics.mockData = [
+  {
+    _id: "mock-product-1",
+    name: "Luxury Sofa",
+    slug: "luxury-sofa",
+    description: "A comfortable luxury sofa for your living room",
+    price: 12999,
+    category: "mock-category-1",
+    stock: 10,
+    images: ["https://images.unsplash.com/photo-1555041469-a586c61ea9bc"],
+    featured: true,
+    dimensions: {
+      length: 200,
+      width: 90,
+      height: 85,
+    },
+    material: "Leather",
+    color: "Brown",
+    ratings: 4.5,
+    numReviews: 12,
+    createdAt: new Date(),
+  },
+  {
+    _id: "mock-product-2",
+    name: "Wooden Dining Table",
+    slug: "wooden-dining-table",
+    description: "A sturdy wooden dining table for your family",
+    price: 8999,
+    category: "mock-category-2",
+    stock: 5,
+    images: ["https://images.unsplash.com/photo-1533090161767-e6ffed986c88"],
+    featured: false,
+    dimensions: {
+      length: 180,
+      width: 90,
+      height: 75,
+    },
+    material: "Wood",
+    color: "Natural",
+    ratings: 4.2,
+    numReviews: 8,
+    createdAt: new Date(Date.now() - 86400000), // 1 day ago
+  },
+  {
+    _id: "mock-product-3",
+    name: "Executive Office Chair",
+    slug: "executive-office-chair",
+    description: "A comfortable office chair with ergonomic design",
+    price: 5999,
+    category: "mock-category-3",
+    stock: 15,
+    images: ["https://images.unsplash.com/photo-1580480055273-228ff5388ef8"],
+    featured: true,
+    dimensions: {
+      length: 70,
+      width: 70,
+      height: 120,
+    },
+    material: "Mesh and Metal",
+    color: "Black",
+    ratings: 4.8,
+    numReviews: 20,
+    createdAt: new Date(Date.now() - 172800000), // 2 days ago
+  },
+];
+
+// Apply the timeout plugin
+ProductSchema.plugin(timeoutPlugin, { timeout: 60000 });
 
 module.exports = mongoose.model("Product", ProductSchema);

@@ -13,52 +13,101 @@ exports.getAllProducts = async (req, res) => {
     console.log("Request query params:", req.query);
     console.log("MongoDB connection state:", mongoose.connection.readyState);
 
-    // Define mock products for fallback
-    const mockProducts = [
-      {
-        _id: "mock1",
-        name: "Luxury Sofa",
-        description: "A comfortable luxury sofa",
-        price: 12999,
-        category: {
-          _id: "cat1",
-          name: "Sofa",
+    // Get mock products from the model
+    let mockProducts;
+    try {
+      // Try to use the model's getMockData method if available
+      if (Product.getMockData) {
+        console.log("Using Product.getMockData() for mock products");
+        mockProducts = Product.getMockData();
+      } else if (Product.schema.statics.mockData) {
+        console.log("Using Product.schema.statics.mockData for mock products");
+        mockProducts = Product.schema.statics.mockData;
+      } else {
+        // Fallback to hardcoded mock data
+        console.log("Using hardcoded mock products");
+        mockProducts = [
+          {
+            _id: "mock1",
+            name: "Luxury Sofa",
+            description: "A comfortable luxury sofa",
+            price: 12999,
+            category: {
+              _id: "cat1",
+              name: "Sofa",
+            },
+            stock: 10,
+            images: [
+              "https://images.unsplash.com/photo-1555041469-a586c61ea9bc",
+            ],
+            createdAt: new Date(),
+          },
+          {
+            _id: "mock2",
+            name: "Wooden Dining Table",
+            description: "A sturdy wooden dining table",
+            price: 8999,
+            category: {
+              _id: "cat2",
+              name: "Tables",
+            },
+            stock: 5,
+            images: [
+              "https://images.unsplash.com/photo-1533090161767-e6ffed986c88",
+            ],
+            createdAt: new Date(Date.now() - 86400000), // 1 day ago
+          },
+          {
+            _id: "mock3",
+            name: "Executive Office Chair",
+            description: "A comfortable office chair",
+            price: 5999,
+            category: {
+              _id: "cat3",
+              name: "Chairs",
+            },
+            stock: 15,
+            images: [
+              "https://images.unsplash.com/photo-1580480055273-228ff5388ef8",
+            ],
+            createdAt: new Date(Date.now() - 172800000), // 2 days ago
+          },
+        ];
+      }
+    } catch (mockError) {
+      console.error("Error getting mock data:", mockError);
+      // Fallback to hardcoded mock data
+      mockProducts = [
+        {
+          _id: "mock1",
+          name: "Luxury Sofa",
+          description: "A comfortable luxury sofa",
+          price: 12999,
+          category: {
+            _id: "cat1",
+            name: "Sofa",
+          },
+          stock: 10,
+          images: ["https://images.unsplash.com/photo-1555041469-a586c61ea9bc"],
+          createdAt: new Date(),
         },
-        stock: 10,
-        images: ["https://images.unsplash.com/photo-1555041469-a586c61ea9bc"],
-        createdAt: new Date(),
-      },
-      {
-        _id: "mock2",
-        name: "Wooden Dining Table",
-        description: "A sturdy wooden dining table",
-        price: 8999,
-        category: {
-          _id: "cat2",
-          name: "Tables",
+        {
+          _id: "mock2",
+          name: "Wooden Dining Table",
+          description: "A sturdy wooden dining table",
+          price: 8999,
+          category: {
+            _id: "cat2",
+            name: "Tables",
+          },
+          stock: 5,
+          images: [
+            "https://images.unsplash.com/photo-1533090161767-e6ffed986c88",
+          ],
+          createdAt: new Date(Date.now() - 86400000), // 1 day ago
         },
-        stock: 5,
-        images: [
-          "https://images.unsplash.com/photo-1533090161767-e6ffed986c88",
-        ],
-        createdAt: new Date(Date.now() - 86400000), // 1 day ago
-      },
-      {
-        _id: "mock3",
-        name: "Executive Office Chair",
-        description: "A comfortable office chair",
-        price: 5999,
-        category: {
-          _id: "cat3",
-          name: "Chairs",
-        },
-        stock: 15,
-        images: [
-          "https://images.unsplash.com/photo-1580480055273-228ff5388ef8",
-        ],
-        createdAt: new Date(Date.now() - 172800000), // 2 days ago
-      },
-    ];
+      ];
+    }
 
     // First try to get real products from the database
     try {

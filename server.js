@@ -109,6 +109,12 @@ const connectDB = async (retryCount = 0, maxRetries = 5) => {
       family: 4, // Use IPv4, skip trying IPv6
     };
 
+    // Disable buffering globally
+    mongoose.set("bufferCommands", false);
+
+    // Set global timeout for all operations
+    mongoose.set("maxTimeMS", 60000);
+
     console.log(
       "Connection options:",
       JSON.stringify(connectionOptions, null, 2)
