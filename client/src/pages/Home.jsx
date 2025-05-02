@@ -82,66 +82,76 @@ const categories = [
   },
 ];
 
-const testimonials = [
-  {
-    id: 1,
-    name: "Rahul Kumar",
-    role: "Interior Designer",
-    content:
-      "The quality of furniture from Shyam Furnitures is exceptional. I recommend them to all my clients for their home decor needs.",
-    avatar: "https://randomuser.me/api/portraits/men/1.jpg",
-    rating: 5,
-  },
-  {
-    id: 2,
-    name: "Priya Sharma",
-    role: "Homeowner",
-    content:
-      "I purchased a sofa set and dining table from Shyam Furnitures. The craftsmanship is outstanding and the delivery was prompt.",
-    avatar: "https://randomuser.me/api/portraits/women/2.jpg",
-    rating: 4,
-  },
-  {
-    id: 3,
-    name: "Amit Patel",
-    role: "Business Owner",
-    content:
-      "We furnished our entire office with furniture from Shyam Furnitures. The quality and durability are unmatched in the market.",
-    avatar: "https://randomuser.me/api/portraits/men/3.jpg",
-    rating: 5,
-  },
-  {
-    id: 4,
-    name: "Avinash Kumar",
-    role: "Developer",
-    content:
-      "We furnished our entire office with furniture from Shyam Furnitures. The quality and durability are unmatched in the market.",
-    avatar: "https://randomuser.me/api/portraits/men/3.jpg",
-    rating: 5,
-  },
-];
-
 const Home = () => {
-  const [duplicatedTestimonials, setDuplicatedTestimonials] = useState([]);
-  const controls = useAnimation();
+  const testimonials = [
+    {
+      id: 1,
+      name: "Rahul Kumar",
+      role: "Interior Designer",
+      content:
+        "The quality of furniture from Shyam Furnitures is exceptional. I recommend them to all my clients for their home decor needs.",
+      avatar: "https://randomuser.me/api/portraits/men/1.jpg",
+      rating: 5,
+    },
+    {
+      id: 2,
+      name: "Priya Sharma",
+      role: "Homeowner",
+      content:
+        "I purchased a sofa set and dining table from Shyam Furnitures. The craftsmanship is outstanding and the delivery was prompt.",
+      avatar: "https://randomuser.me/api/portraits/women/2.jpg",
+      rating: 4,
+    },
+    {
+      id: 3,
+      name: "Amit Patel",
+      role: "Business Owner",
+      content:
+        "We furnished our entire office with furniture from Shyam Furnitures. The quality and durability are unmatched in the market.",
+      avatar: "https://randomuser.me/api/portraits/men/3.jpg",
+      rating: 5,
+    },
+    {
+      id: 4,
+      name: "Avinash Kumar",
+      role: "Developer",
+      content:
+        "We furnished our entire office with furniture from Shyam Furnitures. The quality and durability are unmatched in the market.",
+      avatar: "https://randomuser.me/api/portraits/men/3.jpg",
+      rating: 5,
+    },
+  ];
+  // State for testimonial sliding
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [visibleTestimonials, setVisibleTestimonials] = useState([]);
 
+  // Initialize visible testimonials
   useEffect(() => {
-    // Start the sliding animation
-    controls.start({
-      x: ["100%", "0%", "-100%"], // start from right → center → left
-      transition: {
-        duration: 30, // speed: bigger number = slower
-        ease: "linear",
-        repeat: Infinity,
-        repeatType: "loop",
-      },
-    });
-  }, [controls]);
-
-  useEffect(() => {
-    // Duplicate testimonials to make infinite scrolling smooth
-    setDuplicatedTestimonials([...testimonials, ...testimonials]);
+    setVisibleTestimonials(testimonials.slice(0, 3));
   }, []);
+
+  // Auto-rotate testimonials
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentIndex((prevIndex) => (prevIndex + 1) % testimonials.length);
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [testimonials.length]);
+
+  // Update visible testimonials when currentIndex changes
+  useEffect(() => {
+    const getVisibleTestimonials = () => {
+      const indices = [];
+      for (let i = 0; i < 3; i++) {
+        indices.push((currentIndex + i) % testimonials.length);
+      }
+      return indices.map((index) => testimonials[index]);
+    };
+
+    setVisibleTestimonials(getVisibleTestimonials());
+  }, [currentIndex, testimonials]);
+
   return (
     <div>
       {/* Hero Section */}
@@ -504,41 +514,54 @@ const Home = () => {
         </div>
       </section> */}
 
-      <section className="py-16 overflow-hidden">
-        <div className="container-custom">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-serif font-bold mb-4">
+      <section className="py-16 bg-gray-50 dark:bg-gray-800 overflow-hidden">
+        <div className="container mx-auto px-4">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            viewport={{ once: true }}
+            className="text-center mb-12"
+          >
+            <h2 className="text-3xl font-serif font-bold mb-4 text-gray-900 dark:text-white">
               What Our Customers Say
             </h2>
-            <p className="text-gray-600 max-w-2xl mx-auto">
+            <p className="text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
               Don't just take our word for it. Here's what our satisfied
               customers have to say about their experience with Shyam
               Furnitures.
             </p>
-          </div>
+          </motion.div>
 
-          {/* Carousel Wrapper */}
-          <div className="relative overflow-hidden">
-            <motion.div
-              className="flex gap-6"
-              animate={controls}
-              custom={0}
-              initial={{ x: "0%" }}
-            >
-              {testimonials.map((testimonial) => (
-                <div
-                  key={testimonial.id}
-                  className="min-w-[300px] md:min-w-[30%] theme-bg-primary p-6 rounded-lg shadow-md"
+          <div className="relative">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 relative">
+              {visibleTestimonials.map((testimonial, index) => (
+                <motion.div
+                  key={`${testimonial.id}-${currentIndex}`}
+                  initial={{
+                    opacity: 0,
+                    x: index === 0 ? -100 : index === 2 ? 100 : 0,
+                  }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{
+                    duration: 0.5,
+                    type: "spring",
+                    stiffness: 100,
+                    damping: 10,
+                  }}
+                  className="bg-white dark:bg-gray-700 p-6 rounded-lg shadow-md h-full"
                 >
                   <div className="flex items-center mb-4">
                     <img
                       src={testimonial.avatar}
                       alt={testimonial.name}
-                      className="w-12 h-12 rounded-full mr-4"
+                      className="w-12 h-12 rounded-full mr-4 object-cover"
                     />
                     <div>
-                      <h3 className="font-bold">{testimonial.name}</h3>
-                      <p className="text-sm text-gray-600">
+                      <h3 className="font-bold text-gray-900 dark:text-white">
+                        {testimonial.name}
+                      </h3>
+                      <p className="text-sm text-gray-600 dark:text-gray-300">
                         {testimonial.role}
                       </p>
                     </div>
@@ -550,7 +573,7 @@ const Home = () => {
                         className={`w-5 h-5 ${
                           i < testimonial.rating
                             ? "text-yellow-400"
-                            : "text-gray-300"
+                            : "text-gray-300 dark:text-gray-500"
                         }`}
                         fill="currentColor"
                         viewBox="0 0 20 20"
@@ -560,12 +583,12 @@ const Home = () => {
                       </svg>
                     ))}
                   </div>
-                  <p className="text-gray-700 italic">
+                  <p className="text-gray-700 dark:text-gray-300 italic">
                     "{testimonial.content}"
                   </p>
-                </div>
+                </motion.div>
               ))}
-            </motion.div>
+            </div>
           </div>
         </div>
       </section>

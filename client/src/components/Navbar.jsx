@@ -5,6 +5,7 @@ import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
 // We don't need to import useTheme directly as it's used in the ThemeToggle component
 import ThemeToggle from "./ThemeToggle";
+import logo from "../../public/images/shyan furniture logo.jpg";
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -99,9 +100,15 @@ const Navbar = () => {
         <div className="flex justify-between items-center">
           {/* Logo */}
           <Link to="/" className="flex items-center">
-            <span className="text-2xl font-serif font-bold text-primary">
+            {/* <span className="text-2xl font-serif font-bold text-primary">
               Shyam Furnitures
-            </span>
+            </span> */}
+            <img
+              src={logo}
+              alt="Shyam Furnitures Logo"
+              // className="h-10 w-40 object-cover shadow-md shadow-black rounded"
+              className="h-14 w-50 object-cover shadow-xl shadow-black ring-1 ring-black rounded"
+            />
           </Link>
 
           {/* Desktop Navigation */}
