@@ -397,6 +397,8 @@ if (!staticPath) {
       getAllPaymentRequests,
     } = require("./server/controllers/paymentRequests");
     const { getOrders } = require("./server/controllers/orders");
+    const { getAllMessages } = require("./server/controllers/adminMessages");
+    const { getAllProducts } = require("./server/controllers/adminProducts");
 
     // API routes are now set up
 
@@ -422,6 +424,10 @@ if (!staticPath) {
     app.get("/api/admin/payment-requests", getAllPaymentRequests);
     app.get("/admin/orders", getOrders);
     app.get("/api/admin/orders", getOrders);
+    app.get("/admin/messages", getAllMessages);
+    app.get("/api/admin/messages", getAllMessages);
+    app.get("/admin/products", getAllProducts);
+    app.get("/api/admin/products", getAllProducts);
 
     // Direct contact form handlers
     app.post("/contact", contactController.createContact);
@@ -483,57 +489,7 @@ if (!staticPath) {
       }
     });
 
-    // Direct route for admin messages
-    app.get("/api/admin/messages", async (_req, res) => {
-      try {
-        // Check if MongoDB is connected
-        if (mongoose.connection.readyState !== 1) {
-          console.log("MongoDB not connected, returning mock messages data");
-          // Return mock data
-          return res.json([
-            {
-              _id: "mock1",
-              name: "John Doe",
-              email: "john@example.com",
-              message: "I'm interested in your furniture",
-              createdAt: new Date(),
-            },
-            {
-              _id: "mock2",
-              name: "Jane Smith",
-              email: "jane@example.com",
-              message: "Do you deliver to my area?",
-              createdAt: new Date(Date.now() - 86400000), // 1 day ago
-            },
-          ]);
-        }
-
-        // If connected, try to get real data
-        const messages = await Contact.find().sort({ createdAt: -1 });
-        res.json(messages);
-      } catch (error) {
-        console.error("Error fetching messages:", error);
-
-        // Return mock data on error
-        console.log("Returning mock messages data due to error");
-        res.json([
-          {
-            _id: "mock1",
-            name: "John Doe",
-            email: "john@example.com",
-            message: "I'm interested in your furniture",
-            createdAt: new Date(),
-          },
-          {
-            _id: "mock2",
-            name: "Jane Smith",
-            email: "jane@example.com",
-            message: "Do you deliver to my area?",
-            createdAt: new Date(Date.now() - 86400000), // 1 day ago
-          },
-        ]);
-      }
-    });
+    // Direct route for admin messages is now handled by the adminMessages controller
 
     // DB test route with detailed information
     app.get("/api/db-test", async (_req, res) => {
