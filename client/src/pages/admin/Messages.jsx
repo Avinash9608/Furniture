@@ -6,6 +6,7 @@ import AdminLayout from "../../components/admin/AdminLayout";
 import Button from "../../components/Button";
 import Loading from "../../components/Loading";
 import Alert from "../../components/Alert";
+import testAdminMessages from "../../utils/testAdminMessages";
 
 const AdminMessages = () => {
   const [messages, setMessages] = useState([]);
@@ -17,6 +18,7 @@ const AdminMessages = () => {
   const [updateLoading, setUpdateLoading] = useState(false);
   const [updateError, setUpdateError] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
+  const [debugInfo, setDebugInfo] = useState(null);
 
   // Fetch messages
   useEffect(() => {
@@ -49,7 +51,19 @@ const AdminMessages = () => {
         // Handle different API response structures
         let messagesData = [];
 
-        if (response && response.data && Array.isArray(response.data)) {
+        // Check for direct database response format
+        if (
+          response &&
+          response.data &&
+          response.data.source === "direct_database"
+        ) {
+          console.log("Detected direct database response format");
+          if (response.data.data && Array.isArray(response.data.data)) {
+            messagesData = response.data.data;
+          }
+        }
+        // Check for standard response formats
+        else if (response && response.data && Array.isArray(response.data)) {
           messagesData = response.data;
         } else if (
           response &&
@@ -190,6 +204,29 @@ const AdminMessages = () => {
     }
   };
 
+  // Debug function to test the admin messages page
+  const handleDebugTest = async () => {
+    try {
+      setDebugInfo(null);
+      const result = await testAdminMessages();
+      setDebugInfo(result);
+      console.log("Debug test result:", result);
+
+      if (result.success) {
+        setSuccessMessage(
+          "Debug test successful! The page is correctly displaying messages from the database."
+        );
+      } else {
+        setUpdateError(
+          "Debug test failed. Check the console for more details."
+        );
+      }
+    } catch (error) {
+      console.error("Error running debug test:", error);
+      setUpdateError(`Debug test error: ${error.message}`);
+    }
+  };
+
   // Handle delete message
   const handleDeleteMessage = async (id) => {
     try {
@@ -240,38 +277,60 @@ const AdminMessages = () => {
 
       {/* Filter Controls */}
       <div className="mb-6">
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 justify-between">
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => setStatusFilter("all")}
+              className={`px-3 py-1 text-sm font-medium rounded-md ${
+                statusFilter === "all"
+                  ? "bg-primary text-white"
+                  : "bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600"
+              }`}
+            >
+              All Messages
+            </button>
+            <button
+              onClick={() => setStatusFilter("unread")}
+              className={`px-3 py-1 text-sm font-medium rounded-md ${
+                statusFilter === "unread"
+                  ? "bg-yellow-500 text-white"
+                  : "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 hover:bg-yellow-200 dark:hover:bg-yellow-900/50"
+              }`}
+            >
+              Unread
+            </button>
+            <button
+              onClick={() => setStatusFilter("read")}
+              className={`px-3 py-1 text-sm font-medium rounded-md ${
+                statusFilter === "read"
+                  ? "bg-green-500 text-white"
+                  : "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 hover:bg-green-200 dark:hover:bg-green-900/50"
+              }`}
+            >
+              Read
+            </button>
+          </div>
+
+          {/* Debug button */}
           <button
-            onClick={() => setStatusFilter("all")}
-            className={`px-3 py-1 text-sm font-medium rounded-md ${
-              statusFilter === "all"
-                ? "bg-primary text-white"
-                : "bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600"
-            }`}
+            onClick={handleDebugTest}
+            className="px-3 py-1 text-sm font-medium rounded-md bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-900/50"
           >
-            All Messages
-          </button>
-          <button
-            onClick={() => setStatusFilter("unread")}
-            className={`px-3 py-1 text-sm font-medium rounded-md ${
-              statusFilter === "unread"
-                ? "bg-yellow-500 text-white"
-                : "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 hover:bg-yellow-200 dark:hover:bg-yellow-900/50"
-            }`}
-          >
-            Unread
-          </button>
-          <button
-            onClick={() => setStatusFilter("read")}
-            className={`px-3 py-1 text-sm font-medium rounded-md ${
-              statusFilter === "read"
-                ? "bg-green-500 text-white"
-                : "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 hover:bg-green-200 dark:hover:bg-green-900/50"
-            }`}
-          >
-            Read
+            Debug Test
           </button>
         </div>
+
+        {/* Debug info */}
+        {debugInfo && (
+          <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
+            <h3 className="text-sm font-medium text-blue-800 dark:text-blue-300 mb-2">
+              Debug Information
+            </h3>
+            <pre className="text-xs overflow-auto max-h-40 p-2 bg-white dark:bg-gray-800 rounded border border-blue-100 dark:border-blue-800">
+              {JSON.stringify(debugInfo, null, 2)}
+            </pre>
+          </div>
+        )}
       </div>
 
       {/* Messages Table */}
@@ -336,6 +395,7 @@ const AdminMessages = () => {
                 {filteredMessages.map((message) => (
                   <motion.tr
                     key={message._id}
+                    data-message-id={message._id}
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ duration: 0.3 }}

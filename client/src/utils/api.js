@@ -1383,7 +1383,18 @@ const contactAPI = {
           // Ensure the response has the expected structure
           let messagesData = [];
 
+          // Check for direct database response format
           if (
+            response.data &&
+            response.data.source === "direct_database" &&
+            response.data.data &&
+            Array.isArray(response.data.data)
+          ) {
+            console.log("Detected direct database response format");
+            messagesData = response.data.data;
+          }
+          // Check for standard response formats
+          else if (
             response.data &&
             response.data.data &&
             Array.isArray(response.data.data)
