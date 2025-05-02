@@ -3,6 +3,7 @@ const mongoose = require("mongoose");
 const cors = require("cors");
 const dotenv = require("dotenv");
 const path = require("path");
+const fs = require("fs");
 
 // Load environment variables
 dotenv.config();
@@ -11,11 +12,20 @@ dotenv.config();
 require("./utils/ensureUploads");
 
 // Environment configuration
-if (process.env.NODE_ENV !== "production") {
+if (process.env.FORCE_PRODUCTION === "true") {
+  process.env.NODE_ENV = "production";
+  console.log("FORCE_PRODUCTION is set - Forcing production mode");
+} else if (process.env.NODE_ENV !== "production") {
   process.env.NODE_ENV = process.env.NODE_ENV || "development";
   process.env.BYPASS_AUTH = "true";
   console.log("Development mode - Bypassing authentication");
 }
+
+// Log the environment for debugging
+console.log(`Current NODE_ENV: ${process.env.NODE_ENV}`);
+console.log(`Current PORT: ${process.env.PORT}`);
+console.log(`FORCE_PRODUCTION: ${process.env.FORCE_PRODUCTION || "not set"}`);
+console.log(`Current directory: ${__dirname}`);
 
 if (!process.env.JWT_SECRET) {
   process.env.JWT_SECRET =
@@ -76,13 +86,64 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // Production static files
 if (process.env.NODE_ENV === "production") {
-  // Serve static files from the React app
-  app.use(express.static(path.join(__dirname, "../client/dist")));
+  // Log the environment for debugging
+  console.log("Running in PRODUCTION mode");
 
-  console.log(
-    "Serving static files from:",
-    path.join(__dirname, "../client/dist")
-  );
+  // Define possible static file paths (in order of preference)
+  const possiblePaths = [
+    path.join(__dirname, "../client/dist"),
+    path.join(__dirname, "../dist"),
+    path.join(__dirname, "../../client/dist"),
+    path.join(process.cwd(), "client/dist"),
+    path.join(process.cwd(), "dist"),
+  ];
+
+  let staticPathFound = false;
+
+  // Try each path until we find one that exists
+  for (const staticPath of possiblePaths) {
+    try {
+      if (fs.existsSync(staticPath)) {
+        console.log(`✅ Static directory found at: ${staticPath}`);
+
+        // Check if index.html exists in this directory
+        const indexPath = path.join(staticPath, "index.html");
+        if (fs.existsSync(indexPath)) {
+          console.log(`✅ index.html found at: ${indexPath}`);
+
+          // Serve static files from this directory
+          app.use(express.static(staticPath));
+          console.log(`✅ Serving static files from: ${staticPath}`);
+
+          staticPathFound = true;
+          break;
+        } else {
+          console.log(`❌ index.html NOT found at: ${indexPath}`);
+        }
+      } else {
+        console.log(`❌ Static directory NOT found at: ${staticPath}`);
+      }
+    } catch (err) {
+      console.error(`Error checking static directory ${staticPath}:`, err);
+    }
+  }
+
+  if (!staticPathFound) {
+    console.error(
+      "❌ No valid static directory found! The app may not work correctly."
+    );
+    console.log("Current directory:", __dirname);
+    console.log("Working directory:", process.cwd());
+
+    try {
+      console.log(
+        "Root directory contents:",
+        fs.readdirSync(path.join(__dirname, ".."))
+      );
+    } catch (err) {
+      console.error("Error listing root directory:", err);
+    }
+  }
 }
 
 // API Routes
@@ -148,11 +209,103 @@ app.get("/api/health", (_req, res) => {
   });
 });
 
+// Debug route to check file structure (available in all environments)
+app.get("/api/debug", (_req, res) => {
+  const rootDir = path.join(__dirname, "..");
+  const clientDir = path.join(rootDir, "client");
+  const clientDistDir = path.join(clientDir, "dist");
+
+  let fileStructure = {
+    environment: process.env.NODE_ENV,
+    serverDir: __dirname,
+    rootDir: rootDir,
+    rootFiles: [],
+    clientDir: clientDir,
+    clientFiles: [],
+    clientDistDir: clientDistDir,
+    clientDistFiles: [],
+    clientDistExists: false,
+    indexHtmlExists: false,
+  };
+
+  try {
+    // Check root directory
+    if (fs.existsSync(rootDir)) {
+      fileStructure.rootFiles = fs.readdirSync(rootDir);
+    }
+
+    // Check client directory
+    if (fs.existsSync(clientDir)) {
+      fileStructure.clientFiles = fs.readdirSync(clientDir);
+    }
+
+    // Check client/dist directory
+    if (fs.existsSync(clientDistDir)) {
+      fileStructure.clientDistExists = true;
+      fileStructure.clientDistFiles = fs.readdirSync(clientDistDir);
+
+      // Check for index.html
+      const indexPath = path.join(clientDistDir, "index.html");
+      fileStructure.indexHtmlExists = fs.existsSync(indexPath);
+    }
+  } catch (err) {
+    fileStructure.error = err.message;
+  }
+
+  res.json(fileStructure);
+});
+
 // Client Routing (Production only)
 if (process.env.NODE_ENV === "production") {
   // Important: This should come AFTER all API routes
-  app.get("*", (req, res) => {
-    res.sendFile(path.join(__dirname, "../client/dist", "index.html"));
+  app.get("*", (_req, res) => {
+    // Define possible index.html paths (in order of preference)
+    const possiblePaths = [
+      path.join(__dirname, "../client/dist/index.html"),
+      path.join(__dirname, "../dist/index.html"),
+      path.join(__dirname, "../../client/dist/index.html"),
+      path.join(process.cwd(), "client/dist/index.html"),
+      path.join(process.cwd(), "dist/index.html"),
+    ];
+
+    // Try each path until we find one that exists
+    for (const indexPath of possiblePaths) {
+      try {
+        if (fs.existsSync(indexPath)) {
+          console.log(`✅ Serving index.html from: ${indexPath}`);
+          return res.sendFile(indexPath);
+        }
+      } catch (err) {
+        console.error(`Error checking index.html at ${indexPath}:`, err);
+      }
+    }
+
+    // If we get here, we couldn't find index.html
+    console.error("❌ index.html NOT FOUND in any of the expected locations");
+
+    // List all paths we checked
+    const pathsChecked = possiblePaths.join("\n");
+
+    // Return a helpful error page
+    res.status(404).send(`
+      <html>
+        <head><title>Error - File Not Found</title></head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; max-width: 800px; margin: 0 auto; padding: 20px;">
+          <h1 style="color: #e53e3e;">Error: index.html not found</h1>
+          <p>The application could not find the main HTML file.</p>
+          <p>This is likely a deployment issue. Please check the server logs.</p>
+          <h2>Paths checked:</h2>
+          <pre style="background: #f7fafc; padding: 15px; border-radius: 5px; overflow-x: auto;">${pathsChecked}</pre>
+          <h2>Environment:</h2>
+          <pre style="background: #f7fafc; padding: 15px; border-radius: 5px; overflow-x: auto;">
+NODE_ENV: ${process.env.NODE_ENV}
+Current directory: ${__dirname}
+Working directory: ${process.cwd()}
+          </pre>
+          <p>Try visiting the <a href="/api/debug">/api/debug</a> endpoint for more information.</p>
+        </body>
+      </html>
+    `);
   });
 
   console.log("Catch-all route configured for React app");

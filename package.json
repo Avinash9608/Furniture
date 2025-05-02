@@ -15,7 +15,8 @@
     "install-all": "npm install && cd client && npm install",
     "build": "npm install && cd client && npm install && npm run build",
     "build:client": "cd client && npm run build",
-    "render-build": "npm install --include=dev && cd client && npm install --include=dev && npm run build && cd ..",
+    "render-build": "npm install --include=dev && cd client && npm install --include=dev && npm run build && cd .. && node postbuild.js",
+    "postbuild": "node postbuild.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "fix-slugs": "node server/scripts/fixSlugs.js",
     "fix-category-slugs": "node server/scripts/fixCategorySlugs.js"
