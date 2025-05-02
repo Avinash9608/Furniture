@@ -19,6 +19,7 @@ const AdminMessages = () => {
   const [updateError, setUpdateError] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
   const [debugInfo, setDebugInfo] = useState(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   // Fetch messages
   useEffect(() => {
@@ -30,6 +31,14 @@ const AdminMessages = () => {
         console.log("Fetching contact messages from API...");
         const response = await contactAPI.getAll();
         console.log("Contact API response:", response);
+        console.log("Response type:", typeof response);
+        console.log("Response data type:", typeof response.data);
+        console.log("Response data:", response.data);
+
+        // Check if response.data has source property
+        if (response.data && response.data.source) {
+          console.log("Response source:", response.data.source);
+        }
 
         // Check for error in the response
         if (response.error) {
@@ -157,7 +166,7 @@ const AdminMessages = () => {
     };
 
     fetchMessages();
-  }, []);
+  }, [refreshKey]);
 
   // Filter messages by status
   const filteredMessages =
@@ -202,6 +211,17 @@ const AdminMessages = () => {
     } finally {
       setUpdateLoading(false);
     }
+  };
+
+  // Force refresh function
+  const handleForceRefresh = () => {
+    console.log("Force refreshing messages...");
+    setLoading(true);
+    setError(null);
+    setMessages([]);
+    setDebugInfo(null);
+    setRefreshKey((prevKey) => prevKey + 1);
+    setSuccessMessage("Refreshing messages...");
   };
 
   // Debug function to test the admin messages page
@@ -311,13 +331,23 @@ const AdminMessages = () => {
             </button>
           </div>
 
-          {/* Debug button */}
-          <button
-            onClick={handleDebugTest}
-            className="px-3 py-1 text-sm font-medium rounded-md bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-900/50"
-          >
-            Debug Test
-          </button>
+          <div className="flex gap-2">
+            {/* Force Refresh button */}
+            <button
+              onClick={handleForceRefresh}
+              className="px-3 py-1 text-sm font-medium rounded-md bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 hover:bg-green-200 dark:hover:bg-green-900/50"
+            >
+              Force Refresh
+            </button>
+
+            {/* Debug button */}
+            <button
+              onClick={handleDebugTest}
+              className="px-3 py-1 text-sm font-medium rounded-md bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-900/50"
+            >
+              Debug Test
+            </button>
+          </div>
         </div>
 
         {/* Debug info */}

@@ -1414,9 +1414,18 @@ const contactAPI = {
 
           // If we have messages, return them
           if (messagesData && messagesData.length > 0) {
-            return {
-              data: messagesData,
-            };
+            // For direct database response, preserve the original structure
+            if (response.data && response.data.source === "direct_database") {
+              console.log("Preserving direct_database response structure");
+              return {
+                data: response.data,
+              };
+            } else {
+              // For other responses, just return the messages
+              return {
+                data: messagesData,
+              };
+            }
           } else {
             console.warn(`No messages found in response from ${endpoint}`);
           }
@@ -1473,9 +1482,20 @@ const contactAPI = {
             }
 
             if (messagesData && messagesData.length > 0) {
-              return {
-                data: messagesData,
-              };
+              // For direct database response, preserve the original structure
+              if (data && data.source === "direct_database") {
+                console.log(
+                  "Preserving direct_database response structure (fetch API)"
+                );
+                return {
+                  data: data,
+                };
+              } else {
+                // For other responses, just return the messages
+                return {
+                  data: messagesData,
+                };
+              }
             }
           } catch (fetchError) {
             console.warn(`Fetch API error from ${endpoint}:`, fetchError);
@@ -1498,7 +1518,18 @@ const contactAPI = {
 
         const directResponse = await directApi.get(directEndpoint);
 
-        if (directResponse.data && Array.isArray(directResponse.data)) {
+        if (
+          directResponse.data &&
+          directResponse.data.source === "direct_database"
+        ) {
+          console.log(
+            "Direct database query returned direct_database response:",
+            directResponse.data
+          );
+          return {
+            data: directResponse.data,
+          };
+        } else if (directResponse.data && Array.isArray(directResponse.data)) {
           console.log("Direct database query successful:", directResponse.data);
           return {
             data: directResponse.data,
@@ -1515,6 +1546,14 @@ const contactAPI = {
             directResponse.data.data &&
             Array.isArray(directResponse.data.data)
           ) {
+            // Check if this is a direct_database response
+            if (directResponse.data.source === "direct_database") {
+              console.log("Found direct_database response in nested data");
+              return {
+                data: directResponse.data,
+              };
+            }
+
             extractedData = directResponse.data.data;
           } else if (typeof directResponse.data === "object") {
             // If it's an object but not an array, wrap it in an array
