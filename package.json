@@ -4,7 +4,7 @@
   "description": "Furniture shop website for Shyam Furnitures",
   "main": "index.js",
   "scripts": {
-    "start": "node server.js",
+    "start": "node server/index.js",
     "server": "nodemon server/index.js",
     "client": "cd client && npm run dev",
     "dev": "concurrently \"npm run server\" \"npm run client\"",
@@ -15,7 +15,7 @@
     "install-all": "npm install && cd client && npm install",
     "build": "npm install && cd client && npm install && npm run build",
     "build:client": "cd client && npm run build",
-    "render-build": "npm install --include=dev && cd client && npm install && npm run build",
+    "render-build": "npm install --include=dev && cd client && npm install --include=dev && npm run build && cd ..",
     "test": "echo \"Error: no test specified\" && exit 1",
     "fix-slugs": "node server/scripts/fixSlugs.js",
     "fix-category-slugs": "node server/scripts/fixCategorySlugs.js"
