@@ -3,7 +3,7 @@ services:
     name: shyam-furnitures
     env: node
     buildCommand: npm run render-build
-    startCommand: node server/index.js
+    startCommand: node server.js
     healthCheckPath: /api/health
     envVars:
       - key: NODE_ENV

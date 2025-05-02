@@ -4,8 +4,8 @@
   "description": "Furniture shop website for Shyam Furnitures",
   "main": "index.js",
   "scripts": {
-    "start": "node server/index.js",
-    "server": "nodemon server/index.js",
+    "start": "node server.js",
+    "server": "nodemon server.js",
     "client": "cd client && npm run dev",
     "dev": "concurrently \"npm run server\" \"npm run client\"",
     "data:import": "node server/utils/seeder",
@@ -13,10 +13,9 @@
     "categories:seed": "node server/utils/seedCategories",
     "categories:update-slugs": "node server/utils/updateCategorySlugs",
     "install-all": "npm install && cd client && npm install",
-    "build": "npm install && cd client && npm install && npm run build",
+    "build": "node build.js",
     "build:client": "cd client && npm run build",
-    "render-build": "npm install --include=dev && cd client && npm install --include=dev && npm run build && cd .. && node postbuild.js",
-    "postbuild": "node postbuild.js",
+    "render-build": "npm install --include=dev && node build.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "fix-slugs": "node server/scripts/fixSlugs.js",
     "fix-category-slugs": "node server/scripts/fixCategorySlugs.js"
