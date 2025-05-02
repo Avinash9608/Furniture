@@ -172,8 +172,7 @@ const AdminLogin = () => {
                 </div>
                 <div className="ml-3 flex-1 md:flex md:justify-between">
                   <p className="text-sm text-blue-700 dark:text-blue-400">
-                    <strong>Admin Login:</strong> avinashmadhukar4@gmail.com /
-                    123456
+                    <strong>Admin Login:</strong> Credentials /Access Keys
                   </p>
                 </div>
               </div>
