@@ -95,6 +95,15 @@ const connectDB = async (retryCount = 0, maxRetries = 5) => {
       await mongoose.connection.close();
     }
 
+    // Configure mongoose before connecting
+    mongoose.set("strictQuery", false);
+
+    // Disable buffering globally - VERY IMPORTANT to prevent timeout errors
+    mongoose.set("bufferCommands", false);
+
+    // Set global timeout for all operations
+    mongoose.set("maxTimeMS", 60000);
+
     // Significantly increased timeouts for Render deployment
     const connectionOptions = {
       serverSelectionTimeoutMS: 120000, // 120 seconds (2 minutes)
@@ -109,19 +118,23 @@ const connectDB = async (retryCount = 0, maxRetries = 5) => {
       family: 4, // Use IPv4, skip trying IPv6
     };
 
-    // Disable buffering globally
-    mongoose.set("bufferCommands", false);
-
-    // Set global timeout for all operations
-    mongoose.set("maxTimeMS", 60000);
-
     console.log(
       "Connection options:",
       JSON.stringify(connectionOptions, null, 2)
     );
 
     // Connect with the options
-    await mongoose.connect(uri, connectionOptions);
+    const connection = await mongoose.connect(uri, connectionOptions);
+
+    // Verify connection by accessing the database directly
+    const db = connection.connection.db;
+    if (!db) {
+      throw new Error("Failed to get database reference after connection");
+    }
+
+    // Store the database reference globally for direct access
+    global.mongoDb = db;
+    console.log("Database reference stored globally as mongoDb");
 
     // Set up connection event listeners
     mongoose.connection.on("error", (err) => {
@@ -534,15 +547,75 @@ if (!staticPath) {
     app.use("/api/payment-settings", paymentSettingsRoutes);
     app.use("/api/payment-requests", paymentRequestsRoutes);
 
+    // Import direct database access controllers
+    const {
+      getAllMessagesDirectDb,
+    } = require("./server/controllers/directDbAdminMessages");
+    const {
+      getAllProductsDirectDb,
+    } = require("./server/controllers/directDbAdminProducts");
+
     // Direct admin routes
     app.get("/admin/payment-requests", getAllPaymentRequests);
     app.get("/api/admin/payment-requests", getAllPaymentRequests);
     app.get("/admin/orders", getOrders);
     app.get("/api/admin/orders", getOrders);
-    app.get("/admin/messages", getAllMessages);
-    app.get("/api/admin/messages", getAllMessages);
-    app.get("/admin/products", getAllProducts);
-    app.get("/api/admin/products", getAllProducts);
+
+    // Admin messages routes - try both regular and direct DB access
+    app.get("/admin/messages", async (req, res, next) => {
+      try {
+        // First try direct DB access
+        await getAllMessagesDirectDb(req, res);
+      } catch (error) {
+        console.error(
+          "Direct DB access failed for messages, falling back to regular controller:",
+          error
+        );
+        // Fall back to regular controller
+        getAllMessages(req, res, next);
+      }
+    });
+    app.get("/api/admin/messages", async (req, res, next) => {
+      try {
+        // First try direct DB access
+        await getAllMessagesDirectDb(req, res);
+      } catch (error) {
+        console.error(
+          "Direct DB access failed for messages, falling back to regular controller:",
+          error
+        );
+        // Fall back to regular controller
+        getAllMessages(req, res, next);
+      }
+    });
+
+    // Admin products routes - try both regular and direct DB access
+    app.get("/admin/products", async (req, res, next) => {
+      try {
+        // First try direct DB access
+        await getAllProductsDirectDb(req, res);
+      } catch (error) {
+        console.error(
+          "Direct DB access failed for products, falling back to regular controller:",
+          error
+        );
+        // Fall back to regular controller
+        getAllProducts(req, res, next);
+      }
+    });
+    app.get("/api/admin/products", async (req, res, next) => {
+      try {
+        // First try direct DB access
+        await getAllProductsDirectDb(req, res);
+      } catch (error) {
+        console.error(
+          "Direct DB access failed for products, falling back to regular controller:",
+          error
+        );
+        // Fall back to regular controller
+        getAllProducts(req, res, next);
+      }
+    });
 
     // Direct contact form handlers
     app.post("/contact", contactController.createContact);
@@ -766,6 +839,81 @@ if (!staticPath) {
         });
       } catch (error) {
         console.error("Error in direct products test:", error);
+        return res.json({
+          success: false,
+          error: error.message,
+          stack: error.stack,
+          connectionState: mongoose.connection.readyState,
+        });
+      }
+    });
+
+    // Direct database access test route
+    app.get("/api/test/direct-db", async (_req, res) => {
+      try {
+        console.log("Testing direct database access");
+
+        // Check if we have a global database reference
+        if (!global.mongoDb) {
+          console.log(
+            "No global database reference available, trying to get one"
+          );
+
+          // Check MongoDB connection
+          if (mongoose.connection.readyState !== 1) {
+            return res.json({
+              success: false,
+              message: "MongoDB not connected",
+              connectionState: mongoose.connection.readyState,
+            });
+          }
+
+          // Try to get database reference
+          global.mongoDb = mongoose.connection.db;
+        }
+
+        // Check if we have a database reference now
+        if (!global.mongoDb) {
+          return res.json({
+            success: false,
+            message: "Failed to get database reference",
+            connectionState: mongoose.connection.readyState,
+          });
+        }
+
+        // List all collections
+        const collections = await global.mongoDb.listCollections().toArray();
+
+        // Try to get some data from each collection
+        const collectionData = {};
+        for (const collection of collections) {
+          try {
+            const data = await global.mongoDb
+              .collection(collection.name)
+              .find()
+              .limit(1)
+              .toArray();
+
+            collectionData[collection.name] = {
+              count: data.length,
+              sample: data.length > 0 ? { _id: data[0]._id.toString() } : null,
+            };
+          } catch (collectionError) {
+            collectionData[collection.name] = {
+              error: collectionError.message,
+            };
+          }
+        }
+
+        return res.json({
+          success: true,
+          message: "Direct database access successful",
+          collections: collections.map((c) => c.name),
+          collectionData,
+          connectionState: mongoose.connection.readyState,
+        });
+      } catch (error) {
+        console.error("Error in direct database access test:", error);
         return res.json({
           success: false,
           error: error.message,
