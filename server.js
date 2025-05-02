@@ -159,18 +159,76 @@ const connectDB = async (retryCount = 0, maxRetries = 5) => {
     console.log("✅ MongoDB Atlas connected successfully");
 
     // Load all models to ensure they're registered
-    try {
-      console.log("Loading models...");
-      require("./server/models/Contact");
-      require("./server/models/Product");
-      require("./server/models/Order");
-      require("./server/models/User");
-      require("./server/models/Category");
-      require("./server/models/PaymentRequest");
-      require("./server/models/PaymentSetting");
-      console.log("Models loaded successfully");
-    } catch (modelError) {
-      console.error("Error loading models:", modelError);
+    console.log("Loading models...");
+
+    // Function to safely load a model
+    const safelyLoadModel = (modelPath, modelName) => {
+      try {
+        const model = require(modelPath);
+        console.log(`✅ Successfully loaded ${modelName} model`);
+        return model;
+      } catch (error) {
+        console.error(`❌ Error loading ${modelName} model:`, error.message);
+        return null;
+      }
+    };
+
+    // Load each model individually with error handling
+    const ContactModel = safelyLoadModel("./server/models/Contact", "Contact");
+    const ProductModel = safelyLoadModel("./server/models/Product", "Product");
+    const OrderModel = safelyLoadModel("./server/models/Order", "Order");
+    const UserModel = safelyLoadModel("./server/models/User", "User");
+    const CategoryModel = safelyLoadModel(
+      "./server/models/Category",
+      "Category"
+    );
+    const PaymentRequestModel = safelyLoadModel(
+      "./server/models/PaymentRequest",
+      "PaymentRequest"
+    );
+    // Try to load PaymentSettings model, but don't worry if it fails
+    let PaymentSettingsModel = safelyLoadModel(
+      "./server/models/PaymentSettings",
+      "PaymentSettings"
+    );
+
+    // If PaymentSettings model failed to load, try with the ensure utility
+    if (!PaymentSettingsModel) {
+      try {
+        console.log("Trying to ensure PaymentSettings model exists...");
+        const ensureModels = require("./server/utils/ensureModels");
+        PaymentSettingsModel = ensureModels.ensurePaymentSettingsModel();
+        if (PaymentSettingsModel) {
+          console.log("✅ Successfully ensured PaymentSettings model");
+        } else {
+          console.error("❌ Failed to ensure PaymentSettings model");
+        }
+      } catch (ensureError) {
+        console.error(
+          "❌ Error ensuring PaymentSettings model:",
+          ensureError.message
+        );
+      }
+    }
+
+    // Log summary of loaded models
+    const loadedModels = [
+      ContactModel,
+      ProductModel,
+      OrderModel,
+      UserModel,
+      CategoryModel,
+      PaymentRequestModel,
+      PaymentSettingsModel,
+    ].filter(Boolean);
+
+    console.log(`Successfully loaded ${loadedModels.length} out of 7 models`);
+
+    // Check if critical models are loaded
+    if (!ContactModel || !ProductModel || !OrderModel) {
+      console.warn(
+        "⚠️ Some critical models failed to load, application may not function correctly"
+      );
     }
 
     // Create mock data for development/fallback
