@@ -1,4 +1,6 @@
 const Contact = require("../models/Contact");
+const mongoose = require("mongoose");
+const directDb = require("../utils/directDbAccess");
 
 // @desc    Get all messages for admin
 // @route   GET /api/admin/messages
@@ -93,11 +95,59 @@ exports.getAllMessages = async (req, res) => {
         "Contact model is available, attempting to fetch real messages"
       );
 
-      // Set longer timeout for MongoDB operations
-      const messages = await Contact.find()
-        .sort({ createdAt: -1 })
-        .maxTimeMS(30000) // 30 seconds timeout
-        .lean(); // Use lean for better performance
+      // Try to use the model first
+      let messages = [];
+      try {
+        // Set longer timeout for MongoDB operations
+        messages = await Contact.find()
+          .sort({ createdAt: -1 })
+          .maxTimeMS(30000) // 30 seconds timeout
+          .lean(); // Use lean for better performance
+
+        console.log(`Found ${messages.length} messages using Contact model`);
+      } catch (modelError) {
+        console.error("Error using Contact model:", modelError);
+
+        // If model approach fails, try direct database access
+        try {
+          console.log("Trying direct database access for contacts collection");
+
+          // Try using the direct database access utility
+          try {
+            messages = await directDb.findDocuments(
+              "contacts",
+              {},
+              { sort: { createdAt: -1 } }
+            );
+            console.log(
+              `Found ${messages.length} messages using directDb utility`
+            );
+          } catch (utilError) {
+            console.error("Error using directDb utility:", utilError);
+
+            // Fall back to raw MongoDB driver
+            const db = mongoose.connection.db;
+            if (db) {
+              const contactsCollection = db.collection("contacts");
+              if (contactsCollection) {
+                messages = await contactsCollection
+                  .find()
+                  .sort({ createdAt: -1 })
+                  .toArray();
+                console.log(
+                  `Found ${messages.length} messages using raw MongoDB driver`
+                );
+              } else {
+                console.error("contacts collection not found in database");
+              }
+            } else {
+              console.error("Database connection not available");
+            }
+          }
+        } catch (dbError) {
+          console.error("Error with direct database access:", dbError);
+        }
+      }
 
       console.log(`Found ${messages.length} messages in database`);
 

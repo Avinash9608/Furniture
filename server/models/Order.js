@@ -168,4 +168,8 @@ OrderSchema.statics.mockData = [
 // Apply the timeout plugin
 OrderSchema.plugin(timeoutPlugin, { timeout: 60000 });
 
-module.exports = mongoose.model("Order", OrderSchema);
+// Check if model exists before creating a new one
+const Order = mongoose.models.Order || mongoose.model("Order", OrderSchema);
+
+// Export the model
+module.exports = Order;

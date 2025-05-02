@@ -158,6 +158,21 @@ const connectDB = async (retryCount = 0, maxRetries = 5) => {
 
     console.log("✅ MongoDB Atlas connected successfully");
 
+    // Load all models to ensure they're registered
+    try {
+      console.log("Loading models...");
+      require("./server/models/Contact");
+      require("./server/models/Product");
+      require("./server/models/Order");
+      require("./server/models/User");
+      require("./server/models/Category");
+      require("./server/models/PaymentRequest");
+      require("./server/models/PaymentSetting");
+      console.log("Models loaded successfully");
+    } catch (modelError) {
+      console.error("Error loading models:", modelError);
+    }
+
     // Create mock data for development/fallback
     createMockData();
 

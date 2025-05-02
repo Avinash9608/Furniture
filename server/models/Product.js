@@ -292,4 +292,9 @@ ProductSchema.statics.mockData = [
 // Apply the timeout plugin
 ProductSchema.plugin(timeoutPlugin, { timeout: 60000 });
 
-module.exports = mongoose.model("Product", ProductSchema);
+// Check if model exists before creating a new one
+const Product =
+  mongoose.models.Product || mongoose.model("Product", ProductSchema);
+
+// Export the model
+module.exports = Product;

@@ -1,5 +1,6 @@
 const Product = require("../models/Product");
 const mongoose = require("mongoose");
+const directDb = require("../utils/directDbAccess");
 
 // @desc    Get all products for admin
 // @route   GET /api/admin/products
@@ -129,12 +130,141 @@ exports.getAllProducts = async (req, res) => {
         "Product model is available, attempting to fetch real products"
       );
 
-      // Set longer timeout for MongoDB operations
-      const products = await Product.find()
-        .populate("category")
-        .sort({ createdAt: -1 })
-        .maxTimeMS(30000) // 30 seconds timeout
-        .lean(); // Use lean for better performance
+      // Try to use the model first
+      let products = [];
+      try {
+        // Set longer timeout for MongoDB operations
+        products = await Product.find()
+          .populate("category")
+          .sort({ createdAt: -1 })
+          .maxTimeMS(30000) // 30 seconds timeout
+          .lean(); // Use lean for better performance
+
+        console.log(`Found ${products.length} products using Product model`);
+      } catch (modelError) {
+        console.error("Error using Product model:", modelError);
+
+        // If model approach fails, try direct database access
+        try {
+          console.log("Trying direct database access for products collection");
+
+          // Try using the direct database access utility
+          try {
+            // Get products
+            products = await directDb.findDocuments(
+              "products",
+              {},
+              { sort: { createdAt: -1 } }
+            );
+            console.log(
+              `Found ${products.length} products using directDb utility`
+            );
+
+            // Try to populate category information
+            if (products.length > 0) {
+              const categoryIds = products
+                .map((p) => p.category)
+                .filter((id) => id && typeof id !== "object")
+                .map((id) => {
+                  try {
+                    return new mongoose.Types.ObjectId(id);
+                  } catch (e) {
+                    return null;
+                  }
+                })
+                .filter(Boolean);
+
+              if (categoryIds.length > 0) {
+                const categories = await directDb.findDocuments("categories", {
+                  _id: { $in: categoryIds },
+                });
+
+                // Create a map of category id to category
+                const categoryMap = {};
+                categories.forEach((cat) => {
+                  categoryMap[cat._id.toString()] = cat;
+                });
+
+                // Populate category information
+                products = products.map((product) => {
+                  if (
+                    product.category &&
+                    categoryMap[product.category.toString()]
+                  ) {
+                    product.category = categoryMap[product.category.toString()];
+                  }
+                  return product;
+                });
+              }
+            }
+          } catch (utilError) {
+            console.error("Error using directDb utility:", utilError);
+
+            // Fall back to raw MongoDB driver
+            const db = mongoose.connection.db;
+            if (db) {
+              const productsCollection = db.collection("products");
+              if (productsCollection) {
+                // Get products
+                products = await productsCollection
+                  .find()
+                  .sort({ createdAt: -1 })
+                  .toArray();
+
+                // Try to populate category information
+                if (products.length > 0) {
+                  const categoryIds = products
+                    .map((p) => p.category)
+                    .filter((id) => id && typeof id !== "object")
+                    .map((id) => {
+                      try {
+                        return new mongoose.Types.ObjectId(id);
+                      } catch (e) {
+                        return null;
+                      }
+                    })
+                    .filter(Boolean);
+
+                  if (categoryIds.length > 0) {
+                    const categories = await db
+                      .collection("categories")
+                      .find({ _id: { $in: categoryIds } })
+                      .toArray();
+
+                    // Create a map of category id to category
+                    const categoryMap = {};
+                    categories.forEach((cat) => {
+                      categoryMap[cat._id.toString()] = cat;
+                    });
+
+                    // Populate category information
+                    products = products.map((product) => {
+                      if (
+                        product.category &&
+                        categoryMap[product.category.toString()]
+                      ) {
+                        product.category =
+                          categoryMap[product.category.toString()];
+                      }
+                      return product;
+                    });
+                  }
+                }
+
+                console.log(
+                  `Found ${products.length} products using raw MongoDB driver`
+                );
+              } else {
+                console.error("products collection not found in database");
+              }
+            } else {
+              console.error("Database connection not available");
+            }
+          }
+        } catch (dbError) {
+          console.error("Error with direct database access:", dbError);
+        }
+      }
 
       console.log(`Found ${products.length} products in database`);
 

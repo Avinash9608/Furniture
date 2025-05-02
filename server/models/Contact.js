@@ -80,4 +80,9 @@ ContactSchema.statics.mockData = [
 // Apply the timeout plugin
 ContactSchema.plugin(timeoutPlugin, { timeout: 60000 });
 
-module.exports = mongoose.model("Contact", ContactSchema);
+// Check if model exists before creating a new one
+const Contact =
+  mongoose.models.Contact || mongoose.model("Contact", ContactSchema);
+
+// Export the model
+module.exports = Contact;
