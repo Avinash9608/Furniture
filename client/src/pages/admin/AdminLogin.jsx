@@ -114,10 +114,8 @@ const AdminLogin = () => {
       setLoading(true);
       setError(null);
 
-      // Determine the API URL based on environment
-      const apiUrl = import.meta.env.DEV
-        ? "http://localhost:5000/api/auth/admin/login" // Development
-        : "/api/auth/admin/login"; // Production
+      // Always use relative URL for API calls
+      const apiUrl = "/api/auth/admin/login";
 
       console.log("Attempting admin login with API:", apiUrl);
 

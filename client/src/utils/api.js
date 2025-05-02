@@ -5,11 +5,16 @@ import { validateCategories } from "./safeDataHandler";
 const getBaseURL = () => {
   // Use environment variable if available
   if (import.meta.env.VITE_API_URL) {
+    console.log(
+      "Using API URL from environment variable:",
+      import.meta.env.VITE_API_URL
+    );
     return import.meta.env.VITE_API_URL;
   }
 
-  // Get the current hostname
+  // Get the current hostname and origin
   const hostname = window.location.hostname;
+  const origin = window.location.origin;
 
   // Check if we're on Render's domain
   if (
@@ -26,9 +31,9 @@ const getBaseURL = () => {
     return "/api";
   }
 
-  // In development, use localhost
-  console.log("Detected development environment, using localhost API URL");
-  return "http://localhost:5000/api";
+  // In development, use relative path (will be proxied by Vite)
+  console.log("Detected development environment, using relative API URL");
+  return "/api";
 };
 
 // Create axios instance with base URL

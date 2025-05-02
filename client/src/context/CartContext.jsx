@@ -5,10 +5,11 @@ const fixImageUrls = (cartItems) => {
   return cartItems.map((item) => {
     // Check if the image URL already starts with http
     if (item.image && !item.image.startsWith("http")) {
+      // Get the current origin
+      const origin = window.location.origin;
+
       // Add the server base URL
-      item.image = `${
-        import.meta.env.VITE_API_BASE_URL || "http://localhost:5000"
-      }${item.image}`;
+      item.image = `${origin}${item.image}`;
     }
     return item;
   });

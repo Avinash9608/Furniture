@@ -1,23 +1,26 @@
-import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react';
-import path from 'path';
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+import path from "path";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ command, mode }) => ({
   plugins: [
     react({
       // Force classic JSX runtime for production
-      jsxRuntime: 'classic',
+      jsxRuntime: "classic",
       jsxImportSource: undefined,
       // Use React.createElement instead of _jsx
       babel: {
         plugins: [],
         presets: [
-          ['@babel/preset-react', {
-            runtime: 'classic',
-            pragma: 'React.createElement',
-            pragmaFrag: 'React.Fragment'
-          }]
+          [
+            "@babel/preset-react",
+            {
+              runtime: "classic",
+              pragma: "React.createElement",
+              pragmaFrag: "React.Fragment",
+            },
+          ],
         ],
         babelrc: false,
         configFile: false,
@@ -32,9 +35,10 @@ export default defineConfig(({ command, mode }) => ({
     host: true,
     proxy: {
       "/api": {
-        target: "http://localhost:5000",
+        target: process.env.VITE_API_PROXY || "http://localhost:5000",
         changeOrigin: true,
         secure: false,
+        rewrite: (path) => path,
       },
     },
   },
@@ -51,7 +55,7 @@ export default defineConfig(({ command, mode }) => ({
     },
     rollupOptions: {
       output: {
-        format: 'es',
+        format: "es",
         manualChunks: undefined,
       },
     },

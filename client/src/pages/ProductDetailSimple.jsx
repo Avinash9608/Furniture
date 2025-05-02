@@ -348,13 +348,8 @@ const ProductDetailSimple = () => {
       // Use the correct API endpoint for reviews
       console.log("[ProductDetailSimple] Submitting review to API endpoint");
 
-      // Determine the base URL based on environment
-      const baseUrl =
-        window.location.hostname === "localhost"
-          ? "http://localhost:5000"
-          : "https://furniture-q3nb.onrender.com";
-
-      const response = await fetch(`${baseUrl}/api/products/${id}/reviews`, {
+      // Use relative URL for API calls
+      const response = await fetch(`/api/products/${id}/reviews`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

@@ -19,8 +19,13 @@ const allowedOrigins = [
   "https://furniture-q3nb.onrender.com",
   "http://localhost:5173",
   "http://localhost:3000",
+  "http://localhost:5000",
   process.env.CLIENT_URL,
+  // Allow the current origin in production
+  process.env.NODE_ENV === "production" ? process.env.BASE_URL : null,
 ].filter(Boolean); // Remove any undefined values
+
+console.log("Allowed CORS origins:", allowedOrigins);
 
 console.log("CORS allowed origins:", allowedOrigins);
 
@@ -476,15 +481,52 @@ if (!staticPath) {
   // Serve static files
   app.use(express.static(staticPath));
 
-  // Health check endpoint
+  // Health check endpoint with detailed information
   app.get("/api/health", (_req, res) => {
+    // Get MongoDB connection status
+    const mongoStatus = mongoose.connection.readyState;
+    const mongoStatusText =
+      {
+        0: "disconnected",
+        1: "connected",
+        2: "connecting",
+        3: "disconnecting",
+        99: "uninitialized",
+      }[mongoStatus] || "unknown";
+
+    // Get environment information
+    const environment = {
+      NODE_ENV: process.env.NODE_ENV,
+      PORT: process.env.PORT,
+      BASE_URL: process.env.BASE_URL || "not set",
+      MONGO_URI: process.env.MONGO_URI ? "set (hidden)" : "not set",
+      JWT_SECRET: process.env.JWT_SECRET ? "set (hidden)" : "not set",
+      ADMIN_EMAIL: process.env.ADMIN_EMAIL ? "set (hidden)" : "not set",
+      ADMIN_PASSWORD: process.env.ADMIN_PASSWORD ? "set (hidden)" : "not set",
+      ADMIN_NAME: process.env.ADMIN_NAME ? "set (hidden)" : "not set",
+    };
+
+    // Get system information
+    const systemInfo = {
+      platform: process.platform,
+      arch: process.arch,
+      nodeVersion: process.version,
+      memoryUsage: process.memoryUsage(),
+      uptime: process.uptime(),
+    };
+
     res.json({
       status: "healthy",
-      environment: process.env.NODE_ENV,
-      staticPath: staticPath,
+      message: "Server is running",
       timestamp: new Date().toISOString(),
-      mongoConnection:
-        mongoose.connection.readyState === 1 ? "connected" : "disconnected",
+      staticPath: staticPath,
+      database: {
+        status: mongoStatus,
+        statusText: mongoStatusText,
+        connected: mongoStatus === 1,
+      },
+      environment,
+      system: systemInfo,
     });
   });
 

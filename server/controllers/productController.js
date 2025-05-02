@@ -23,11 +23,8 @@ const getProperImageUrl = (imagePath) => {
     return imagePath;
   }
 
-  // For local paths, generate the proper URL based on environment
-  const isProduction = process.env.NODE_ENV === "production";
-  const baseUrl = isProduction
-    ? process.env.BASE_URL || "https://furniture-q3nb.onrender.com"
-    : "http://localhost:5000";
+  // For local paths, use relative URLs that work in any environment
+  const baseUrl = "";
 
   // Ensure the path starts with a slash if it doesn't already
   const normalizedPath =
