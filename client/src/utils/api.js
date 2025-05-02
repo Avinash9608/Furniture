@@ -44,19 +44,6 @@ const api = axios.create({
 // Log the actual baseURL being used
 console.log("API baseURL:", api.defaults.baseURL);
 
-// This request interceptor has been moved below
-
-// Helper function to get cookies (used for future cookie-based auth)
-// function getCookie(name) {
-//   const value = `; ${document.cookie}`;
-//   const parts = value.split(`; ${name}=`);
-//   if (parts.length === 2) return parts.pop().split(";").shift();
-// }
-
-// This response interceptor has been moved below
-
-// This helper function has been replaced with inline code in the response interceptor
-
 // Products API with robust implementation
 const productsAPI = {
   getAll: async (params = {}) => {
@@ -553,10 +540,6 @@ const authAPI = {
   getProfile: () => api.get("/auth/me"),
   logout: () => api.get("/auth/logout"),
 };
-
-// Old Products API implementation (commented out)
-
-// Note: axios is already imported at the top of the file
 
 // Categories API with robust implementation
 const categoriesAPI = {

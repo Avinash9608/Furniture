@@ -93,7 +93,7 @@ const contactRoutes = require("./routes/contact");
 const orderRoutes = require("./routes/orders");
 const paymentSettingsRoutes = require("./routes/paymentSettings");
 const paymentRequestsRoutes = require("./routes/paymentRequests");
-
+// const authRoutes = require("./routes/authRoutes");
 // Import contact controller directly for special handling
 const contactController = require("./controllers/contact");
 
@@ -123,6 +123,7 @@ app.get("/api/admin/orders", getOrders);
 app.post("/contact", contactController.createContact);
 app.post("/api/contact", contactController.createContact);
 app.post("/api/api/contact", contactController.createContact);
+// app.use("/api/auth", authRoutes);
 
 // Log all routes for debugging
 console.log("Direct routes registered:");

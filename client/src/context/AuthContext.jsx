@@ -1,359 +1,318 @@
-import React, { createContext, useContext, useReducer, useEffect } from "react";
+import {
+  createContext,
+  useState,
+  useContext,
+  useEffect,
+  useCallback,
+} from "react";
 import axios from "axios";
-
-// Initial state
-const initialState = {
-  user: localStorage.getItem("user")
-    ? JSON.parse(localStorage.getItem("user"))
-    : null,
-  token: localStorage.getItem("token") || null,
-  loading: false,
-  error: null,
-  isAuthenticated: localStorage.getItem("token") ? true : false,
-  isAdmin: localStorage.getItem("user")
-    ? JSON.parse(localStorage.getItem("user"))?.role === "admin"
-    : false,
-};
-
-// Log initial state for debugging
-console.log("AuthContext - Initial State:", {
-  user: initialState.user,
-  token: initialState.token ? "exists" : "none",
-  isAuthenticated: initialState.isAuthenticated,
-  isAdmin: initialState.isAdmin,
-  localStorage: {
-    token: localStorage.getItem("token") ? "exists" : "none",
-    user: localStorage.getItem("user") ? "exists" : "none",
-  },
-});
+import { authAPI } from "../utils/api";
 
 // Create context
-const AuthContext = createContext(initialState);
+const AuthContext = createContext();
 
-// Auth reducer
-const authReducer = (state, action) => {
-  switch (action.type) {
-    case "LOGIN_REQUEST":
-    case "REGISTER_REQUEST":
-    case "USER_DETAILS_REQUEST":
-      return {
-        ...state,
-        loading: true,
-        error: null,
-      };
-
-    case "LOGIN_SUCCESS":
-    case "REGISTER_SUCCESS": {
-      const isAdmin = action.payload.data?.role === "admin";
-      console.log("Reducer - LOGIN_SUCCESS:", {
-        user: action.payload.data,
-        token: action.payload.token ? "exists" : "none",
-        isAdmin,
-      });
-
-      return {
-        ...state,
-        loading: false,
-        isAuthenticated: true,
-        user: action.payload.data,
-        token: action.payload.token,
-        isAdmin,
-        error: null,
-      };
-    }
-
-    case "USER_DETAILS_SUCCESS":
-      return {
-        ...state,
-        loading: false,
-        user: action.payload,
-      };
-
-    case "LOGIN_FAIL":
-    case "REGISTER_FAIL":
-    case "USER_DETAILS_FAIL":
-      console.log("Reducer - AUTH_FAIL:", action.payload);
-      return {
-        ...state,
-        loading: false,
-        error: action.payload,
-      };
-
-    case "LOGOUT":
-      console.log("Reducer - LOGOUT");
-      return {
-        ...state,
-        user: null,
-        token: null,
-        isAuthenticated: false,
-        isAdmin: false,
-      };
-
-    case "CLEAR_ERROR":
-      return {
-        ...state,
-        error: null,
-      };
-
-    default:
-      return state;
-  }
-};
+// Custom hook to use the auth context
+export const useAuth = () => useContext(AuthContext);
 
 // Provider component
 export const AuthProvider = ({ children }) => {
-  const [state, dispatch] = useReducer(authReducer, initialState);
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  // Set auth token in axios headers
-  useEffect(() => {
-    console.log("AuthContext - Token/User Effect:", {
-      token: state.token ? "exists" : "none",
-      user: state.user,
-      isAuthenticated: state.isAuthenticated,
-      isAdmin: state.isAdmin,
-    });
+  // Check if user is authenticated
+  const checkAuth = useCallback(async () => {
+    let isMounted = true;
 
-    if (state.token) {
-      console.log("Setting token in localStorage and axios headers");
-      axios.defaults.headers.common["Authorization"] = `Bearer ${state.token}`;
-      localStorage.setItem("token", state.token);
-      localStorage.setItem("user", JSON.stringify(state.user));
+    try {
+      setLoading(true);
 
-      // Verify localStorage was updated
-      setTimeout(() => {
-        console.log("Verifying localStorage was updated:", {
-          token: localStorage.getItem("token"),
-          user: localStorage.getItem("user"),
-        });
-      }, 100);
-    } else {
-      console.log("Removing token from localStorage and axios headers");
-      delete axios.defaults.headers.common["Authorization"];
+      // Check if we have a token in localStorage
+      const token = localStorage.getItem("token");
+      if (!token) {
+        if (isMounted) {
+          setUser(null);
+          setLoading(false);
+        }
+        return;
+      }
+
+      // Check for admin token pattern
+      if (token.startsWith("admin-token-")) {
+        // For admin tokens, just use the stored user data
+        const storedUser = localStorage.getItem("user");
+        if (storedUser) {
+          try {
+            const parsedUser = JSON.parse(storedUser);
+            if (parsedUser.role === "admin") {
+              if (isMounted) {
+                setUser(parsedUser);
+                setLoading(false);
+              }
+              return;
+            }
+          } catch (e) {
+            console.error("Error parsing stored admin user:", e);
+          }
+        }
+      }
+
+      // Set auth header
+      axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+
+      // Get user profile
+      const response = await authAPI.getProfile();
+
+      // Set user if component is still mounted
+      if (isMounted) {
+        setUser(response.data.data);
+      }
+    } catch (err) {
+      console.error("Auth check error:", err);
+      // Clear localStorage on auth error
       localStorage.removeItem("token");
       localStorage.removeItem("user");
+      if (isMounted) {
+        setUser(null);
+      }
+    } finally {
+      if (isMounted) {
+        setLoading(false);
+      }
     }
-  }, [state.token, state.user]);
 
-  // Login user
-  const login = async (email, password) => {
-    try {
-      dispatch({ type: "LOGIN_REQUEST" });
+    // Return cleanup function
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
-      // In a real app, this would call the API
-      // For now, we'll simulate a user login
-      const userData = {
-        data: {
-          name: email.split("@")[0],
-          email: email,
-          isAdmin: false,
-          role: "user",
-        },
-        token: "user-token-" + Date.now(),
-      };
+  // Check auth on mount
+  useEffect(() => {
+    const checkAuthentication = async () => {
+      try {
+        // Check if we have a token and user in localStorage
+        const token = localStorage.getItem("token");
+        const userStr = localStorage.getItem("user");
 
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 500));
+        if (!token || !userStr) {
+          setUser(null);
+          setLoading(false);
+          return;
+        }
 
-      dispatch({
-        type: "LOGIN_SUCCESS",
-        payload: userData,
-      });
+        try {
+          // Parse the user from localStorage
+          const parsedUser = JSON.parse(userStr);
 
-      return userData;
-    } catch (error) {
-      dispatch({
-        type: "LOGIN_FAIL",
-        payload:
-          error.response && error.response.data.message
-            ? error.response.data.message
-            : error.message,
-      });
-      throw error;
-    }
-  };
+          // Set the user in state
+          setUser(parsedUser);
+
+          // If this is an admin user, we're done
+          if (parsedUser.role === "admin") {
+            console.log("Using stored admin credentials");
+            setLoading(false);
+            return;
+          }
+
+          // For regular users, verify with the server
+          await checkAuth();
+        } catch (err) {
+          console.error("Error processing authentication:", err);
+          // Clear localStorage on error
+          localStorage.removeItem("token");
+          localStorage.removeItem("user");
+          setUser(null);
+          setLoading(false);
+        }
+      } catch (error) {
+        console.error("Authentication check failed:", error);
+        setLoading(false);
+      }
+    };
+
+    // Check authentication on mount
+    checkAuthentication();
+
+    // No cleanup needed - we're not using any refs or timeouts
+  }, []);
 
   // Register user
   const register = async (userData) => {
     try {
-      dispatch({ type: "REGISTER_REQUEST" });
+      setLoading(true);
+      setError(null);
 
-      // In a real app, this would call the API
-      // For now, we'll simulate user registration
-      const registeredUser = {
-        data: {
-          ...userData,
-          isAdmin: false,
-          role: "user",
-        },
-        token: "user-token-" + Date.now(),
-      };
+      const response = await authAPI.register(userData);
 
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      // Save token and user to localStorage
+      localStorage.setItem("token", response.data.token);
+      localStorage.setItem("user", JSON.stringify(response.data.user));
 
-      dispatch({
-        type: "REGISTER_SUCCESS",
-        payload: registeredUser,
+      // Set auth header
+      axios.defaults.headers.common[
+        "Authorization"
+      ] = `Bearer ${response.data.token}`;
+
+      // Set user
+      setUser(response.data.user);
+
+      return response.data;
+    } catch (err) {
+      console.error("Registration error:", err);
+      setError(err.response?.data?.message || "Registration failed");
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Login user
+  const login = async (email, password) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const response = await authAPI.login({ email, password });
+
+      // Save token and user to localStorage
+      localStorage.setItem("token", response.data.token);
+      localStorage.setItem("user", JSON.stringify(response.data.user));
+
+      // Set auth header
+      axios.defaults.headers.common[
+        "Authorization"
+      ] = `Bearer ${response.data.token}`;
+
+      // Set user
+      setUser(response.data.user);
+
+      return response.data;
+    } catch (err) {
+      console.error("Login error:", err);
+      setError(err.response?.data?.message || "Login failed");
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Admin login
+  const adminLogin = async (email, password) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Determine the API URL based on environment
+      const apiUrl = import.meta.env.DEV
+        ? "http://localhost:5000/api/auth/admin/login" // Development
+        : "/api/auth/admin/login"; // Production
+
+      console.log("Attempting admin login with API:", apiUrl);
+
+      // Special admin login endpoint - validates against .env credentials
+      const response = await axios.post(apiUrl, {
+        email,
+        password,
       });
 
-      return registeredUser;
-    } catch (error) {
-      dispatch({
-        type: "REGISTER_FAIL",
-        payload:
-          error.response && error.response.data.message
-            ? error.response.data.message
-            : error.message,
-      });
-      throw error;
+      // Save token and user to localStorage
+      localStorage.setItem("token", response.data.token);
+      localStorage.setItem("user", JSON.stringify(response.data.user));
+
+      // Set auth header
+      axios.defaults.headers.common[
+        "Authorization"
+      ] = `Bearer ${response.data.token}`;
+
+      // Set user
+      setUser(response.data.user);
+
+      return response.data;
+    } catch (err) {
+      console.error("Admin login error:", err);
+      setError(err.response?.data?.message || "Admin login failed");
+      throw err;
+    } finally {
+      setLoading(false);
     }
   };
 
   // Logout user
   const logout = async () => {
     try {
-      // In a real app, this would call the API
-      // For now, we'll just simulate a logout
-      await new Promise((resolve) => setTimeout(resolve, 300));
-      dispatch({ type: "LOGOUT" });
-    } catch (error) {
-      console.error("Logout error:", error);
-      dispatch({ type: "LOGOUT" });
+      setLoading(true);
+
+      // Call logout endpoint
+      await authAPI.logout();
+
+      // Clear localStorage
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+
+      // Clear auth header
+      delete axios.defaults.headers.common["Authorization"];
+
+      // Clear user
+      setUser(null);
+    } catch (err) {
+      console.error("Logout error:", err);
+      // Still clear localStorage and user on error
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      delete axios.defaults.headers.common["Authorization"];
+      setUser(null);
+    } finally {
+      setLoading(false);
     }
   };
 
   // Get user details
   const getUserDetails = async () => {
     try {
-      dispatch({ type: "USER_DETAILS_REQUEST" });
+      setLoading(true);
 
-      // In a real app, this would call the API
-      // For now, we'll simulate getting user details
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      const response = await authAPI.getProfile();
 
-      // Use the user data from state
-      const data = { data: state.user };
+      // Update user
+      setUser(response.data.data);
 
-      dispatch({
-        type: "USER_DETAILS_SUCCESS",
-        payload: data.data,
-      });
+      // Update localStorage
+      localStorage.setItem("user", JSON.stringify(response.data.data));
 
-      return data;
-    } catch (error) {
-      dispatch({
-        type: "USER_DETAILS_FAIL",
-        payload:
-          error.response && error.response.data.message
-            ? error.response.data.message
-            : error.message,
-      });
-      throw error;
+      return response.data.data;
+    } catch (err) {
+      console.error("Get user details error:", err);
+      setError(err.response?.data?.message || "Failed to get user details");
+      throw err;
+    } finally {
+      setLoading(false);
     }
   };
 
   // Clear error
-  const clearError = () => {
-    dispatch({ type: "CLEAR_ERROR" });
+  const clearError = () => setError(null);
+
+  // Computed values
+  const isAuthenticated = !!user;
+  const isAdmin = user?.role === "admin";
+
+  // Context value
+  const value = {
+    user,
+    loading,
+    error,
+    isAuthenticated,
+    isAdmin,
+    register,
+    login,
+    adminLogin,
+    logout,
+    getUserDetails,
+    clearError,
   };
 
-  // Admin login
-  const adminLogin = async (email, password) => {
-    try {
-      console.log("Admin login attempt:", { email });
-      dispatch({ type: "LOGIN_REQUEST" });
-
-      // Check for specific admin credentials
-      if (email !== "avinashmadhukar4@gmail.com" || password !== "123456") {
-        console.error("Invalid admin credentials");
-        throw new Error("Invalid admin credentials");
-      }
-
-      // Use a fixed token for admin to ensure consistency
-      const userData = {
-        data: {
-          _id: "admin-id-fixed", // Add a fixed ID
-          name: "Admin User",
-          email: email,
-          isAdmin: true,
-          role: "admin",
-        },
-        token: "admin-token-fixed-value",
-      };
-
-      console.log("Admin login - using fixed token:", userData.token);
-
-      // Clear any existing tokens first to ensure clean state
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
-
-      // Set tokens directly for immediate effect
-      localStorage.setItem("token", userData.token);
-      localStorage.setItem("user", JSON.stringify(userData.data));
-
-      // Set axios default headers
-      axios.defaults.headers.common[
-        "Authorization"
-      ] = `Bearer ${userData.token}`;
-
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
-      // Dispatch after localStorage is set
-      dispatch({
-        type: "LOGIN_SUCCESS",
-        payload: userData,
-      });
-
-      console.log("Admin login successful - state after dispatch:", {
-        token: userData.token,
-        user: userData.data,
-        localStorage: {
-          token: localStorage.getItem("token"),
-          user: localStorage.getItem("user"),
-        },
-      });
-
-      return userData;
-    } catch (error) {
-      console.error("Admin login error:", error);
-      dispatch({
-        type: "LOGIN_FAIL",
-        payload: error.message || "Invalid admin credentials",
-      });
-      throw error;
-    }
-  };
-
-  return (
-    <AuthContext.Provider
-      value={{
-        user: state.user,
-        token: state.token,
-        isAuthenticated: state.isAuthenticated,
-        isAdmin: state.isAdmin,
-        loading: state.loading,
-        error: state.error,
-        login,
-        register,
-        logout,
-        adminLogin,
-        getUserDetails,
-        clearError,
-      }}
-    >
-      {children}
-    </AuthContext.Provider>
-  );
-};
-
-// Custom hook to use auth context
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error("useAuth must be used within an AuthProvider");
-  }
-  return context;
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
 export default AuthContext;

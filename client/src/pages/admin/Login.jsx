@@ -45,21 +45,51 @@ const Login = () => {
   };
 
   // Validate form
+  // const validateForm = () => {
+  //   const errors = {};
+
+  //   if (!formData.email.trim()) {
+  //     errors.email = "Email is required";
+  //   } else if (!/^\S+@\S+\.\S+$/.test(formData.email)) {
+  //     errors.email = "Please enter a valid email address";
+  //   }
+
+  //   if (!formData.password) {
+  //     errors.password = "Password is required";
+  //   }
+
+  //   setFormErrors(errors);
+  //   return Object.keys(errors).length === 0;
+  // };
   const validateForm = () => {
-    const errors = {};
-
-    if (!formData.email.trim()) {
-      errors.email = "Email is required";
-    } else if (!/^\S+@\S+\.\S+$/.test(formData.email)) {
-      errors.email = "Please enter a valid email address";
+    // Check required fields
+    if (
+      !formData.name ||
+      !formData.email ||
+      !formData.password ||
+      !formData.confirmPassword
+    ) {
+      return "Please fill in all required fields";
     }
 
-    if (!formData.password) {
-      errors.password = "Password is required";
+    // Validate email format
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      return "Please enter a valid email address";
     }
 
-    setFormErrors(errors);
-    return Object.keys(errors).length === 0;
+    // Check password match
+    if (formData.password !== formData.confirmPassword) {
+      return "Passwords do not match";
+    }
+
+    // Check password strength
+    if (
+      !/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])/.test(formData.password)
+    ) {
+      return "Password must contain at least one uppercase letter, one lowercase letter, one number and one special character";
+    }
+
+    return null;
   };
 
   // Handle form submission
@@ -70,6 +100,11 @@ const Login = () => {
     clearError();
 
     // Validate form
+    const validationError = validateForm();
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
     if (!validateForm()) {
       return;
     }

@@ -1,53 +1,48 @@
-import React, { useEffect } from "react";
 import { Navigate, useLocation } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
+import { useEffect, useState } from "react";
 
-// Simple protected route that checks localStorage and handles admin authentication
+// Protected route component for admin routes
 const ProtectedRoute = ({ children }) => {
+  const { user, loading } = useAuth();
   const location = useLocation();
+  const [shouldRedirect, setShouldRedirect] = useState(false);
 
-  // Check if we're on an admin page
-  const isAdminPage = location.pathname.startsWith("/admin");
-
-  // For non-admin pages, always render children
-  if (!isAdminPage) {
-    return children;
-  }
-
-  // For admin pages, check localStorage directly
-  const token = localStorage.getItem("token");
-  const localUser = localStorage.getItem("user")
-    ? JSON.parse(localStorage.getItem("user"))
-    : null;
-
-  // Log authentication state for debugging
-  console.log("ProtectedRoute - Auth Check:", {
-    token,
-    localUser,
-    isAdminToken: token === "admin-token-fixed-value",
-  });
-
-  // Set up a side effect to log authentication state
+  // Check authentication status once when component mounts or auth state changes
   useEffect(() => {
-    if (isAdminPage) {
-      console.log("ProtectedRoute - Admin page check:", {
-        path: location.pathname,
-        localUser: localUser ? "exists" : "none",
-        isAdmin: localUser?.role === "admin",
-      });
-    }
-  }, [isAdminPage, location.pathname, localUser]);
+    // Only check when loading is complete
+    if (!loading) {
+      const isAdmin = user?.role === "admin";
 
-  // If we have an admin user in localStorage and the correct token, render the protected component
-  if (
-    localUser &&
-    localUser.role === "admin" &&
-    token === "admin-token-fixed-value"
-  ) {
-    return children;
+      // If not authenticated or not admin, set redirect flag
+      if (!user || !isAdmin) {
+        setShouldRedirect(true);
+      } else {
+        setShouldRedirect(false);
+      }
+    }
+  }, [user, loading]);
+
+  // Show loading state while checking authentication
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary dark:border-primary-light"></div>
+      </div>
+    );
   }
 
-  // Otherwise, redirect to admin login
-  return <Navigate to={`/admin/login?redirect=${location.pathname}`} replace />;
+  // If redirect flag is set, redirect to login
+  if (shouldRedirect) {
+    // Store the current path for redirect after login
+    const redirectPath = location.pathname;
+    return (
+      <Navigate to="/admin/login" state={{ from: redirectPath }} replace />
+    );
+  }
+
+  // User is authenticated and is an admin, render children
+  return children;
 };
 
 export default ProtectedRoute;

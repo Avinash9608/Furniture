@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import AdminLayout from "../../components/admin/AdminLayout";
@@ -16,12 +16,19 @@ const Dashboard = () => {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const dataFetched = useRef(false);
 
   useEffect(() => {
+    // Prevent multiple fetches and infinite loops
+    if (dataFetched.current) return;
+
     const fetchDashboardStats = async () => {
       try {
         setLoading(true);
         setError(null);
+
+        // Mark data as being fetched
+        dataFetched.current = true;
 
         // Simulate API delay
         await new Promise((resolve) => setTimeout(resolve, 1000));

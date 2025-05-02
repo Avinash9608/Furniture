@@ -48,10 +48,12 @@ const Login = () => {
       setLoading(true);
       setError(null);
 
-      // Check if this is an admin login attempt
-      if (email === "avinashmadhukar4@gmail.com") {
+      // Check if this is an admin login attempt - redirect to admin login page
+      // instead of checking for a specific email, just redirect to admin login
+      // if the user clicks the admin login link
+      if (email.toLowerCase().includes("admin")) {
         console.log(
-          "Admin login attempt detected, redirecting to admin login page"
+          "Potential admin login attempt detected, redirecting to admin login page"
         );
         // Redirect to the dedicated admin login page
         navigate("/admin/login", { replace: true });

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Link, useNavigate, useLocation } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 import Button from "../../components/Button";
 import Alert from "../../components/Alert";
@@ -10,26 +10,97 @@ const AdminLogin = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const navigate = useNavigate();
   const location = useLocation();
 
   // Get redirect path from query parameter or default to admin dashboard
-  const searchParams = new URLSearchParams(location.search);
-  const redirectPath = searchParams.get("redirect") || "/admin/dashboard";
+  const from = location.state?.from?.pathname || "/admin/dashboard";
+  const redirectPath = from;
 
-  // Check localStorage directly for admin credentials
+  // Check if user is already logged in as admin - only run once on mount
   useEffect(() => {
-    const user = localStorage.getItem("user")
-      ? JSON.parse(localStorage.getItem("user"))
-      : null;
-    const isLocalAdmin = user?.role === "admin";
+    // Use a flag to track if we've already checked
+    let isChecking = true;
 
-    // If we have admin credentials in localStorage, redirect immediately
-    if (isLocalAdmin) {
-      navigate(redirectPath, { replace: true });
-    }
-  }, [navigate, redirectPath]);
+    const checkAdminStatus = () => {
+      // Skip if we're no longer mounted
+      if (!isChecking) return;
 
+      try {
+        const token = localStorage.getItem("token");
+        const userStr = localStorage.getItem("user");
+
+        if (!token || !userStr) {
+          return; // No credentials, don't redirect
+        }
+
+        const user = JSON.parse(userStr);
+
+        // Only redirect if user is an admin
+        if (user?.role === "admin") {
+          console.log(
+            "Already logged in as admin, redirecting to",
+            redirectPath
+          );
+
+          // Use window.location instead of navigate to break the React Router cycle
+          window.location.href = redirectPath;
+        }
+      } catch (err) {
+        console.error("Error checking admin status:", err);
+        // Clear potentially corrupted data
+        localStorage.removeItem("user");
+        localStorage.removeItem("token");
+      }
+    };
+
+    // Check admin status once on mount
+    checkAdminStatus();
+
+    // Cleanup function
+    return () => {
+      isChecking = false;
+    };
+  }, []); // Empty dependency array - only run once on mount
+
+  // const handleSubmit = async (e) => {
+  //   e.preventDefault();
+
+  //   // Validate form
+  //   if (!email || !password) {
+  //     setError("Please fill in all fields");
+  //     return;
+  //   }
+
+  //   try {
+  //     setLoading(true);
+  //     setError(null);
+
+  //     // Only allow specific admin credentials
+  //     if (email !== "avinashmadhukar4@gmail.com" || password !== "123456") {
+  //       throw new Error("Invalid admin credentials");
+  //     }
+
+  //     // Create admin user object with the same ID as in AuthContext
+  //     const adminUser = {
+  //       _id: "admin-id-fixed",
+  //       name: "Admin User",
+  //       email: email,
+  //       role: "admin",
+  //     };
+
+  //     // Set directly in localStorage with the same token as in AuthContext
+  //     localStorage.setItem("token", "admin-token-fixed-value");
+  //     localStorage.setItem("user", JSON.stringify(adminUser));
+
+  //     // Redirect to dashboard
+  //     navigate(redirectPath, { replace: true });
+  //   } catch (err) {
+  //     console.error("Admin login error:", err);
+  //     setError(err.message || "Invalid admin credentials");
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -43,25 +114,53 @@ const AdminLogin = () => {
       setLoading(true);
       setError(null);
 
-      // Only allow specific admin credentials
-      if (email !== "avinashmadhukar4@gmail.com" || password !== "123456") {
-        throw new Error("Invalid admin credentials");
+      // Determine the API URL based on environment
+      const apiUrl = import.meta.env.DEV
+        ? "http://localhost:5000/api/auth/admin/login" // Development
+        : "/api/auth/admin/login"; // Production
+
+      console.log("Attempting admin login with API:", apiUrl);
+
+      // Send credentials to server for validation against .env values
+      const response = await fetch(apiUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: email.trim(),
+          password: password.trim(),
+        }),
+        credentials: "include", // Include cookies in the request
+      });
+
+      // Handle non-JSON responses
+      const responseText = await response.text();
+      let data;
+
+      try {
+        data = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error("Error parsing response:", responseText);
+        throw new Error("Invalid server response");
       }
 
-      // Create admin user object with the same ID as in AuthContext
-      const adminUser = {
-        _id: "admin-id-fixed",
-        name: "Admin User",
-        email: email,
-        role: "admin",
-      };
+      if (!response.ok) {
+        throw new Error(data.message || "Login failed");
+      }
 
-      // Set directly in localStorage with the same token as in AuthContext
-      localStorage.setItem("token", "admin-token-fixed-value");
-      localStorage.setItem("user", JSON.stringify(adminUser));
+      console.log("Admin login successful");
 
-      // Redirect to dashboard
-      navigate(redirectPath, { replace: true });
+      // Clear any existing data first
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+
+      // Store token and user data from server response
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("user", JSON.stringify(data.user));
+
+      console.log("Admin credentials saved, redirecting to", redirectPath);
+
+      // Use window.location instead of navigate to break the React Router cycle
+      window.location.href = redirectPath;
     } catch (err) {
       console.error("Admin login error:", err);
       setError(err.message || "Invalid admin credentials");
@@ -69,7 +168,6 @@ const AdminLogin = () => {
       setLoading(false);
     }
   };
-
   return (
     <div className="min-h-screen theme-bg-primary flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
@@ -153,7 +251,7 @@ const AdminLogin = () => {
 
           {/* Admin credentials hint */}
           <div className="mt-4">
-            <div className="rounded-md bg-blue-50 p-4">
+            <div className="rounded-md bg-blue-50 dark:bg-blue-900/20 p-4">
               <div className="flex">
                 <div className="flex-shrink-0">
                   <svg
@@ -172,7 +270,8 @@ const AdminLogin = () => {
                 </div>
                 <div className="ml-3 flex-1 md:flex md:justify-between">
                   <p className="text-sm text-blue-700 dark:text-blue-400">
-                    <strong>Admin Login:</strong> Credentials /Access Keys
+                    <strong>Admin Login:</strong> Use admin credentials from
+                    .env file
                   </p>
                 </div>
               </div>
