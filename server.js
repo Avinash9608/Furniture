@@ -4,6 +4,7 @@ const fs = require("fs");
 const dotenv = require("dotenv");
 const mongoose = require("mongoose");
 const cors = require("cors");
+const jwt = require("jsonwebtoken");
 
 // Load environment variables
 dotenv.config();
@@ -578,6 +579,68 @@ if (!staticPath) {
       res
         .status(200)
         .json({ success: true, message: "Logged out successfully" });
+    });
+
+    // Add direct admin login route that bypasses MongoDB for reliability
+    app.post("/api/auth/admin/direct-login", (req, res) => {
+      try {
+        console.log("Direct admin login attempt");
+        const { email, password } = req.body;
+
+        // Validate email & password
+        if (!email || !password) {
+          return res.status(400).json({
+            success: false,
+            message: "Please provide email and password",
+          });
+        }
+
+        // Get admin credentials from environment variables
+        const ADMIN_EMAIL =
+          process.env.ADMIN_EMAIL || "avinashmadhukar4@gmail.com";
+        const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "123456";
+        const ADMIN_NAME = process.env.ADMIN_NAME || "Admin User";
+
+        console.log("Checking admin credentials...");
+        console.log("Expected admin email:", ADMIN_EMAIL);
+        console.log("Provided email:", email);
+
+        // Compare with environment variable credentials
+        if (email === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
+          console.log("Admin credentials validated successfully");
+
+          // Create a JWT token manually
+          const token = jwt.sign(
+            { id: "admin-user-id", role: "admin" },
+            process.env.JWT_SECRET || "fallback_jwt_secret",
+            { expiresIn: process.env.JWT_EXPIRE || "30d" }
+          );
+
+          // Return success response
+          return res.status(200).json({
+            success: true,
+            token,
+            user: {
+              _id: "admin-user-id",
+              name: ADMIN_NAME,
+              email: ADMIN_EMAIL,
+              role: "admin",
+            },
+          });
+        } else {
+          console.log("Invalid admin credentials provided");
+          return res.status(401).json({
+            success: false,
+            message: "Invalid admin credentials",
+          });
+        }
+      } catch (error) {
+        console.error("Direct admin login error:", error);
+        return res.status(500).json({
+          success: false,
+          message: "Server error during admin login",
+        });
+      }
     });
 
     // Mount API routes

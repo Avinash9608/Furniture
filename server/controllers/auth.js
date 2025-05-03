@@ -145,7 +145,7 @@ exports.adminLogin = async (req, res) => {
     }
 
     // Find or create admin user
-    let user = await User.findOne({ email, role: "admin" });
+    let user = await User.findOne({ email, role: "admin" }).select("+password");
 
     if (!user) {
       // Create admin user if it doesn't exist
@@ -156,6 +156,16 @@ exports.adminLogin = async (req, res) => {
         role: "admin",
       });
       console.log("Created new admin user:", user.email);
+    } else {
+      // Check if we need to update the admin password
+      // This ensures the admin can always log in with the password from .env
+      const isPasswordCorrect = await user.matchPassword(ADMIN_PASSWORD);
+
+      if (!isPasswordCorrect) {
+        console.log("Updating admin password to match .env");
+        user.password = ADMIN_PASSWORD; // Will be hashed by the pre-save hook
+        await user.save();
+      }
     }
 
     // Generate token
@@ -188,9 +198,47 @@ exports.adminLogin = async (req, res) => {
       });
   } catch (err) {
     console.error("Admin login error:", err);
-    res.status(500).json({
+
+    // Provide more detailed error information
+    let errorMessage = "Server error";
+    let statusCode = 500;
+
+    if (err.name === "ValidationError") {
+      errorMessage = Object.values(err.errors)
+        .map((val) => val.message)
+        .join(", ");
+      statusCode = 400;
+    } else if (err.name === "MongoError" || err.name === "MongoServerError") {
+      if (err.code === 11000) {
+        errorMessage = "Duplicate key error. This email is already registered.";
+        statusCode = 400;
+      } else {
+        errorMessage =
+          "Database error: " + (err.message || "Unknown MongoDB error");
+      }
+    } else if (err.message) {
+      errorMessage = err.message;
+    }
+
+    // Log detailed error information
+    console.error("Admin login error details:", {
+      name: err.name,
+      code: err.code,
+      message: err.message,
+      stack: err.stack,
+    });
+
+    res.status(statusCode).json({
       success: false,
-      message: err.message || "Server error",
+      message: errorMessage,
+      error:
+        process.env.NODE_ENV === "development"
+          ? {
+              name: err.name,
+              code: err.code,
+              message: err.message,
+            }
+          : undefined,
     });
   }
 };

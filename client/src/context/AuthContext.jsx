@@ -203,16 +203,38 @@ export const AuthProvider = ({ children }) => {
       setLoading(true);
       setError(null);
 
-      // Always use relative URL for API calls
-      const apiUrl = "/api/auth/admin/login";
+      // Try the regular admin login endpoint first
+      const regularApiUrl = "/api/auth/admin/login";
+      const directApiUrl = "/api/auth/admin/direct-login";
 
-      console.log("Attempting admin login with API:", apiUrl);
+      console.log("Attempting admin login with regular API:", regularApiUrl);
 
-      // Special admin login endpoint - validates against .env credentials
-      const response = await axios.post(apiUrl, {
-        email,
-        password,
-      });
+      // Variable to hold the response
+      let response;
+
+      try {
+        // Special admin login endpoint - validates against .env credentials
+        response = await axios.post(regularApiUrl, {
+          email,
+          password,
+        });
+      } catch (error) {
+        // If the regular endpoint fails with a 500 error, try the direct login endpoint
+        if (error.response && error.response.status === 500) {
+          console.log(
+            "Regular admin login failed with server error, trying direct login"
+          );
+
+          // Try the direct login endpoint as a fallback
+          response = await axios.post(directApiUrl, {
+            email,
+            password,
+          });
+        } else {
+          // If it's not a 500 error, rethrow it
+          throw error;
+        }
+      }
 
       // Save token and user to localStorage
       localStorage.setItem("token", response.data.token);
