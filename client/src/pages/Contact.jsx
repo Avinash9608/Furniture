@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
-import { contactAPI } from "../utils/api";
+import contactAPI from "../utils/contactAPI";
 import { validateContactForm } from "../utils/validation";
 import Button from "../components/Button";
 import Alert from "../components/Alert";

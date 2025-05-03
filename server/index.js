@@ -155,8 +155,8 @@ const orderRoutes = require("./routes/orders");
 const paymentSettingsRoutes = require("./routes/paymentSettings");
 const paymentRequestsRoutes = require("./routes/paymentRequests");
 // const authRoutes = require("./routes/authRoutes");
-// Import contact controller directly for special handling
-const contactController = require("./controllers/contact");
+// Import enhanced contact controller for robust error handling
+const contactController = require("./controllers/enhancedContact");
 
 app.use("/api/auth", authRoutes);
 app.use("/api/products", productRoutes);

@@ -560,8 +560,8 @@ if (!staticPath) {
     const paymentSettingsRoutes = require("./server/routes/paymentSettings");
     const paymentRequestsRoutes = require("./server/routes/paymentRequests");
 
-    // Import contact controller directly for special handling
-    const contactController = require("./server/controllers/contact");
+    // Import enhanced contact controller for robust error handling
+    const contactController = require("./server/controllers/enhancedContact");
 
     // Import admin controllers directly
     const {
