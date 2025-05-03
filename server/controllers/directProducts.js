@@ -160,28 +160,63 @@ exports.getProductById = async (req, res) => {
   try {
     console.log(`Getting product with ID: ${req.params.id}`);
 
-    // Convert string ID to ObjectId
-    let productId;
-    try {
-      productId = new ObjectId(req.params.id);
-    } catch (error) {
-      console.error("Invalid product ID format:", error);
-      return res.status(400).json({
-        success: false,
-        message: "Invalid product ID format",
+    // First try to find by ID (either ObjectId or string ID)
+    let product = null;
+    let productId = req.params.id;
+
+    // Try to convert to ObjectId if it looks like one
+    let objectIdQuery = null;
+    if (/^[0-9a-fA-F]{24}$/.test(productId)) {
+      try {
+        objectIdQuery = { _id: new ObjectId(productId) };
+        console.log("Trying to find product with ObjectId:", objectIdQuery);
+        product = await findOneDocument(COLLECTION, objectIdQuery);
+      } catch (error) {
+        console.log(
+          "Error converting to ObjectId, will try string ID:",
+          error.message
+        );
+      }
+    }
+
+    // If not found by ObjectId, try string ID
+    if (!product) {
+      console.log(
+        "Product not found by ObjectId, trying string ID:",
+        productId
+      );
+      product = await findOneDocument(COLLECTION, { _id: productId });
+    }
+
+    // If still not found, try by slug
+    if (!product) {
+      console.log("Product not found by ID, trying slug:", productId);
+      product = await findOneDocument(COLLECTION, { slug: productId });
+    }
+
+    // If still not found, try a more flexible query
+    if (!product) {
+      console.log("Product not found by ID or slug, trying flexible query");
+      product = await findOneDocument(COLLECTION, {
+        $or: [
+          objectIdQuery,
+          { _id: productId },
+          { slug: productId },
+          { name: productId },
+        ].filter(Boolean), // Remove null values
       });
     }
 
-    // Get product
-    const product = await findOneDocument(COLLECTION, { _id: productId });
-
     // Check if product exists
     if (!product) {
+      console.log("Product not found with any query method");
       return res.status(404).json({
         success: false,
         message: "Product not found",
       });
     }
+
+    console.log("Product found:", product.name);
 
     // Return product
     return res.status(200).json({

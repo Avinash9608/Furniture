@@ -73,6 +73,67 @@ const ProductDetail = () => {
     }
   };
 
+  // Function to test database collections
+  const testDatabaseCollections = async () => {
+    try {
+      setLoading(true);
+      setError("Testing database collections...");
+
+      // Determine if we're in development or production
+      const baseUrl = window.location.origin;
+      const isDevelopment = !baseUrl.includes("onrender.com");
+      const localServerUrl = "http://localhost:5000";
+
+      // Use the appropriate URL based on environment
+      const testUrl = isDevelopment
+        ? `${localServerUrl}/api/test/direct-db`
+        : `${baseUrl}/api/test/direct-db`;
+
+      console.log("Testing database collections at:", testUrl);
+
+      // Make the request
+      const response = await axios.get(testUrl, { timeout: 60000 });
+
+      console.log("Database collections test response:", response.data);
+
+      if (response.data && response.data.success) {
+        const collections = response.data.collections || [];
+        const collectionData = response.data.collectionData || {};
+
+        let collectionInfo = `Database collections found: ${collections.join(
+          ", "
+        )}`;
+
+        if (collections.includes("products")) {
+          collectionInfo += `\nProducts collection: ${
+            collectionData.products?.count || 0
+          } items`;
+
+          if (collectionData.products?.samples) {
+            collectionInfo += `\nSample products: ${collectionData.products.samples
+              .map((p) => p.name)
+              .join(", ")}`;
+          }
+        }
+
+        setError(collectionInfo);
+
+        // Now test the product details endpoint
+        await testProductDetails();
+      } else {
+        setError(
+          `Database collections test failed: ${
+            response.data.message || "Unknown error"
+          }`
+        );
+      }
+    } catch (error) {
+      console.error("Database collections test failed:", error);
+      setError(`Database collections test failed: ${error.message}`);
+      setLoading(false);
+    }
+  };
+
   // Function to test product details connection
   const testProductDetails = async () => {
     try {
@@ -362,6 +423,28 @@ const ProductDetail = () => {
                   ></path>
                 </svg>
                 Test MongoDB Connection
+              </Button>
+
+              <Button
+                onClick={testDatabaseCollections}
+                variant="secondary"
+                size="small"
+              >
+                <svg
+                  className="w-4 h-4 mr-2"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"
+                  ></path>
+                </svg>
+                Test Database Collections
               </Button>
 
               <Button
