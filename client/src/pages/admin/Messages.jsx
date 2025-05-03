@@ -21,12 +21,73 @@ const AdminMessages = () => {
   const [debugInfo, setDebugInfo] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
+  // Function to handle logout and redirect to login page
+  const handleLogout = () => {
+    console.log("Logging out user and redirecting to login page");
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    window.location.href = "/admin/login";
+  };
+
+  // Function to check if user is logged in as admin
+  const checkAdminAuth = () => {
+    const token = localStorage.getItem("token");
+    const userStr = localStorage.getItem("user");
+
+    if (!token) {
+      console.warn("No authentication token found, user may not be logged in");
+      setError(
+        "You must be logged in to view messages. Please log in as an admin."
+      );
+      return false;
+    }
+
+    try {
+      const user = JSON.parse(userStr || "{}");
+      if (user.role !== "admin") {
+        console.warn("User is not an admin:", user);
+        setError("You must be logged in as an admin to view messages.");
+        // Clear invalid credentials
+        setTimeout(() => {
+          handleLogout();
+        }, 3000);
+        return false;
+      }
+
+      console.log("User is logged in as admin:", user.email);
+      console.log("Authentication token:", token.substring(0, 10) + "...");
+      return true;
+    } catch (error) {
+      console.error("Error parsing user data:", error);
+      setError("Error verifying admin status. Please try logging in again.");
+      // Clear corrupted data
+      setTimeout(() => {
+        handleLogout();
+      }, 3000);
+      return false;
+    }
+  };
+
+  // Check for authentication token on mount
+  useEffect(() => {
+    if (checkAdminAuth()) {
+      // Force refresh when token is available and user is admin
+      setRefreshKey((prevKey) => prevKey + 1);
+    }
+  }, []);
+
   // Fetch messages
   useEffect(() => {
     const fetchMessages = async () => {
       try {
         setLoading(true);
         setError(null);
+
+        // Check if user is logged in as admin first
+        if (!checkAdminAuth()) {
+          setLoading(false);
+          return;
+        }
 
         console.log("Fetching contact messages from API...");
         const response = await contactAPI.getAll();
@@ -216,6 +277,25 @@ const AdminMessages = () => {
   // Force refresh function
   const handleForceRefresh = () => {
     console.log("Force refreshing messages...");
+
+    // Check if user is logged in as admin first
+    if (!checkAdminAuth()) {
+      setError("You must be logged in as an admin to refresh messages.");
+      return;
+    }
+
+    // Clear any cached data that might be interfering
+    localStorage.removeItem("cachedMessages");
+    localStorage.removeItem("messagesLastFetched");
+
+    // Clear any session storage data
+    sessionStorage.removeItem("cachedMessages");
+    sessionStorage.removeItem("messagesLastFetched");
+
+    // Remove any mock data flags
+    localStorage.removeItem("useMockData");
+    sessionStorage.removeItem("useMockData");
+
     setLoading(true);
     setError(null);
     setMessages([]);
@@ -369,7 +449,19 @@ const AdminMessages = () => {
           <Loading size="large" />
         </div>
       ) : error ? (
-        <Alert type="error" message={error} />
+        <div>
+          <Alert type="error" message={error} />
+          {error.includes("logged in") && (
+            <div className="mt-4 text-center">
+              <button
+                onClick={() => (window.location.href = "/admin/login")}
+                className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-dark transition-colors"
+              >
+                Go to Admin Login
+              </button>
+            </div>
+          )}
+        </div>
       ) : filteredMessages.length === 0 ? (
         <div className="theme-bg-primary rounded-lg shadow-md p-8 text-center">
           <svg

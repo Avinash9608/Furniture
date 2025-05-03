@@ -1317,14 +1317,20 @@ const contactAPI = {
     try {
       console.log("Fetching all contact messages");
 
-      // Create a direct axios instance
+      // Create a direct axios instance with auth token
+      const token = localStorage.getItem("token");
       const directApi = axios.create({
         timeout: 30000, // Increased timeout
         headers: {
           "Content-Type": "application/json",
           Accept: "application/json",
+          Authorization: token ? `Bearer ${token}` : "",
+          "Cache-Control": "no-cache",
+          Pragma: "no-cache",
         },
       });
+
+      console.log("Authentication token available:", !!token);
 
       // Determine the current environment
       const baseUrl = window.location.origin;
@@ -1458,11 +1464,15 @@ const contactAPI = {
             console.log(
               `Trying to fetch with native fetch API from: ${endpoint}`
             );
+            const token = localStorage.getItem("token");
             const response = await fetch(endpoint, {
               method: "GET",
               headers: {
                 Accept: "application/json",
                 "Content-Type": "application/json",
+                Authorization: token ? `Bearer ${token}` : "",
+                "Cache-Control": "no-cache",
+                Pragma: "no-cache",
               },
             });
 
@@ -1521,7 +1531,17 @@ const contactAPI = {
         const directEndpoint = `${baseUrl}/api/direct/contacts?timestamp=${Date.now()}`;
         console.log(`Trying direct database query: ${directEndpoint}`);
 
-        const directResponse = await directApi.get(directEndpoint);
+        // Ensure we have the latest token
+        const token = localStorage.getItem("token");
+        console.log("Using authentication token for direct query:", !!token);
+
+        const directResponse = await directApi.get(directEndpoint, {
+          headers: {
+            Authorization: token ? `Bearer ${token}` : "",
+            "Cache-Control": "no-cache",
+            Pragma: "no-cache",
+          },
+        });
 
         if (
           directResponse.data &&
