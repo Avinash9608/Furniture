@@ -188,13 +188,34 @@ const productsAPI = {
     try {
       console.log(`Fetching product with ID: ${id}`);
 
-      // Create a direct axios instance
+      // Create a direct axios instance with even longer timeout
       const directApi = axios.create({
-        timeout: 60000, // Increased timeout to 60 seconds
+        timeout: 120000, // Increased timeout to 120 seconds (2 minutes)
         headers: {
           "Content-Type": "application/json",
           Accept: "application/json",
         },
+        // Retry configuration
+        retry: 3,
+        retryDelay: 1000,
+      });
+
+      // Add retry interceptor
+      directApi.interceptors.response.use(undefined, async (err) => {
+        const { config } = err;
+        if (!config || !config.retry) {
+          return Promise.reject(err);
+        }
+        config.__retryCount = config.__retryCount || 0;
+        if (config.__retryCount >= config.retry) {
+          return Promise.reject(err);
+        }
+        config.__retryCount += 1;
+        console.log(
+          `Retrying request (${config.__retryCount}/${config.retry})...`
+        );
+        await new Promise((resolve) => setTimeout(resolve, config.retryDelay));
+        return directApi(config);
       });
 
       // Try multiple endpoints
@@ -212,6 +233,9 @@ const productsAPI = {
           : [`${baseUrl}/api/direct/products/${id}`]),
         `${deployedUrl}/api/direct/products/${id}`,
 
+        // Special debug endpoint for deployment issues
+        ...(isDevelopment ? [] : [`${baseUrl}/api/debug/product/${id}`]),
+
         // Test endpoint next
         ...(isDevelopment
           ? [`${localServerUrl}/api/test/product/${id}`]
@@ -228,6 +252,9 @@ const productsAPI = {
         ...(isDevelopment
           ? [`${localServerUrl}/products/${id}`]
           : [`${baseUrl}/products/${id}`]),
+
+        // Special server.js endpoint as last resort
+        `${deployedUrl}/api/products/${id}`,
       ];
 
       // Try each endpoint until one works

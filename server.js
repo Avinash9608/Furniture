@@ -121,7 +121,7 @@ const connectDB = async (retryCount = 0, maxRetries = 5) => {
       j: false, // Don't wait for journal commit (faster)
       maxPoolSize: 20, // Increased pool size
       minPoolSize: 5, // Ensure minimum connections
-      bufferCommands: false, // Disable command buffering
+      bufferCommands: false, // Disable command buffering - CRITICAL for preventing timeouts
       autoIndex: true, // Build indexes
       family: 4, // Use IPv4, skip trying IPv6
       maxIdleTimeMS: 120000, // 2 minutes max idle time
@@ -129,6 +129,15 @@ const connectDB = async (retryCount = 0, maxRetries = 5) => {
       // Note: bufferMaxEntries, useNewUrlParser, and useUnifiedTopology are no longer needed
       // in newer MongoDB driver versions and have been removed
     };
+
+    // Set global mongoose options to prevent buffering timeouts
+    mongoose.set("bufferCommands", false);
+    mongoose.set("bufferTimeoutMS", 60000); // 60 seconds buffer timeout
+
+    // Disable Mongoose's default buffering behavior globally
+    if (mongoose.connection.base) {
+      mongoose.connection.base.setOptions({ bufferCommands: false });
+    }
 
     console.log(
       "Connection options:",

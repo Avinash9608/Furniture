@@ -319,7 +319,7 @@ const ProductDetail = () => {
     }
   };
 
-  // Fetch product details
+  // Fetch product details with enhanced error handling and retry logic
   useEffect(() => {
     const fetchProductDetails = async () => {
       try {
@@ -327,7 +327,42 @@ const ProductDetail = () => {
         setError(null);
 
         console.log(`Fetching product details for ID: ${id}`);
-        const response = await productsAPI.getById(id);
+
+        // Add retry logic at the component level
+        let retryCount = 0;
+        const maxRetries = 3;
+        let response = null;
+        let lastError = null;
+
+        while (retryCount <= maxRetries) {
+          try {
+            if (retryCount > 0) {
+              console.log(
+                `Retry attempt ${retryCount}/${maxRetries} for product ${id}`
+              );
+              // Wait longer between retries
+              await new Promise((resolve) =>
+                setTimeout(resolve, retryCount * 2000)
+              );
+            }
+
+            response = await productsAPI.getById(id);
+
+            // If we got a response, break out of the retry loop
+            if (response && response.data) {
+              break;
+            }
+          } catch (retryError) {
+            console.error(`Error in retry attempt ${retryCount}:`, retryError);
+            lastError = retryError;
+            retryCount++;
+
+            // If we've exhausted all retries, throw the last error
+            if (retryCount > maxRetries) {
+              throw lastError;
+            }
+          }
+        }
 
         // Check if we have valid product data
         if (!response || !response.data || !response.data.data) {
@@ -337,6 +372,19 @@ const ProductDetail = () => {
 
         const productData = response.data.data;
         console.log("Product data received:", productData);
+
+        // Check if this is a mock product due to database timeout
+        if (productData.__isMock) {
+          console.warn(
+            "Received mock product due to database timeout:",
+            productData
+          );
+          setError(
+            "Note: Showing a placeholder product due to database connection issues. " +
+              "This is a temporary display while our database is being optimized. " +
+              "Please try refreshing the page in a few moments."
+          );
+        }
 
         // Ensure product has all required properties
         const safeProduct = {
@@ -370,27 +418,35 @@ const ProductDetail = () => {
             : null;
 
         if (categoryId) {
-          console.log(`Fetching related products for category: ${categoryId}`);
-          const relatedResponse = await productsAPI.getAll({
-            category: categoryId,
-            limit: 3,
-          });
-
-          // Ensure we have valid related products data
-          if (
-            relatedResponse &&
-            relatedResponse.data &&
-            Array.isArray(relatedResponse.data.data)
-          ) {
-            // Filter out the current product from related products
-            const filteredRelated = relatedResponse.data.data.filter(
-              (item) => item && item._id !== safeProduct._id
+          try {
+            console.log(
+              `Fetching related products for category: ${categoryId}`
             );
+            const relatedResponse = await productsAPI.getAll({
+              category: categoryId,
+              limit: 3,
+            });
 
-            console.log(`Found ${filteredRelated.length} related products`);
-            setRelatedProducts(filteredRelated);
-          } else {
-            console.log("No valid related products data found");
+            // Ensure we have valid related products data
+            if (
+              relatedResponse &&
+              relatedResponse.data &&
+              Array.isArray(relatedResponse.data.data)
+            ) {
+              // Filter out the current product from related products
+              const filteredRelated = relatedResponse.data.data.filter(
+                (item) => item && item._id !== safeProduct._id
+              );
+
+              console.log(`Found ${filteredRelated.length} related products`);
+              setRelatedProducts(filteredRelated);
+            } else {
+              console.log("No valid related products data found");
+              setRelatedProducts([]);
+            }
+          } catch (relatedError) {
+            // Don't fail the whole product page if related products fail to load
+            console.error("Error fetching related products:", relatedError);
             setRelatedProducts([]);
           }
         } else {
@@ -399,7 +455,20 @@ const ProductDetail = () => {
         }
       } catch (error) {
         console.error("Error fetching product details:", error);
-        setError("Failed to load product details. Please try again later.");
+
+        // Provide more detailed error message based on the error type
+        if (error.message && error.message.includes("timeout")) {
+          setError(
+            "Database connection timeout. Our servers are experiencing high traffic. " +
+              "Please try again in a few moments or refresh the page."
+          );
+        } else if (error.message && error.message.includes("Network Error")) {
+          setError(
+            "Network connection error. Please check your internet connection and try again."
+          );
+        } else {
+          setError("Failed to load product details. Please try again later.");
+        }
       } finally {
         setLoading(false);
       }
