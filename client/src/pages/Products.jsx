@@ -42,13 +42,15 @@ const Products = () => {
         const categoriesResponse = await categoriesAPI.getAll();
         console.log("Raw categories response:", categoriesResponse);
 
-        // Validate and filter categories
-        const validCategoryNames = [
-          "Sofa Beds",
-          "Tables",
-          "Chairs",
-          "Wardrobes",
-        ];
+        // Define the valid category names and their corresponding IDs
+        const categoryMapping = {
+          "680c9481ab11e96a288ef6d9": "Sofa Beds",
+          "680c9484ab11e96a288ef6da": "Tables",
+          "680c9486ab11e96a288ef6db": "Chairs",
+          "680c9489ab11e96a288ef6dc": "Wardrobes",
+        };
+
+        const validCategoryNames = Object.values(categoryMapping);
 
         // First validate the categories to ensure they all have required properties
         let validatedCategories = [];
@@ -59,27 +61,50 @@ const Products = () => {
             categoriesResponse.data &&
             Array.isArray(categoriesResponse.data)
           ) {
-            validatedCategories = validateCategories(categoriesResponse.data);
+            validatedCategories = validateCategories(
+              categoriesResponse.data,
+              categoryMapping
+            );
           } else if (
             categoriesResponse.data &&
             categoriesResponse.data.data &&
             Array.isArray(categoriesResponse.data.data)
           ) {
             validatedCategories = validateCategories(
-              categoriesResponse.data.data
+              categoriesResponse.data.data,
+              categoryMapping
             );
           } else if (Array.isArray(categoriesResponse)) {
-            validatedCategories = validateCategories(categoriesResponse);
+            validatedCategories = validateCategories(
+              categoriesResponse,
+              categoryMapping
+            );
           } else {
             console.error(
               "Unexpected categories response format:",
               categoriesResponse
             );
-            validatedCategories = validateCategories([]);
+            // Create fallback categories from the mapping
+            validatedCategories = Object.entries(categoryMapping).map(
+              ([id, name]) => ({
+                _id: id,
+                name: name,
+                slug: name.toLowerCase().replace(/\s+/g, "-"),
+                description: `${name} collection`,
+              })
+            );
           }
         } catch (validationError) {
           console.error("Error validating categories:", validationError);
-          validatedCategories = validateCategories([]);
+          // Create fallback categories from the mapping
+          validatedCategories = Object.entries(categoryMapping).map(
+            ([id, name]) => ({
+              _id: id,
+              name: name,
+              slug: name.toLowerCase().replace(/\s+/g, "-"),
+              description: `${name} collection`,
+            })
+          );
         }
 
         console.log("Validated categories:", validatedCategories);
@@ -109,15 +134,22 @@ const Products = () => {
         setError("Failed to load products. Please try again later.");
 
         // Set fallback categories in case of error
-        const fallbackCategories = validateCategories([
-          {
-            name: "Sofa Beds",
-            description: "Comfortable sofa beds for your living room",
-          },
-          { name: "Tables", description: "Stylish tables for your home" },
-          { name: "Chairs", description: "Ergonomic chairs for comfort" },
-          { name: "Wardrobes", description: "Spacious wardrobes for storage" },
-        ]);
+        const categoryMapping = {
+          "680c9481ab11e96a288ef6d9": "Sofa Beds",
+          "680c9484ab11e96a288ef6da": "Tables",
+          "680c9486ab11e96a288ef6db": "Chairs",
+          "680c9489ab11e96a288ef6dc": "Wardrobes",
+        };
+
+        // Create fallback categories with proper IDs
+        const fallbackCategories = Object.entries(categoryMapping).map(
+          ([id, name]) => ({
+            _id: id,
+            name: name,
+            slug: name.toLowerCase().replace(/\s+/g, "-"),
+            description: `${name} collection`,
+          })
+        );
         setCategories(fallbackCategories);
       } finally {
         setLoading(false);
@@ -194,7 +226,33 @@ const Products = () => {
 
       // Add category filter if selected
       if (filters.category) {
-        params.category = filters.category;
+        // Always use the category ID for filtering if it's a MongoDB ObjectId
+        if (
+          filters.category.length === 24 &&
+          /^[0-9a-f]+$/.test(filters.category)
+        ) {
+          params.category = filters.category;
+          console.log(
+            `Using MongoDB ObjectId for category filter: ${filters.category}`
+          );
+        } else {
+          // For slug-based filtering, try to find the matching category ID first
+          const matchingCategory = categories.find(
+            (cat) =>
+              cat.slug === filters.category ||
+              cat.name.toLowerCase() === filters.category.toLowerCase()
+          );
+
+          if (matchingCategory && matchingCategory._id) {
+            params.category = matchingCategory._id;
+            console.log(
+              `Mapped category slug "${filters.category}" to ID: ${matchingCategory._id}`
+            );
+          } else {
+            params.category = filters.category;
+            console.log(`Using category slug directly: ${filters.category}`);
+          }
+        }
       }
 
       // Add price range filter
@@ -325,6 +383,16 @@ const Products = () => {
                     filters.category.length === 24 &&
                     /^[0-9a-f]+$/.test(filters.category)
                   ) {
+                    // First try to find the category in our loaded categories
+                    const matchingCategory = categories.find(
+                      (cat) => cat._id === filters.category
+                    );
+
+                    if (matchingCategory && matchingCategory.name) {
+                      return `${matchingCategory.name} Collection`;
+                    }
+
+                    // If not found in loaded categories, use our mapping
                     const categoryMap = {
                       "680c9481ab11e96a288ef6d9": "Sofa Beds",
                       "680c9484ab11e96a288ef6da": "Tables",
@@ -339,7 +407,7 @@ const Products = () => {
                   // Otherwise, capitalize the first letter
                   return `${
                     filters.category.charAt(0).toUpperCase() +
-                    filters.category.slice(1)
+                    filters.category.slice(1).replace(/-/g, " ")
                   } Collection`;
                 })()
               : "All Products"}
@@ -495,13 +563,14 @@ const Products = () => {
                             name="category"
                             checked={
                               filters.category === category.slug ||
-                              filters.category === category._id
+                              filters.category === category._id ||
+                              // Check if the current filter is a MongoDB ID that matches this category
+                              (filters.category.length === 24 &&
+                                /^[0-9a-f]+$/.test(filters.category) &&
+                                category._id === filters.category)
                             }
                             onChange={() =>
-                              handleFilterChange(
-                                "category",
-                                category.slug || category._id
-                              )
+                              handleFilterChange("category", category._id)
                             }
                             className="w-4 h-4 text-primary focus:ring-primary"
                           />

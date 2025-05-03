@@ -1,7 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import axios from "axios";
-import { productsAPI, getImageUrl } from "../utils/api";
+import {
+  productsAPI,
+  getImageUrl,
+  getCategoryNameFromId,
+  CATEGORY_MAP,
+} from "../utils/api";
 import { formatPrice, calculateDiscountPercentage } from "../utils/format";
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
@@ -573,6 +578,67 @@ const ProductDetail = () => {
                 </svg>
                 Debug Product Details
               </Button>
+
+              <Button
+                onClick={() => {
+                  const baseUrl = window.location.origin;
+                  const isDevelopment = !baseUrl.includes("onrender.com");
+                  const localServerUrl = "http://localhost:5000";
+                  const url = isDevelopment
+                    ? `${localServerUrl}/api/direct/products/${id}`
+                    : `${baseUrl}/api/direct/products/${id}`;
+
+                  setLoading(true);
+                  setError(`Testing direct product endpoint: ${url}`);
+
+                  axios
+                    .get(url, { timeout: 60000 })
+                    .then((response) => {
+                      console.log(
+                        "Direct product endpoint response:",
+                        response.data
+                      );
+                      setError(
+                        `Direct product endpoint success!\nSource: ${
+                          response.data.source
+                        }\nProduct: ${response.data.data?.name || "Unknown"}`
+                      );
+                      setLoading(false);
+
+                      // Refresh the page to show the product
+                      if (response.data.success && response.data.data) {
+                        setTimeout(() => {
+                          window.location.reload();
+                        }, 2000);
+                      }
+                    })
+                    .catch((error) => {
+                      console.error("Direct product endpoint error:", error);
+                      setError(
+                        `Direct product endpoint error: ${error.message}`
+                      );
+                      setLoading(false);
+                    });
+                }}
+                variant="success"
+                size="small"
+              >
+                <svg
+                  className="w-4 h-4 mr-2"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                  ></path>
+                </svg>
+                Test Direct API Endpoint
+              </Button>
             </div>
           )}
           <Link to="/products" className="text-primary hover:underline">
@@ -612,13 +678,26 @@ const ProductDetail = () => {
             Products
           </Link>
           <span className="mx-2 theme-text-secondary">/</span>
-          {product.category && typeof product.category === "object" ? (
-            <Link
-              to={`/products?category=${product.category.slug || ""}`}
-              className="theme-text-secondary hover:text-primary"
-            >
-              {product.category.name || "Uncategorized"}
-            </Link>
+          {product.category ? (
+            typeof product.category === "object" && product.category.name ? (
+              <Link
+                to={`/products?category=${
+                  product.category._id || product.category.slug || ""
+                }`}
+                className="theme-text-secondary hover:text-primary"
+              >
+                {product.category.name}
+              </Link>
+            ) : typeof product.category === "string" ? (
+              <Link
+                to={`/products?category=${product.category}`}
+                className="theme-text-secondary hover:text-primary"
+              >
+                {getCategoryNameFromId(product.category)}
+              </Link>
+            ) : (
+              <span className="theme-text-secondary">Uncategorized</span>
+            )
           ) : (
             <span className="theme-text-secondary">Uncategorized</span>
           )}
@@ -641,9 +720,7 @@ const ProductDetail = () => {
                     product.images.length > 0 &&
                     selectedImage < product.images.length
                       ? getImageUrl(product.images[selectedImage])
-                      : `https://via.placeholder.com/800x600?text=${encodeURIComponent(
-                          (product && product.name) || "Product"
-                        )}`
+                      : "https://placehold.co/800x600/gray/white?text=Product"
                   }
                   alt={(product && product.name) || "Product"}
                   className="w-full h-full object-cover"
@@ -651,7 +728,7 @@ const ProductDetail = () => {
                     console.log("Image load error:", e.target.src);
                     e.target.onerror = null;
                     e.target.src =
-                      "https://via.placeholder.com/800x600?text=Image+Not+Found";
+                      "https://placehold.co/800x600/gray/white?text=Image+Not+Found";
                   }}
                 />
               </div>
@@ -682,7 +759,7 @@ const ProductDetail = () => {
                             console.log("Thumbnail load error:", e.target.src);
                             e.target.onerror = null;
                             e.target.src =
-                              "https://via.placeholder.com/100x100?text=Image+Not+Found";
+                              "https://placehold.co/100x100/gray/white?text=Image+Not+Found";
                           }}
                         />
                       </div>
@@ -940,15 +1017,29 @@ const ProductDetail = () => {
                   {/* Always show category */}
                   <li className="flex">
                     <span className="font-medium w-24">Category:</span>
-                    {product &&
-                    product.category &&
-                    typeof product.category === "object" ? (
-                      <Link
-                        to={`/products?category=${product.category.slug || ""}`}
-                        className="text-primary hover:underline"
-                      >
-                        {product.category.name || "Uncategorized"}
-                      </Link>
+                    {product && product.category ? (
+                      typeof product.category === "object" &&
+                      product.category.name ? (
+                        <Link
+                          to={`/products?category=${
+                            product.category._id || product.category.slug || ""
+                          }`}
+                          className="text-primary hover:underline"
+                        >
+                          {product.category.name}
+                        </Link>
+                      ) : typeof product.category === "string" ? (
+                        <Link
+                          to={`/products?category=${product.category}`}
+                          className="text-primary hover:underline"
+                        >
+                          {getCategoryNameFromId(product.category)}
+                        </Link>
+                      ) : (
+                        <span className="theme-text-primary">
+                          Uncategorized
+                        </span>
+                      )
                     ) : (
                       <span className="theme-text-primary">Uncategorized</span>
                     )}

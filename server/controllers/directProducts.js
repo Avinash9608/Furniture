@@ -218,7 +218,40 @@ exports.getProductById = async (req, res) => {
 
     console.log("Product found:", product.name);
 
-    // Return product
+    // Check if category is just an ID and try to fetch category details
+    if (product.category && typeof product.category === "string") {
+      try {
+        console.log(`Fetching category details for ID: ${product.category}`);
+        const { findOneDocument } = require("../utils/directDbConnection");
+
+        // Try to fetch the category
+        const category = await findOneDocument("categories", {
+          $or: [
+            { _id: product.category },
+            ...(product.category.length === 24 &&
+            /^[0-9a-f]+$/.test(product.category)
+              ? [{ _id: new ObjectId(product.category) }]
+              : []),
+          ],
+        });
+
+        if (category) {
+          console.log(`Category found: ${category.name}`);
+          // Replace the category ID with the category object
+          product.category = {
+            _id: category._id,
+            name: category.name,
+            slug: category.slug,
+            image: category.image,
+          };
+        }
+      } catch (categoryError) {
+        console.error("Error fetching category details:", categoryError);
+        // If there's an error, we'll just keep the category as an ID
+      }
+    }
+
+    // Return product with populated category
     return res.status(200).json({
       success: true,
       data: product,

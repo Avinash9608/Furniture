@@ -21,14 +21,25 @@ export const getImageUrl = (imagePath) => {
 /**
  * Safely validates and normalizes category data to prevent "_id undefined" errors
  * @param {Array|Object} data - The category data to validate
+ * @param {Object} categoryMapping - Optional mapping of category IDs to names
  * @returns {Array} - Array of validated category objects
  */
-export const validateCategories = (data) => {
+export const validateCategories = (data, categoryMapping = null) => {
   // Handle null/undefined data
   if (!data) {
     console.warn("validateCategories received null/undefined data");
     return [];
   }
+
+  // Use provided category mapping or default one
+  const defaultCategoryMap = {
+    "680c9481ab11e96a288ef6d9": "Sofa Beds",
+    "680c9484ab11e96a288ef6da": "Tables",
+    "680c9486ab11e96a288ef6db": "Chairs",
+    "680c9489ab11e96a288ef6dc": "Wardrobes",
+  };
+
+  const categoryMap = categoryMapping || defaultCategoryMap;
 
   // Handle array data
   let categories = Array.isArray(data)
@@ -46,39 +57,38 @@ export const validateCategories = (data) => {
 
       // Ensure image field is properly handled
       const imageField = item.image || null;
-      console.log(`Category ${index} (${item.name}) image:`, imageField);
+      console.log(
+        `Category ${index} (${item.name || safeId}) image:`,
+        imageField
+      );
 
       // Generate a better name if it's a MongoDB ObjectId
       let categoryName = item.name;
       if (
-        !categoryName &&
+        (!categoryName || categoryName === "Category") &&
         typeof safeId === "string" &&
         safeId.length === 24 &&
         /^[0-9a-f]+$/.test(safeId)
       ) {
-        // This is likely a MongoDB ObjectId, use a friendly name
-        const categoryMap = {
-          // Map common category IDs to friendly names
-          "680c9481ab11e96a288ef6d9": "Sofa Beds",
-          "680c9484ab11e96a288ef6da": "Tables",
-          "680c9486ab11e96a288ef6db": "Chairs",
-          "680c9489ab11e96a288ef6dc": "Wardrobes",
-        };
-
-        // Try to find a mapped name or use a generic one
+        // This is likely a MongoDB ObjectId, use a friendly name from the mapping
         categoryName = categoryMap[safeId] || `Furniture ${index + 1}`;
+      }
+
+      // Generate a slug if missing
+      let categorySlug = item.slug;
+      if (!categorySlug && categoryName) {
+        categorySlug = categoryName.toLowerCase().replace(/\s+/g, "-");
+      } else if (!categorySlug) {
+        categorySlug = `category-${index}`;
       }
 
       const validatedItem = {
         _id: safeId,
         name: categoryName || `Category ${index + 1}`,
-        description: item.description || "",
+        description:
+          item.description || `${categoryName || "Category"} collection`,
         image: imageField,
-        slug:
-          item.slug ||
-          (categoryName
-            ? categoryName.toLowerCase().replace(/\s+/g, "-")
-            : `category-${index}`),
+        slug: categorySlug,
         ...item, // Keep any additional properties
         __validated: true,
       };

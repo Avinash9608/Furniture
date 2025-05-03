@@ -206,17 +206,17 @@ const productsAPI = {
       const isDevelopment = !baseUrl.includes("onrender.com");
 
       const endpoints = [
-        // Test endpoint first (most reliable with enhanced error handling)
-        ...(isDevelopment
-          ? [`${localServerUrl}/api/test/product-details/${id}`]
-          : [`${baseUrl}/api/test/product-details/${id}`]),
-        `${deployedUrl}/api/test/product-details/${id}`,
-
-        // Direct endpoints next
+        // Direct endpoints first (most reliable)
         ...(isDevelopment
           ? [`${localServerUrl}/api/direct/products/${id}`]
           : [`${baseUrl}/api/direct/products/${id}`]),
         `${deployedUrl}/api/direct/products/${id}`,
+
+        // Test endpoint next
+        ...(isDevelopment
+          ? [`${localServerUrl}/api/test/product/${id}`]
+          : [`${baseUrl}/api/test/product/${id}`]),
+        `${deployedUrl}/api/test/product/${id}`,
 
         // Then try standard API endpoints
         ...(isDevelopment
@@ -228,7 +228,6 @@ const productsAPI = {
         ...(isDevelopment
           ? [`${localServerUrl}/products/${id}`]
           : [`${baseUrl}/products/${id}`]),
-        `${baseUrl}/api/api/products/${id}`,
       ];
 
       // Try each endpoint until one works
@@ -255,6 +254,71 @@ const productsAPI = {
 
           // Process the product data to ensure all required properties exist
           if (productData) {
+            // Process category information
+            let processedCategory = null;
+            if (productData.category) {
+              // If category is a string ID, try to convert it to a proper category object
+              if (typeof productData.category === "string") {
+                // Check if it's a MongoDB ObjectId (24 hex chars)
+                const isObjectId = /^[0-9a-f]{24}$/i.test(productData.category);
+
+                // If it's not an ObjectId, it might be a category name or slug
+                if (!isObjectId) {
+                  // Create a simple category object from the string
+                  processedCategory = {
+                    _id: productData.category,
+                    name:
+                      productData.category.charAt(0).toUpperCase() +
+                      productData.category.slice(1).replace(/-/g, " "),
+                    slug: productData.category
+                      .toLowerCase()
+                      .replace(/\s+/g, "-"),
+                  };
+                } else {
+                  // It's an ObjectId, map it to a proper category name using the centralized mapping
+                  const categoryName = getCategoryNameFromId(
+                    productData.category
+                  );
+                  const categorySlug = categoryName
+                    .toLowerCase()
+                    .replace(/\s+/g, "-");
+
+                  processedCategory = {
+                    _id: productData.category,
+                    name: categoryName,
+                    slug: categorySlug,
+                  };
+                }
+              } else if (typeof productData.category === "object") {
+                if (productData.category.name) {
+                  // It's already a proper category object
+                  processedCategory = productData.category;
+                } else if (productData.category._id) {
+                  // It has an ID but no name, map it to a proper category name using the centralized mapping
+                  const categoryId = productData.category._id.toString();
+                  const categoryName = getCategoryNameFromId(categoryId);
+                  const categorySlug = categoryName
+                    .toLowerCase()
+                    .replace(/\s+/g, "-");
+
+                  processedCategory = {
+                    ...productData.category,
+                    name: categoryName,
+                    slug: categorySlug,
+                  };
+                }
+              }
+            }
+
+            // If no valid category was found, use a default
+            if (!processedCategory) {
+              processedCategory = {
+                _id: "uncategorized",
+                name: "Uncategorized",
+                slug: "uncategorized",
+              };
+            }
+
             // Create a safe product object with all required properties
             const safeProduct = {
               ...productData,
@@ -283,7 +347,7 @@ const productsAPI = {
                 : productData.images
                 ? [productData.images]
                 : [],
-              category: productData.category || null,
+              category: processedCategory,
               reviews: Array.isArray(productData.reviews)
                 ? productData.reviews
                 : [],
@@ -322,7 +386,11 @@ const productsAPI = {
           "This is a sample product shown when the product could not be loaded from the database.",
         price: 19999,
         discountPrice: 15999,
-        category: "sample-category",
+        category: {
+          _id: "sample-category",
+          name: "Sample Category",
+          slug: "sample-category",
+        },
         stock: 10,
         ratings: 4.5,
         numReviews: 12,
@@ -354,7 +422,11 @@ const productsAPI = {
         description: "This is a sample product shown when an error occurred.",
         price: 19999,
         discountPrice: 15999,
-        category: "error-category",
+        category: {
+          _id: "error-category",
+          name: "Error Category",
+          slug: "error-category",
+        },
         stock: 10,
         ratings: 4.5,
         numReviews: 12,
@@ -643,6 +715,24 @@ export const DEFAULT_PRODUCT_IMAGE =
   "https://placehold.co/300x300/gray/white?text=Product";
 export const DEFAULT_CATEGORY_IMAGE =
   "https://placehold.co/300x300/gray/white?text=Category";
+
+// Centralized category mapping for consistent category names across the application
+export const CATEGORY_MAP = {
+  "680c9481ab11e96a288ef6d9": "Sofa Beds",
+  "680c9484ab11e96a288ef6da": "Tables",
+  "680c9486ab11e96a288ef6db": "Chairs",
+  "680c9489ab11e96a288ef6dc": "Wardrobes",
+};
+
+// Helper function to get category name from ID
+export const getCategoryNameFromId = (categoryId) => {
+  if (!categoryId) return "Uncategorized";
+
+  // Convert to string if it's an ObjectId
+  const idStr = categoryId.toString ? categoryId.toString() : categoryId;
+
+  return CATEGORY_MAP[idStr] || `Category ${idStr.substring(0, 8)}`;
+};
 
 // Helper function to get the correct image URL based on environment
 export const getImageUrl = (imagePath) => {
