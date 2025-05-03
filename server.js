@@ -572,7 +572,9 @@ if (!staticPath) {
     } = require("./server/controllers/paymentRequests");
     const { getOrders } = require("./server/controllers/orders");
     const { getAllMessages } = require("./server/controllers/adminMessages");
-    const { getAllProducts } = require("./server/controllers/adminProducts");
+    const {
+      getAllProducts: getAllProductsAdmin,
+    } = require("./server/controllers/adminProducts");
 
     // API routes are now set up
 
@@ -667,7 +669,7 @@ if (!staticPath) {
           error
         );
         // Fall back to regular controller
-        getAllProducts(req, res, next);
+        getAllProductsAdmin(req, res, next);
       }
     });
     app.get("/api/admin/products", async (req, res, next) => {
@@ -680,7 +682,7 @@ if (!staticPath) {
           error
         );
         // Fall back to regular controller
-        getAllProducts(req, res, next);
+        getAllProductsAdmin(req, res, next);
       }
     });
 
