@@ -213,6 +213,10 @@ app.post("/api/direct/products", createProduct);
 app.put("/api/direct/products/:id", updateProduct);
 app.delete("/api/direct/products/:id", deleteProduct);
 
+// Special route for products page - handle both /products and /api/products
+app.get("/products", getAllProducts);
+app.get("/api/products", getAllProducts);
+
 // Direct API routes for categories
 app.get("/api/direct/categories", getAllCategories);
 app.get("/api/direct/categories/:id", getCategoryById);

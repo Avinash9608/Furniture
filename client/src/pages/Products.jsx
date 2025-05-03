@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
+import axios from "axios";
 import ProductCard from "../components/ProductCard";
 import Loading from "../components/Loading";
 import Alert from "../components/Alert";
+import Button from "../components/Button";
 import { productsAPI, categoriesAPI } from "../utils/api";
 import { formatPrice } from "../utils/format";
 import { validateCategories } from "../utils/safeDataHandler";
@@ -124,6 +126,62 @@ const Products = () => {
 
     fetchData();
   }, [location.search]);
+
+  // Function to test MongoDB connection and products
+  const testProductsConnection = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Determine if we're in development or production
+      const baseUrl = window.location.origin;
+      const isDevelopment = !baseUrl.includes("onrender.com");
+      const localServerUrl = "http://localhost:5000";
+
+      // Use the appropriate URL based on environment
+      const testUrl = isDevelopment
+        ? `${localServerUrl}/api/test/products-page`
+        : `${baseUrl}/api/test/products-page`;
+
+      console.log("Testing products connection at:", testUrl);
+
+      // Make the request
+      const response = await axios.get(testUrl, { timeout: 30000 });
+
+      console.log("Products connection test response:", response.data);
+
+      if (
+        response.data &&
+        response.data.data &&
+        response.data.data.length > 0
+      ) {
+        // Show success message
+        setError(
+          `Products connection successful! Found ${response.data.count} products from source: ${response.data.source}`
+        );
+
+        // Set the products
+        setProducts(response.data.data);
+        setTotalPages(Math.ceil(response.data.count / 12));
+
+        // Find the highest price for the price range filter
+        if (response.data.data.length > 0) {
+          const highestPrice = Math.max(
+            ...response.data.data.map((product) => product.price)
+          );
+          setMaxPrice(highestPrice);
+          setPriceRange([0, highestPrice]);
+        }
+      } else {
+        setError("No products found in the database");
+      }
+    } catch (error) {
+      console.error("Products connection test failed:", error);
+      setError(`Products connection test failed: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Fetch products based on current filters
   const fetchProducts = async () => {
@@ -290,6 +348,33 @@ const Products = () => {
             Discover our wide range of high-quality furniture for your home and
             office
           </p>
+
+          {/* Test button - only visible in production */}
+          {window.location.origin.includes("onrender.com") && (
+            <div className="mt-4">
+              <Button
+                onClick={testProductsConnection}
+                variant="secondary"
+                size="small"
+              >
+                <svg
+                  className="w-4 h-4 mr-2"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  ></path>
+                </svg>
+                Test Products Connection
+              </Button>
+            </div>
+          )}
         </div>
 
         {/* Mobile Filter Toggle */}

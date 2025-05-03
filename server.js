@@ -993,6 +993,40 @@ if (!staticPath) {
     app.put("/api/direct/categories/:id", updateCategory);
     app.delete("/api/direct/categories/:id", deleteCategory);
 
+    // Test endpoint for products page
+    app.get("/api/test/products-page", async (_req, res) => {
+      try {
+        console.log("Testing products page data");
+
+        // Import the direct DB connection utility
+        const { findDocuments } = require("./server/utils/directDbConnection");
+
+        // Get products directly from MongoDB
+        const products = await findDocuments("products", {}, { limit: 20 });
+
+        return res.json({
+          success: true,
+          message: "Products page test successful",
+          count: products.length,
+          data: products.map((p) => ({
+            _id: p._id.toString(),
+            name: p.name,
+            price: p.price,
+            category: p.category,
+            images: p.images,
+          })),
+          source: "direct_database",
+        });
+      } catch (error) {
+        console.error("Products page test failed:", error);
+        return res.status(500).json({
+          success: false,
+          message: "Products page test failed",
+          error: error.message,
+        });
+      }
+    });
+
     // Direct database access test route
     app.get("/api/test/direct-db", async (_req, res) => {
       try {

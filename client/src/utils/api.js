@@ -80,18 +80,26 @@ const productsAPI = {
           : [`${baseUrl}/api/direct/products`]),
         `${deployedUrl}/api/direct/products`,
 
+        // Special products page endpoints
+        ...(isDevelopment
+          ? [`${localServerUrl}/products`]
+          : [`${baseUrl}/products`]),
+        `${deployedUrl}/products`,
+
         // Then try standard API endpoints
         ...(isDevelopment
           ? [`${localServerUrl}/api/products`]
           : [`${baseUrl}/api/products`]),
         `${deployedUrl}/api/products`,
 
-        // Then try fallback endpoints
+        // Test endpoint for debugging
         ...(isDevelopment
-          ? [`${localServerUrl}/products`]
-          : [`${baseUrl}/products`]),
+          ? [`${localServerUrl}/api/test/products-page`]
+          : [`${baseUrl}/api/test/products-page`]),
+        `${deployedUrl}/api/test/products-page`,
+
+        // Fallback endpoints
         `${baseUrl}/api/api/products`,
-        `${deployedUrl}/products`,
       ];
 
       // Try each endpoint until one works
