@@ -1027,6 +1027,63 @@ if (!staticPath) {
       }
     });
 
+    // Test endpoint for product details page
+    app.get("/api/test/product-details/:id", async (req, res) => {
+      try {
+        console.log(`Testing product details for ID: ${req.params.id}`);
+
+        // Import the direct DB connection utility
+        const {
+          findOneDocument,
+        } = require("./server/utils/directDbConnection");
+        const { ObjectId } = require("mongodb");
+
+        // Try to convert to ObjectId
+        let productId;
+        try {
+          productId = new ObjectId(req.params.id);
+        } catch (error) {
+          console.log("Not a valid ObjectId, using as string ID");
+          productId = req.params.id;
+        }
+
+        // Try to get product by ObjectId
+        let product;
+        if (productId instanceof ObjectId) {
+          product = await findOneDocument("products", { _id: productId });
+        }
+
+        // If not found, try by string ID or slug
+        if (!product) {
+          product = await findOneDocument("products", {
+            $or: [{ _id: req.params.id }, { slug: req.params.id }],
+          });
+        }
+
+        if (product) {
+          return res.json({
+            success: true,
+            message: "Product details test successful",
+            data: product,
+            source: "direct_database",
+          });
+        } else {
+          return res.status(404).json({
+            success: false,
+            message: "Product not found",
+            productId: req.params.id,
+          });
+        }
+      } catch (error) {
+        console.error("Product details test failed:", error);
+        return res.status(500).json({
+          success: false,
+          message: "Product details test failed",
+          error: error.message,
+        });
+      }
+    });
+
     // Direct database access test route
     app.get("/api/test/direct-db", async (_req, res) => {
       try {

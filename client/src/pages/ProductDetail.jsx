@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
+import axios from "axios";
 import { productsAPI, getImageUrl } from "../utils/api";
 import { formatPrice, calculateDiscountPercentage } from "../utils/format";
 import { useCart } from "../context/CartContext";
@@ -27,6 +28,106 @@ const ProductDetail = () => {
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [reviewError, setReviewError] = useState(null);
   const [reviewSuccess, setReviewSuccess] = useState(null);
+
+  // Function to test product details connection
+  const testProductConnection = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Determine if we're in development or production
+      const baseUrl = window.location.origin;
+      const isDevelopment = !baseUrl.includes("onrender.com");
+      const localServerUrl = "http://localhost:5000";
+
+      // Use the appropriate URL based on environment
+      const testUrl = isDevelopment
+        ? `${localServerUrl}/api/test/product-details/${id}`
+        : `${baseUrl}/api/test/product-details/${id}`;
+
+      console.log("Testing product details connection at:", testUrl);
+
+      // Make the request
+      const response = await axios.get(testUrl, { timeout: 30000 });
+
+      console.log("Product details connection test response:", response.data);
+
+      if (response.data && response.data.data) {
+        // Show success message
+        setError(
+          `Product connection successful! Found product: ${response.data.data.name} from source: ${response.data.source}`
+        );
+
+        // Ensure product has all required properties
+        const productData = response.data.data;
+        const safeProduct = {
+          ...productData,
+          name: productData.name || "Unknown Product",
+          description: productData.description || "No description available",
+          price: productData.price || 0,
+          discountPrice: productData.discountPrice || null,
+          stock: productData.stock || 0,
+          ratings: productData.ratings || 0,
+          numReviews: productData.numReviews || 0,
+          images: Array.isArray(productData.images) ? productData.images : [],
+          category: productData.category || null,
+          reviews: Array.isArray(productData.reviews)
+            ? productData.reviews
+            : [],
+          specifications: Array.isArray(productData.specifications)
+            ? productData.specifications
+            : [],
+        };
+
+        // Set the product
+        setProduct(safeProduct);
+
+        // Fetch related products if category exists
+        const categoryId =
+          response.data.data.category &&
+          typeof response.data.data.category === "object"
+            ? response.data.data.category._id
+            : typeof response.data.data.category === "string"
+            ? response.data.data.category
+            : null;
+
+        if (categoryId) {
+          try {
+            console.log(
+              `Fetching related products for category: ${categoryId}`
+            );
+            const relatedResponse = await productsAPI.getAll({
+              category: categoryId,
+              limit: 3,
+            });
+
+            if (
+              relatedResponse &&
+              relatedResponse.data &&
+              Array.isArray(relatedResponse.data.data)
+            ) {
+              // Filter out the current product from related products
+              const filteredRelated = relatedResponse.data.data.filter(
+                (item) => item && item._id !== response.data.data._id
+              );
+
+              console.log(`Found ${filteredRelated.length} related products`);
+              setRelatedProducts(filteredRelated);
+            }
+          } catch (relatedError) {
+            console.error("Error fetching related products:", relatedError);
+          }
+        }
+      } else {
+        setError("Product not found in the database");
+      }
+    } catch (error) {
+      console.error("Product connection test failed:", error);
+      setError(`Product connection test failed: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Fetch product details
   useEffect(() => {
@@ -59,6 +160,12 @@ const ProductDetail = () => {
           numReviews: productData.numReviews || 0,
           images: Array.isArray(productData.images) ? productData.images : [],
           category: productData.category || null,
+          reviews: Array.isArray(productData.reviews)
+            ? productData.reviews
+            : [],
+          specifications: Array.isArray(productData.specifications)
+            ? productData.specifications
+            : [],
         };
 
         setProduct(safeProduct);
@@ -188,7 +295,32 @@ const ProductDetail = () => {
     return (
       <div className="container-custom py-16">
         <Alert type="error" message={error} />
-        <div className="mt-4 text-center">
+        <div className="mt-4 text-center flex flex-col gap-4 items-center">
+          {/* Test button - only visible in production or when there's an error */}
+          {(window.location.origin.includes("onrender.com") ||
+            error.includes("Failed to load")) && (
+            <Button
+              onClick={testProductConnection}
+              variant="secondary"
+              size="small"
+            >
+              <svg
+                className="w-4 h-4 mr-2"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                ></path>
+              </svg>
+              Test Product Connection
+            </Button>
+          )}
           <Link to="/products" className="text-primary hover:underline">
             Back to Products
           </Link>
@@ -500,34 +632,58 @@ const ProductDetail = () => {
               <div className="border-t border-gray-200 pt-4">
                 <h3 className="text-lg font-medium mb-2">Specifications</h3>
                 <ul className="space-y-2 text-sm">
-                  {product && product.material && (
-                    <li className="flex">
-                      <span className="font-medium w-24">Material:</span>
-                      <span className="theme-text-primary">
-                        {product.material}
-                      </span>
-                    </li>
-                  )}
-                  {product && product.color && (
-                    <li className="flex">
-                      <span className="font-medium w-24">Color:</span>
-                      <span className="theme-text-primary">
-                        {product.color}
-                      </span>
-                    </li>
-                  )}
+                  {/* Check for specifications array first */}
                   {product &&
-                    product.dimensions &&
-                    typeof product.dimensions === "object" && (
-                      <li className="flex">
-                        <span className="font-medium w-24">Dimensions:</span>
+                  product.specifications &&
+                  Array.isArray(product.specifications) &&
+                  product.specifications.length > 0 ? (
+                    // Render from specifications array
+                    product.specifications.map((spec, index) => (
+                      <li key={`spec-${index}`} className="flex">
+                        <span className="font-medium w-24">
+                          {spec.name || "Spec"}:
+                        </span>
                         <span className="theme-text-primary">
-                          {product.dimensions.length || 0} x{" "}
-                          {product.dimensions.width || 0} x{" "}
-                          {product.dimensions.height || 0} cm
+                          {spec.value || ""}
                         </span>
                       </li>
-                    )}
+                    ))
+                  ) : (
+                    // Fallback to individual properties
+                    <>
+                      {product && product.material && (
+                        <li className="flex">
+                          <span className="font-medium w-24">Material:</span>
+                          <span className="theme-text-primary">
+                            {product.material}
+                          </span>
+                        </li>
+                      )}
+                      {product && product.color && (
+                        <li className="flex">
+                          <span className="font-medium w-24">Color:</span>
+                          <span className="theme-text-primary">
+                            {product.color}
+                          </span>
+                        </li>
+                      )}
+                      {product &&
+                        product.dimensions &&
+                        typeof product.dimensions === "object" && (
+                          <li className="flex">
+                            <span className="font-medium w-24">
+                              Dimensions:
+                            </span>
+                            <span className="theme-text-primary">
+                              {product.dimensions.length || 0} x{" "}
+                              {product.dimensions.width || 0} x{" "}
+                              {product.dimensions.height || 0} cm
+                            </span>
+                          </li>
+                        )}
+                    </>
+                  )}
+                  {/* Always show category */}
                   <li className="flex">
                     <span className="font-medium w-24">Category:</span>
                     {product &&
@@ -556,14 +712,18 @@ const ProductDetail = () => {
                   Description
                 </h2>
                 <div className="prose max-w-none theme-text-primary">
-                  <p>{product.description}</p>
+                  <p>{product.description || "No description available"}</p>
                 </div>
               </div>
 
               {/* Reviews Section */}
               <div>
                 <h2 className="text-xl font-serif font-bold mb-4">
-                  Reviews ({product.reviews.length})
+                  Reviews (
+                  {product.reviews && Array.isArray(product.reviews)
+                    ? product.reviews.length
+                    : 0}
+                  )
                 </h2>
 
                 {/* Review Form */}
@@ -666,31 +826,37 @@ const ProductDetail = () => {
                 </div>
 
                 {/* Reviews List */}
-                {product.reviews.length === 0 ? (
+                {!product.reviews ||
+                !Array.isArray(product.reviews) ||
+                product.reviews.length === 0 ? (
                   <div className="text-center py-8 theme-text-secondary">
                     No reviews yet. Be the first to review this product!
                   </div>
                 ) : (
                   <div className="space-y-6">
-                    {product.reviews.map((review) => (
+                    {product.reviews.map((review, index) => (
                       <div
-                        key={review._id}
+                        key={review._id || `review-${index}`}
                         className="border-b border-gray-200 pb-6 last:border-b-0"
                       >
                         <div className="flex items-center mb-2">
-                          <div className="font-medium">{review.name}</div>
+                          <div className="font-medium">
+                            {review.name || "Anonymous"}
+                          </div>
                           <span className="mx-2 text-gray-300">•</span>
                           <div className="text-sm theme-text-secondary">
-                            {new Date(review.createdAt).toLocaleDateString()}
+                            {review.createdAt
+                              ? new Date(review.createdAt).toLocaleDateString()
+                              : "Unknown date"}
                           </div>
                         </div>
 
                         <div className="flex mb-2">
-                          {[...Array(5)].map((_, index) => (
+                          {[...Array(5)].map((_, starIndex) => (
                             <svg
-                              key={index}
+                              key={starIndex}
                               className={`w-4 h-4 ${
-                                index < review.rating
+                                starIndex < (review.rating || 0)
                                   ? "text-yellow-400"
                                   : "text-gray-300"
                               }`}
@@ -703,7 +869,9 @@ const ProductDetail = () => {
                           ))}
                         </div>
 
-                        <p className="theme-text-primary">{review.comment}</p>
+                        <p className="theme-text-primary">
+                          {review.comment || "No comment provided"}
+                        </p>
                       </div>
                     ))}
                   </div>

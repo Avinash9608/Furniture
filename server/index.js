@@ -217,6 +217,10 @@ app.delete("/api/direct/products/:id", deleteProduct);
 app.get("/products", getAllProducts);
 app.get("/api/products", getAllProducts);
 
+// Special route for product details page
+app.get("/products/:id", getProductById);
+app.get("/api/products/:id", getProductById);
+
 // Direct API routes for categories
 app.get("/api/direct/categories", getAllCategories);
 app.get("/api/direct/categories/:id", getCategoryById);
