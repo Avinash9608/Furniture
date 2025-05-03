@@ -1315,303 +1315,29 @@ const contactAPI = {
   },
   getAll: async () => {
     try {
-      console.log("Fetching all contact messages");
+      console.log("Directly fetching contact messages from MongoDB Atlas");
 
-      // Create a direct axios instance with auth token
+      // Get the token
       const token = localStorage.getItem("token");
-      const directApi = axios.create({
-        timeout: 30000, // Increased timeout
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-          Authorization: token ? `Bearer ${token}` : "",
-          "Cache-Control": "no-cache",
-          Pragma: "no-cache",
-        },
-      });
 
-      console.log("Authentication token available:", !!token);
-
-      // Determine the current environment
+      // Get the base URL based on environment
       const baseUrl = window.location.origin;
       const isProduction = baseUrl.includes("onrender.com");
 
-      // In production, all API calls should be relative to the current origin
-      // This ensures we don't make cross-origin requests unnecessarily
-      const apiBase = isProduction ? baseUrl : baseUrl;
+      // Use the correct API endpoint based on the environment
+      // In development, use /api/contact (not /api/contacts)
+      // In production, use /api/admin/messages
+      const apiUrl = isProduction ? "/api/admin/messages" : "/api/contact";
 
       console.log(
-        `Current environment: ${isProduction ? "Production" : "Development"}`
-      );
-      console.log(`Using API base URL: ${apiBase}`);
-
-      // Define endpoints in order of preference - prioritize direct MongoDB driver endpoints
-      const endpoints = [
-        // Direct database query endpoint (using MongoDB driver directly)
-        `${apiBase}/api/direct/contacts`,
-        // Admin-specific endpoints (also using MongoDB driver directly)
-        `${apiBase}/api/admin/messages`,
-        // Database test endpoint (using MongoDB driver directly)
-        `${apiBase}/api/db-test`,
-        // Regular contact endpoints (using Mongoose)
-        `${apiBase}/api/contact`,
-        `${apiBase}/contact`,
-        // Health check endpoint
-        `${apiBase}/api/health`,
-      ];
-
-      // Log the endpoints we're going to try
-      console.log("Endpoints to try:", endpoints);
-
-      // Try each endpoint until one works
-      for (const endpoint of endpoints) {
-        try {
-          console.log(`Trying to fetch all contact messages from: ${endpoint}`);
-          const response = await directApi.get(endpoint);
-
-          // Check if response is HTML (contains DOCTYPE or html tags)
-          if (
-            typeof response.data === "string" &&
-            (response.data.includes("<!DOCTYPE") ||
-              response.data.includes("<html"))
-          ) {
-            console.warn(`Endpoint ${endpoint} returned HTML instead of JSON`);
-            console.log(
-              "HTML response:",
-              response.data.substring(0, 200) + "..."
-            );
-            continue; // Skip this endpoint and try the next one
-          }
-
-          // Check if response is empty
-          if (!response.data) {
-            console.warn(`Endpoint ${endpoint} returned empty data`);
-            continue; // Skip this endpoint and try the next one
-          }
-
-          console.log("Contact messages fetched successfully:", response.data);
-
-          // Ensure the response has the expected structure
-          let messagesData = [];
-
-          // Check for direct database response format
-          if (
-            response.data &&
-            response.data.source === "direct_database" &&
-            response.data.data &&
-            Array.isArray(response.data.data)
-          ) {
-            console.log("Detected direct database response format");
-            messagesData = response.data.data;
-          }
-          // Check for standard response formats
-          else if (
-            response.data &&
-            response.data.data &&
-            Array.isArray(response.data.data)
-          ) {
-            messagesData = response.data.data;
-          } else if (Array.isArray(response.data)) {
-            messagesData = response.data;
-          } else if (response.data && response.data.data) {
-            // If data.data is not an array but exists, convert to array
-            messagesData = [response.data.data];
-          } else if (response.data && typeof response.data === "object") {
-            // If data exists but not in expected format, try to use it
-            messagesData = [response.data];
-          }
-
-          console.log("Processed contact messages data:", messagesData);
-
-          // If we have messages, return them
-          if (messagesData && messagesData.length > 0) {
-            // For direct database response, preserve the original structure
-            if (response.data && response.data.source === "direct_database") {
-              console.log("Preserving direct_database response structure");
-              return {
-                data: response.data,
-              };
-            } else {
-              // For other responses, just return the messages
-              return {
-                data: messagesData,
-              };
-            }
-          } else {
-            console.warn(`No messages found in response from ${endpoint}`);
-          }
-        } catch (error) {
-          // Check if it's a 404 error
-          if (error.response && error.response.status === 404) {
-            console.warn(`Endpoint ${endpoint} not found (404)`);
-          } else {
-            console.warn(
-              `Error fetching contact messages from ${endpoint}:`,
-              error
-            );
-          }
-          // Continue to the next endpoint
-        }
-      }
-
-      // Try with a different approach - using fetch instead of axios
-      try {
-        console.log("Trying with fetch API instead of axios");
-
-        // Try each endpoint with fetch
-        for (const endpoint of endpoints) {
-          try {
-            console.log(
-              `Trying to fetch with native fetch API from: ${endpoint}`
-            );
-            const token = localStorage.getItem("token");
-            const response = await fetch(endpoint, {
-              method: "GET",
-              headers: {
-                Accept: "application/json",
-                "Content-Type": "application/json",
-                Authorization: token ? `Bearer ${token}` : "",
-                "Cache-Control": "no-cache",
-                Pragma: "no-cache",
-              },
-            });
-
-            // Check if response is JSON
-            const contentType = response.headers.get("content-type");
-            if (!contentType || !contentType.includes("application/json")) {
-              console.warn(
-                `Endpoint ${endpoint} did not return JSON (content-type: ${contentType})`
-              );
-              continue;
-            }
-
-            const data = await response.json();
-            console.log("Fetch API response:", data);
-
-            // Process the data
-            let messagesData = [];
-            if (data && data.data && Array.isArray(data.data)) {
-              messagesData = data.data;
-            } else if (Array.isArray(data)) {
-              messagesData = data;
-            }
-
-            if (messagesData && messagesData.length > 0) {
-              // For direct database response, preserve the original structure
-              if (data && data.source === "direct_database") {
-                console.log(
-                  "Preserving direct_database response structure (fetch API)"
-                );
-                return {
-                  data: data,
-                };
-              } else {
-                // For other responses, just return the messages
-                return {
-                  data: messagesData,
-                };
-              }
-            }
-          } catch (fetchError) {
-            console.warn(`Fetch API error from ${endpoint}:`, fetchError);
-          }
-        }
-      } catch (fetchApiError) {
-        console.error("Error using fetch API:", fetchApiError);
-      }
-
-      // If all attempts fail, try a direct database query
-      console.warn(
-        "All contact message endpoints failed, attempting direct database query"
+        `Using API URL: ${apiUrl} for environment: ${
+          isProduction ? "production" : "development"
+        }`
       );
 
+      // Make a direct fetch request with the correct API endpoint
       try {
-        // Try a direct database query using a special endpoint
-        // Use the current origin for the direct endpoint to avoid CORS issues
-        const directEndpoint = `${baseUrl}/api/direct/contacts?timestamp=${Date.now()}`;
-        console.log(`Trying direct database query: ${directEndpoint}`);
-
-        // Ensure we have the latest token
-        const token = localStorage.getItem("token");
-        console.log("Using authentication token for direct query:", !!token);
-
-        const directResponse = await directApi.get(directEndpoint, {
-          headers: {
-            Authorization: token ? `Bearer ${token}` : "",
-            "Cache-Control": "no-cache",
-            Pragma: "no-cache",
-          },
-        });
-
-        if (
-          directResponse.data &&
-          directResponse.data.source === "direct_database"
-        ) {
-          console.log(
-            "Direct database query returned direct_database response:",
-            directResponse.data
-          );
-          return {
-            data: directResponse.data,
-          };
-        } else if (directResponse.data && Array.isArray(directResponse.data)) {
-          console.log("Direct database query successful:", directResponse.data);
-          return {
-            data: directResponse.data,
-          };
-        } else if (directResponse.data) {
-          console.log(
-            "Direct database query returned non-array data:",
-            directResponse.data
-          );
-          // Try to extract data from the response
-          let extractedData = [];
-
-          if (
-            directResponse.data.data &&
-            Array.isArray(directResponse.data.data)
-          ) {
-            // Check if this is a direct_database response
-            if (directResponse.data.source === "direct_database") {
-              console.log("Found direct_database response in nested data");
-              return {
-                data: directResponse.data,
-              };
-            }
-
-            extractedData = directResponse.data.data;
-          } else if (typeof directResponse.data === "object") {
-            // If it's an object but not an array, wrap it in an array
-            extractedData = [directResponse.data];
-          }
-
-          if (extractedData.length > 0) {
-            console.log("Extracted data from direct query:", extractedData);
-            return {
-              data: extractedData,
-            };
-          }
-        }
-      } catch (directError) {
-        console.error("Direct database query failed:", directError);
-        console.log("Error details:", directError.message);
-        if (directError.response) {
-          console.log("Response status:", directError.response.status);
-          console.log("Response data:", directError.response.data);
-        }
-      }
-
-      // If all else fails, try one more direct approach with fetch
-      console.error("All attempts to fetch contact messages failed");
-
-      try {
-        console.log("Trying one final direct fetch approach...");
-
-        // Get the token
-        const token = localStorage.getItem("token");
-
-        // Make a direct fetch request with all possible headers
-        const finalResponse = await fetch("/api/admin/messages", {
+        const response = await fetch(apiUrl, {
           method: "GET",
           headers: {
             Accept: "application/json",
@@ -1620,36 +1346,41 @@ const contactAPI = {
             "Cache-Control": "no-cache, no-store, must-revalidate",
             Pragma: "no-cache",
             Expires: "0",
-            "X-Requested-With": "XMLHttpRequest",
           },
           credentials: "include",
         });
 
-        if (finalResponse.ok) {
-          const finalData = await finalResponse.json();
-          console.log("Final direct fetch successful:", finalData);
-
-          if (
-            finalData &&
-            finalData.source === "direct_database" &&
-            finalData.data
-          ) {
-            console.log("Successfully retrieved real data in final attempt!");
-            return {
-              data: finalData,
-            };
-          }
+        if (!response.ok) {
+          throw new Error(`API returned status ${response.status}`);
         }
-      } catch (finalError) {
-        console.error("Final fetch attempt failed:", finalError);
+
+        const data = await response.json();
+        console.log("Direct API response:", data);
+
+        // If the response has the expected format, return it
+        if (
+          data &&
+          data.source === "direct_database" &&
+          data.data &&
+          Array.isArray(data.data)
+        ) {
+          console.log("Successfully fetched real data from MongoDB Atlas");
+          return {
+            data: data,
+          };
+        }
+
+        // If we got here, the response doesn't have the expected format
+        console.warn("API response doesn't have the expected format:", data);
+      } catch (error) {
+        console.error("Error fetching messages directly:", error);
       }
 
-      // If we still can't get real data, return an error
+      // If we couldn't fetch the data directly, return an empty array with an error message
       return {
         data: [],
         error:
-          "Failed to fetch messages from the database. Please try refreshing the page or logging in again.",
-        isTemporaryData: false,
+          "Failed to fetch messages from MongoDB Atlas. Please try again later.",
       };
     } catch (error) {
       console.error("Error in contactAPI.getAll:", error);

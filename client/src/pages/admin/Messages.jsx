@@ -6,7 +6,6 @@ import AdminLayout from "../../components/admin/AdminLayout";
 import Button from "../../components/Button";
 import Loading from "../../components/Loading";
 import Alert from "../../components/Alert";
-import testAdminMessages from "../../utils/testAdminMessages";
 
 const AdminMessages = () => {
   const [messages, setMessages] = useState([]);
@@ -18,9 +17,7 @@ const AdminMessages = () => {
   const [updateLoading, setUpdateLoading] = useState(false);
   const [updateError, setUpdateError] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
-  const [debugInfo, setDebugInfo] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [debugMode, setDebugMode] = useState(false);
 
   // Function to handle logout and redirect to login page
   const handleLogout = () => {
@@ -77,199 +74,16 @@ const AdminMessages = () => {
     }
   }, []);
 
-  // Fetch messages
+  // Fetch messages directly from the API
   useEffect(() => {
-    const fetchMessages = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-
-        // Check if user is logged in as admin first
-        if (!checkAdminAuth()) {
-          setLoading(false);
-          return;
-        }
-
-        console.log("Fetching contact messages from API...");
-        const response = await contactAPI.getAll();
-        console.log("Contact API response:", response);
-        console.log("Response type:", typeof response);
-        console.log("Response data type:", typeof response.data);
-        console.log("Response data:", response.data);
-
-        // Check if response.data has source property
-        if (response.data && response.data.source) {
-          console.log("Response source:", response.data.source);
-        }
-
-        // Check for error in the response
-        if (response.error) {
-          console.error("Error in API response:", response.error);
-
-          // Check if this is temporary data due to a database timeout
-          if (response.isTemporaryData) {
-            console.warn("Displaying temporary data due to database timeout");
-            // We'll still show the messages but with a warning
-            setError(response.error);
-            // Continue processing the temporary messages
-          } else {
-            setError(response.error);
-            setMessages([]);
-            return;
-          }
-        }
-
-        // Handle different API response structures
-        let messagesData = [];
-
-        // Check for direct database response format
-        if (
-          response &&
-          response.data &&
-          response.data.source === "direct_database"
-        ) {
-          console.log("Detected direct database response format");
-          if (response.data.data && Array.isArray(response.data.data)) {
-            messagesData = response.data.data;
-          }
-        }
-        // Check for standard response formats
-        else if (response && response.data && Array.isArray(response.data)) {
-          messagesData = response.data;
-        } else if (
-          response &&
-          response.data &&
-          response.data.data &&
-          Array.isArray(response.data.data)
-        ) {
-          messagesData = response.data.data;
-        } else if (response && Array.isArray(response)) {
-          messagesData = response;
-        }
-
-        console.log("Processed messages data:", messagesData);
-
-        if (messagesData && messagesData.length > 0) {
-          // Process messages to ensure they have all required fields
-          const processedMessages = messagesData.map((message) => {
-            // Ensure message has a status
-            if (!message.status) {
-              message.status = "unread";
-            }
-
-            // Ensure message has a createdAt date
-            if (!message.createdAt) {
-              message.createdAt = new Date().toISOString();
-            }
-
-            // Ensure message has a subject
-            if (!message.subject) {
-              message.subject = "No Subject";
-            }
-
-            // Ensure message has an _id
-            if (!message._id) {
-              message._id = `temp_${Date.now()}_${Math.random()
-                .toString(36)
-                .substring(2, 9)}`;
-            }
-
-            return message;
-          });
-
-          console.log(
-            `Successfully processed ${processedMessages.length} messages`
-          );
-          setMessages(processedMessages);
-        } else {
-          console.log("No messages found or invalid data format");
-
-          // Check if there's an error message in the response
-          if (response.error) {
-            // Check for specific MongoDB buffering timeout error
-            if (response.error.includes("buffering timed out")) {
-              setError(
-                "Database operation timed out. This is often due to slow network connection to MongoDB. Please try again later."
-              );
-            } else {
-              setError(response.error);
-            }
-          } else {
-            setError(
-              "No messages found in the database. Try submitting a contact form first."
-            );
-          }
-
-          setMessages([]);
-        }
-      } catch (error) {
-        console.error("Error fetching messages:", error);
-
-        // Check if error message contains HTML
-        if (
-          error.message &&
-          (error.message.includes("<!DOCTYPE") ||
-            error.message.includes("<html"))
-        ) {
-          setError(
-            "Server returned HTML instead of JSON. Please check your API configuration."
-          );
-        } else {
-          setError(
-            `Failed to load messages: ${
-              error.message || "Unknown error"
-            }. Please check your database connection.`
-          );
-        }
-        setMessages([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchMessages();
-  }, [refreshKey]);
-
-  // Function to filter out mock data from messages
-  const filterOutMockData = () => {
-    console.log("Filtering out mock data from messages...");
-
-    const originalCount = messages.length;
-
-    // Filter out messages with suspicious IDs or names
-    const filteredMessages = messages.filter((message) => {
-      const isSuspicious =
-        // Check for temp IDs
-        (message._id && message._id.includes("temp_")) ||
-        (message._id && message._id.includes("mock_")) ||
-        // Check for system messages
-        (message.name && message.name.includes("System")) ||
-        (message.name && message.name.includes("John Doe")) ||
-        (message.name && message.name.includes("Jane Smith")) ||
-        // Check for example emails
-        (message.email && message.email.includes("example.com")) ||
-        (message.email && message.email.includes("john@")) ||
-        (message.email && message.email.includes("jane@")) ||
-        (message.email && message.email.includes("system@"));
-
-      return !isSuspicious;
-    });
-
-    const removedCount = originalCount - filteredMessages.length;
-
-    if (removedCount > 0) {
-      console.log(`Removed ${removedCount} mock messages`);
-      setMessages(filteredMessages);
-      setSuccessMessage(
-        `Removed ${removedCount} mock messages from the display`
-      );
-    } else {
-      console.log("No mock messages found to remove");
-      setSuccessMessage("No mock messages found to remove");
+    // Check if user is logged in as admin first
+    if (!checkAdminAuth()) {
+      return;
     }
 
-    return filteredMessages;
-  };
+    // Use the direct fetch approach
+    handleDirectFetch();
+  }, [refreshKey]);
 
   // Filter messages by status
   const filteredMessages =
@@ -370,72 +184,11 @@ const AdminMessages = () => {
     console.log("All mock data cleared from localStorage and sessionStorage");
   };
 
-  // Force refresh function
-  const handleForceRefresh = () => {
-    console.log("Force refreshing messages...");
-
-    // Check if user is logged in as admin first
-    if (!checkAdminAuth()) {
-      setError("You must be logged in as an admin to refresh messages.");
-      return;
-    }
-
-    // Clear all mock data
-    clearAllMockData();
-
-    setLoading(true);
-    setError(null);
-    setMessages([]);
-    setDebugInfo(null);
-    setRefreshKey((prevKey) => prevKey + 1);
-    setSuccessMessage("Refreshing messages...");
-  };
-
-  // Function to check for hardcoded mock data in the component
-  const checkForMockData = () => {
-    console.log("Checking for hardcoded mock data in the component...");
-
-    // Check if any of the messages have suspicious IDs or names
-    const suspiciousMessages = messages.filter((message) => {
-      return (
-        // Check for temp IDs
-        (message._id && message._id.includes("temp_")) ||
-        (message._id && message._id.includes("mock_")) ||
-        // Check for system messages
-        (message.name && message.name.includes("System")) ||
-        (message.name && message.name.includes("John Doe")) ||
-        (message.name && message.name.includes("Jane Smith")) ||
-        // Check for example emails
-        (message.email && message.email.includes("example.com")) ||
-        (message.email && message.email.includes("john@")) ||
-        (message.email && message.email.includes("jane@")) ||
-        (message.email && message.email.includes("system@"))
-      );
-    });
-
-    if (suspiciousMessages.length > 0) {
-      console.warn("Found suspicious mock messages:", suspiciousMessages);
-      setDebugInfo({
-        mockDataDetected: true,
-        suspiciousMessages,
-        timestamp: new Date().toISOString(),
-      });
-      setUpdateError(
-        `Found ${suspiciousMessages.length} suspicious mock messages. Check debug info for details.`
-      );
-      return true;
-    }
-
-    console.log("No suspicious mock messages found");
-    return false;
-  };
-
   // Function to directly fetch messages from the API
   const handleDirectFetch = async () => {
     try {
       setLoading(true);
       setError(null);
-      setDebugInfo(null);
 
       // Clear all mock data first
       clearAllMockData();
@@ -443,8 +196,23 @@ const AdminMessages = () => {
       // Get the token
       const token = localStorage.getItem("token");
 
-      // Make a direct fetch request
-      const response = await fetch("/api/admin/messages", {
+      // Get the base URL based on environment
+      const baseUrl = window.location.origin;
+      const isProduction = baseUrl.includes("onrender.com");
+
+      // Use the correct API endpoint based on the environment
+      // In development, use /api/contact (not /api/contacts)
+      // In production, use /api/admin/messages
+      const apiUrl = isProduction ? "/api/admin/messages" : "/api/contact";
+
+      console.log(
+        `Using API URL: ${apiUrl} for environment: ${
+          isProduction ? "production" : "development"
+        }`
+      );
+
+      // Make a direct fetch request with the correct API endpoint
+      const response = await fetch(apiUrl, {
         method: "GET",
         headers: {
           Accept: "application/json",
@@ -465,13 +233,6 @@ const AdminMessages = () => {
       const data = await response.json();
       console.log("Direct fetch response:", data);
 
-      // Set the debug info
-      setDebugInfo({
-        apiResponse: data,
-        fetchMethod: "direct-fetch",
-        timestamp: new Date().toISOString(),
-      });
-
       // If the response has the expected format, update the messages
       if (
         data &&
@@ -484,6 +245,21 @@ const AdminMessages = () => {
         setSuccessMessage(
           "Successfully fetched messages directly from the API!"
         );
+      } else if (data && Array.isArray(data)) {
+        console.log("Setting messages from direct fetch (array format):", data);
+        setMessages(data);
+        setSuccessMessage(
+          "Successfully fetched messages directly from the API!"
+        );
+      } else if (data && data.data && Array.isArray(data.data)) {
+        console.log(
+          "Setting messages from direct fetch (nested data):",
+          data.data
+        );
+        setMessages(data.data);
+        setSuccessMessage(
+          "Successfully fetched messages directly from the API!"
+        );
       } else {
         setUpdateError("API response doesn't have the expected format");
       }
@@ -492,29 +268,6 @@ const AdminMessages = () => {
       setUpdateError(`Direct fetch error: ${error.message}`);
     } finally {
       setLoading(false);
-    }
-  };
-
-  // Debug function to test the admin messages page
-  const handleDebugTest = async () => {
-    try {
-      setDebugInfo(null);
-      const result = await testAdminMessages();
-      setDebugInfo(result);
-      console.log("Debug test result:", result);
-
-      if (result.success) {
-        setSuccessMessage(
-          "Debug test successful! The page is correctly displaying messages from the database."
-        );
-      } else {
-        setUpdateError(
-          "Debug test failed. Check the console for more details."
-        );
-      }
-    } catch (error) {
-      console.error("Error running debug test:", error);
-      setUpdateError(`Debug test error: ${error.message}`);
     }
   };
 
@@ -603,105 +356,17 @@ const AdminMessages = () => {
           </div>
 
           <div className="flex gap-2">
-            {/* Force Refresh button */}
+            {/* Refresh button */}
             <button
-              onClick={handleForceRefresh}
+              onClick={() => setRefreshKey((prevKey) => prevKey + 1)}
               className="px-3 py-1 text-sm font-medium rounded-md bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 hover:bg-green-200 dark:hover:bg-green-900/50"
             >
-              Force Refresh
-            </button>
-
-            {/* Debug button */}
-            <button
-              onClick={handleDebugTest}
-              className="px-3 py-1 text-sm font-medium rounded-md bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-900/50"
-            >
-              Debug Test
-            </button>
-
-            {/* Direct Fetch button */}
-            <button
-              onClick={handleDirectFetch}
-              className="px-3 py-1 text-sm font-medium rounded-md bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-900/50"
-            >
-              Direct Fetch
-            </button>
-
-            {/* Clear Mock Data button */}
-            <button
-              onClick={() => {
-                clearAllMockData();
-                setSuccessMessage(
-                  "All mock data cleared from localStorage and sessionStorage"
-                );
-              }}
-              className="px-3 py-1 text-sm font-medium rounded-md bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300 hover:bg-orange-200 dark:hover:bg-orange-900/50"
-            >
-              Clear Mock Data
-            </button>
-
-            {/* Check Mock Data button */}
-            <button
-              onClick={checkForMockData}
-              className="px-3 py-1 text-sm font-medium rounded-md bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 hover:bg-yellow-200 dark:hover:bg-yellow-900/50"
-            >
-              Check Mock Data
-            </button>
-
-            {/* Remove Mock Data button */}
-            <button
-              onClick={filterOutMockData}
-              className="px-3 py-1 text-sm font-medium rounded-md bg-pink-100 dark:bg-pink-900/30 text-pink-800 dark:text-pink-300 hover:bg-pink-200 dark:hover:bg-pink-900/50"
-            >
-              Remove Mock Data
-            </button>
-
-            {/* Debug Mode Toggle */}
-            <button
-              onClick={() => setDebugMode(!debugMode)}
-              className={`px-3 py-1 text-sm font-medium rounded-md ${
-                debugMode
-                  ? "bg-purple-500 text-white"
-                  : "bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300 hover:bg-purple-200 dark:hover:bg-purple-900/50"
-              }`}
-            >
-              {debugMode ? "Debug Mode: ON" : "Debug Mode: OFF"}
+              Refresh Messages
             </button>
           </div>
         </div>
 
-        {/* Debug info */}
-        {(debugInfo || debugMode) && (
-          <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
-            <h3 className="text-sm font-medium text-blue-800 dark:text-blue-300 mb-2">
-              Debug Information
-            </h3>
-
-            {debugInfo && (
-              <pre className="text-xs overflow-auto max-h-40 p-2 bg-white dark:bg-gray-800 rounded border border-blue-100 dark:border-blue-800 mb-4">
-                {JSON.stringify(debugInfo, null, 2)}
-              </pre>
-            )}
-
-            {debugMode && (
-              <div>
-                <h4 className="text-sm font-medium text-blue-800 dark:text-blue-300 mb-2">
-                  Current Messages State
-                </h4>
-                <pre className="text-xs overflow-auto max-h-40 p-2 bg-white dark:bg-gray-800 rounded border border-blue-100 dark:border-blue-800 mb-4">
-                  {JSON.stringify(messages, null, 2)}
-                </pre>
-
-                <h4 className="text-sm font-medium text-blue-800 dark:text-blue-300 mb-2">
-                  Filtered Messages
-                </h4>
-                <pre className="text-xs overflow-auto max-h-40 p-2 bg-white dark:bg-gray-800 rounded border border-blue-100 dark:border-blue-800">
-                  {JSON.stringify(filteredMessages, null, 2)}
-                </pre>
-              </div>
-            )}
-          </div>
-        )}
+        {/* No debug info needed */}
       </div>
 
       {/* Messages Table */}
