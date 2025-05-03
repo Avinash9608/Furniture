@@ -155,8 +155,8 @@ const orderRoutes = require("./routes/orders");
 const paymentSettingsRoutes = require("./routes/paymentSettings");
 const paymentRequestsRoutes = require("./routes/paymentRequests");
 // const authRoutes = require("./routes/authRoutes");
-// Import final contact controller for direct MongoDB connection
-const contactController = require("./controllers/finalContactController");
+// Import simplified contact controller for standalone MongoDB connection
+const contactController = require("./controllers/simplifiedContactController");
 
 app.use("/api/auth", authRoutes);
 app.use("/api/products", productRoutes);

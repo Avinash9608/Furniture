@@ -60,8 +60,12 @@ const Contact = () => {
         console.log(
           "Contact form submission is taking longer than expected..."
         );
+        // Show a warning to the user but keep the form in submitting state
+        setSubmitError(
+          "Your message is still being sent. This may take a moment due to network conditions. Please wait..."
+        );
         // We don't set isSubmitting to false here to prevent multiple submissions
-      }, 10000); // 10 seconds
+      }, 5000); // 5 seconds
 
       try {
         // Submit form data to API with increased timeout

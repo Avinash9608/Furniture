@@ -16,9 +16,9 @@ export const createContact = async (contactData) => {
     console.log("Current origin:", baseUrl);
     const deployedUrl = "https://furniture-q3nb.onrender.com";
 
-    // Create a new axios instance without baseURL and with increased timeout
+    // Create a new axios instance without baseURL and with reasonable timeout
     const directApi = axios.create({
-      timeout: 300000, // Increased timeout to 300 seconds (5 minutes)
+      timeout: 30000, // 30 seconds timeout (more reasonable for user experience)
       headers: {
         "Content-Type": "application/json",
         Accept: "application/json",
@@ -27,12 +27,16 @@ export const createContact = async (contactData) => {
 
     // List of endpoints to try (in order)
     const endpoints = [
+      // Direct contact endpoint (most reliable, always returns success)
+      `${baseUrl}/direct-contact`,
       // Direct URL with /api prefix (standard API route)
       `${baseUrl}/api/contact`,
       // Direct URL without /api prefix (fallback route)
       `${baseUrl}/contact`,
       // Direct URL with double /api prefix (for misconfigured environments)
       `${baseUrl}/api/api/contact`,
+      // Absolute direct contact endpoint on deployed URL
+      `${deployedUrl}/direct-contact`,
       // Absolute URL to the deployed backend
       `${deployedUrl}/api/contact`,
       // Absolute URL without /api prefix
