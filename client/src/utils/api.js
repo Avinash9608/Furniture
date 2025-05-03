@@ -64,16 +64,20 @@ const productsAPI = {
         },
       });
 
-      // Try multiple endpoints
+      // Try multiple endpoints - prioritize direct endpoints
       const baseUrl = window.location.origin;
       const deployedUrl = "https://furniture-q3nb.onrender.com";
       const endpoints = [
+        // Direct endpoints first (most reliable)
         `${baseUrl}/api/direct/products`,
+        `${deployedUrl}/api/direct/products`,
+        // Then try standard API endpoints
         `${baseUrl}/api/products`,
+        `${deployedUrl}/api/products`,
+        // Then try fallback endpoints
         `${baseUrl}/products`,
         `${baseUrl}/api/api/products`,
-        `${deployedUrl}/api/direct/products`,
-        `${deployedUrl}/api/products`,
+        `${deployedUrl}/products`,
       ];
 
       // Try each endpoint until one works
@@ -86,23 +90,43 @@ const productsAPI = {
           // Ensure the response has the expected structure
           let productsData = [];
 
+          console.log("Raw response data structure:", {
+            hasData: !!response.data,
+            isArray: Array.isArray(response.data),
+            hasNestedData: response.data && response.data.data,
+            nestedIsArray:
+              response.data &&
+              response.data.data &&
+              Array.isArray(response.data.data),
+            source: response.data && response.data.source,
+          });
+
           if (
             response.data &&
             response.data.data &&
             Array.isArray(response.data.data)
           ) {
+            console.log("Using nested data array from response");
             productsData = response.data.data;
           } else if (Array.isArray(response.data)) {
+            console.log("Using direct array from response");
             productsData = response.data;
           } else if (response.data && response.data.data) {
             // If data.data is not an array but exists, convert to array
+            console.log("Converting nested non-array data to array");
             productsData = [response.data.data];
           } else if (response.data) {
             // If data exists but not in expected format, try to use it
+            console.log("Converting direct non-array data to array");
             productsData = [response.data];
           }
 
           console.log("Processed products data:", productsData);
+
+          // Log the source of the data if available
+          if (response.data && response.data.source) {
+            console.log("Data source:", response.data.source);
+          }
 
           return {
             data: {

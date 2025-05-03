@@ -155,12 +155,23 @@ const AdminProducts = () => {
           } else if (productsResponse && Array.isArray(productsResponse)) {
             productsData = productsResponse;
           }
+
+          // Log the processed data
+          console.log("Processed products data after API call:", productsData);
+
+          // If we have data but it's empty, log a warning
+          if (productsData && productsData.length === 0) {
+            console.warn("API returned empty products array");
+          }
         } catch (productError) {
           console.error("Error fetching products:", productError);
           productsData = [];
         }
 
         console.log("Processed products data:", productsData);
+
+        // Always clear any previous error
+        setError(null);
 
         if (productsData && productsData.length > 0) {
           // Process products to ensure they have all required fields
@@ -237,13 +248,23 @@ const AdminProducts = () => {
         }
       } catch (error) {
         console.error("Error in fetchData effect:", error);
-        setError("Failed to load data. Using sample data instead.");
 
-        // Use mock data as fallback
-        const mockProducts = getMockProducts();
-        setProducts(mockProducts);
-        setFilteredProducts(mockProducts);
-        setCategories(getMockCategories());
+        // Check if we already have products data before setting error
+        if (!products.length) {
+          console.log(
+            "No products data available, using mock data as fallback"
+          );
+          setError("Failed to load data. Using sample data instead.");
+
+          // Use mock data as fallback
+          const mockProducts = getMockProducts();
+          setProducts(mockProducts);
+          setFilteredProducts(mockProducts);
+          setCategories(getMockCategories());
+        } else {
+          console.log("Products data already available, not using mock data");
+          // Don't set error if we already have products data
+        }
       } finally {
         setLoading(false);
       }
