@@ -584,67 +584,26 @@ if (!staticPath) {
         .json({ success: true, message: "Logged out successfully" });
     });
 
-    // Add direct admin login route that bypasses MongoDB for reliability
-    app.post("/api/auth/admin/direct-login", (req, res) => {
-      try {
-        console.log("Direct admin login attempt");
-        const { email, password } = req.body;
+    // Import direct controllers
+    const { loginAdmin } = require("./server/controllers/directAdminAuth");
+    const {
+      getAllProducts,
+      getProductById,
+      createProduct,
+      updateProduct,
+      deleteProduct,
+    } = require("./server/controllers/directProducts");
+    const {
+      getAllCategories,
+      getCategoryById,
+      createCategory,
+      updateCategory,
+      deleteCategory,
+    } = require("./server/controllers/directCategories");
 
-        // Validate email & password
-        if (!email || !password) {
-          return res.status(400).json({
-            success: false,
-            message: "Please provide email and password",
-          });
-        }
-
-        // Get admin credentials from environment variables
-        const ADMIN_EMAIL =
-          process.env.ADMIN_EMAIL || "avinashmadhukar4@gmail.com";
-        const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "123456";
-        const ADMIN_NAME = process.env.ADMIN_NAME || "Admin User";
-
-        console.log("Checking admin credentials...");
-        console.log("Expected admin email:", ADMIN_EMAIL);
-        console.log("Provided email:", email);
-
-        // Compare with environment variable credentials
-        if (email === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
-          console.log("Admin credentials validated successfully");
-
-          // Create a JWT token manually
-          const token = jwt.sign(
-            { id: "admin-user-id", role: "admin" },
-            process.env.JWT_SECRET || "fallback_jwt_secret",
-            { expiresIn: process.env.JWT_EXPIRE || "30d" }
-          );
-
-          // Return success response
-          return res.status(200).json({
-            success: true,
-            token,
-            user: {
-              _id: "admin-user-id",
-              name: ADMIN_NAME,
-              email: ADMIN_EMAIL,
-              role: "admin",
-            },
-          });
-        } else {
-          console.log("Invalid admin credentials provided");
-          return res.status(401).json({
-            success: false,
-            message: "Invalid admin credentials",
-          });
-        }
-      } catch (error) {
-        console.error("Direct admin login error:", error);
-        return res.status(500).json({
-          success: false,
-          message: "Server error during admin login",
-        });
-      }
-    });
+    // Add direct admin login route that bypasses Mongoose for reliability
+    app.post("/api/auth/admin/direct-login", loginAdmin);
+    app.post("/api/auth/admin/login", loginAdmin); // Also handle regular admin login route
 
     // Mount API routes
     app.use("/api/auth", authRoutes);
@@ -1018,109 +977,19 @@ if (!staticPath) {
       }
     });
 
-    // Direct API endpoint for admin products
-    app.get("/api/direct/products", async (_req, res) => {
-      try {
-        console.log("Direct products API endpoint called");
+    // Direct API routes for products
+    app.get("/api/direct/products", getAllProducts);
+    app.get("/api/direct/products/:id", getProductById);
+    app.post("/api/direct/products", createProduct);
+    app.put("/api/direct/products/:id", updateProduct);
+    app.delete("/api/direct/products/:id", deleteProduct);
 
-        // Check MongoDB connection
-        if (mongoose.connection.readyState !== 1) {
-          console.log("MongoDB not connected, returning mock products");
-          return res.json([
-            {
-              _id: "mock1",
-              name: "Mock Product 1",
-              price: 19999,
-              category: "mock-category-1",
-              stock: 10,
-              images: ["https://placehold.co/300x300/gray/white?text=Product1"],
-            },
-            {
-              _id: "mock2",
-              name: "Mock Product 2",
-              price: 29999,
-              category: "mock-category-2",
-              stock: 5,
-              images: ["https://placehold.co/300x300/gray/white?text=Product2"],
-            },
-          ]);
-        }
-
-        // Get products from database
-        try {
-          const Product =
-            mongoose.models.Product || require("./server/models/Product");
-          const products = await Product.find().lean().maxTimeMS(30000);
-
-          console.log(`Found ${products.length} products in database`);
-
-          return res.json({
-            success: true,
-            count: products.length,
-            data: products,
-            source: "direct_database",
-          });
-        } catch (dbError) {
-          console.error("Error fetching products from database:", dbError);
-
-          // Return mock data on error
-          return res.json({
-            success: true,
-            count: 2,
-            data: [
-              {
-                _id: "mock1",
-                name: "Mock Product 1",
-                price: 19999,
-                category: "mock-category-1",
-                stock: 10,
-                images: [
-                  "https://placehold.co/300x300/gray/white?text=Product1",
-                ],
-              },
-              {
-                _id: "mock2",
-                name: "Mock Product 2",
-                price: 29999,
-                category: "mock-category-2",
-                stock: 5,
-                images: [
-                  "https://placehold.co/300x300/gray/white?text=Product2",
-                ],
-              },
-            ],
-            source: "mock_data",
-          });
-        }
-      } catch (error) {
-        console.error("Unexpected error in direct products endpoint:", error);
-
-        // Return mock data on error
-        return res.json({
-          success: true,
-          count: 2,
-          data: [
-            {
-              _id: "mock1",
-              name: "Mock Product 1",
-              price: 19999,
-              category: "mock-category-1",
-              stock: 10,
-              images: ["https://placehold.co/300x300/gray/white?text=Product1"],
-            },
-            {
-              _id: "mock2",
-              name: "Mock Product 2",
-              price: 29999,
-              category: "mock-category-2",
-              stock: 5,
-              images: ["https://placehold.co/300x300/gray/white?text=Product2"],
-            },
-          ],
-          source: "mock_data_error",
-        });
-      }
-    });
+    // Direct API routes for categories
+    app.get("/api/direct/categories", getAllCategories);
+    app.get("/api/direct/categories/:id", getCategoryById);
+    app.post("/api/direct/categories", createCategory);
+    app.put("/api/direct/categories/:id", updateCategory);
+    app.delete("/api/direct/categories/:id", deleteCategory);
 
     // Direct database access test route
     app.get("/api/test/direct-db", async (_req, res) => {

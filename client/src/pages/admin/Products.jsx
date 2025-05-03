@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
+import axios from "axios";
 import { productsAPI, categoriesAPI } from "../../utils/api";
 import {
   createDefaultCategories,
@@ -59,6 +60,44 @@ const AdminProducts = () => {
       return () => clearTimeout(timer);
     }
   }, [location, navigate]);
+
+  // Function to test MongoDB connection
+  const testMongoDBConnection = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Determine if we're in development or production
+      const baseUrl = window.location.origin;
+      const isDevelopment = !baseUrl.includes("onrender.com");
+      const localServerUrl = "http://localhost:5000";
+
+      // Use the appropriate URL based on environment
+      const testUrl = isDevelopment
+        ? `${localServerUrl}/api/test-mongodb`
+        : `${baseUrl}/api/test-mongodb`;
+
+      console.log("Testing MongoDB connection at:", testUrl);
+
+      // Make the request
+      const response = await axios.get(testUrl, { timeout: 30000 });
+
+      console.log("MongoDB connection test response:", response.data);
+
+      // Show success message
+      setError(
+        `MongoDB connection successful! Found ${response.data.data.products.count} products and ${response.data.data.categories.count} categories.`
+      );
+
+      // Fetch data again
+      fetchData();
+    } catch (error) {
+      console.error("MongoDB connection test failed:", error);
+      setError(`MongoDB connection test failed: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Fetch products and categories
   useEffect(() => {
@@ -456,8 +495,8 @@ const AdminProducts = () => {
       {/* Header with Add Product Button */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <h1 className="text-2xl font-bold">Manage Products</h1>
-        <Link to="/admin/products/add">
-          <Button>
+        <div className="flex gap-2">
+          <Button onClick={testMongoDBConnection} variant="secondary">
             <svg
               className="w-5 h-5 mr-2"
               fill="none"
@@ -469,12 +508,31 @@ const AdminProducts = () => {
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 strokeWidth="2"
-                d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
               ></path>
             </svg>
-            Add Product
+            Test MongoDB
           </Button>
-        </Link>
+          <Link to="/admin/products/add">
+            <Button>
+              <svg
+                className="w-5 h-5 mr-2"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                ></path>
+              </svg>
+              Add Product
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* Search and Filters */}

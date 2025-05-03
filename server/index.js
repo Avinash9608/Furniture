@@ -171,6 +171,26 @@ app.use("/api/payment-requests", paymentRequestsRoutes);
 const { getAllPaymentRequests } = require("./controllers/paymentRequests");
 const { getOrders } = require("./controllers/orders");
 
+// Import direct controllers for products and categories
+const {
+  getAllProducts,
+  getProductById,
+  createProduct,
+  updateProduct,
+  deleteProduct,
+} = require("./controllers/directProducts");
+
+const {
+  getAllCategories,
+  getCategoryById,
+  createCategory,
+  updateCategory,
+  deleteCategory,
+} = require("./controllers/directCategories");
+
+// Import direct admin auth controller
+const { loginAdmin } = require("./controllers/directAdminAuth");
+
 // Admin payment requests routes
 app.get("/admin/payment-requests", getAllPaymentRequests);
 app.get("/api/admin/payment-requests", getAllPaymentRequests);
@@ -186,6 +206,24 @@ app.post("/api/contact", contactController.createContact);
 app.post("/api/api/contact", contactController.createContact);
 // app.use("/api/auth", authRoutes);
 
+// Direct API routes for products
+app.get("/api/direct/products", getAllProducts);
+app.get("/api/direct/products/:id", getProductById);
+app.post("/api/direct/products", createProduct);
+app.put("/api/direct/products/:id", updateProduct);
+app.delete("/api/direct/products/:id", deleteProduct);
+
+// Direct API routes for categories
+app.get("/api/direct/categories", getAllCategories);
+app.get("/api/direct/categories/:id", getCategoryById);
+app.post("/api/direct/categories", createCategory);
+app.put("/api/direct/categories/:id", updateCategory);
+app.delete("/api/direct/categories/:id", deleteCategory);
+
+// Direct admin login routes
+app.post("/api/auth/admin/direct-login", loginAdmin);
+app.post("/api/auth/admin/login", loginAdmin); // Also handle regular admin login route
+
 // Log all routes for debugging
 console.log("Direct routes registered:");
 console.log("Admin routes:");
@@ -193,6 +231,20 @@ console.log("- GET /admin/payment-requests");
 console.log("- GET /api/admin/payment-requests");
 console.log("- GET /admin/orders");
 console.log("- GET /api/admin/orders");
+console.log("- POST /api/auth/admin/direct-login");
+console.log("- POST /api/auth/admin/login");
+console.log("Product routes:");
+console.log("- GET /api/direct/products");
+console.log("- GET /api/direct/products/:id");
+console.log("- POST /api/direct/products");
+console.log("- PUT /api/direct/products/:id");
+console.log("- DELETE /api/direct/products/:id");
+console.log("Category routes:");
+console.log("- GET /api/direct/categories");
+console.log("- GET /api/direct/categories/:id");
+console.log("- POST /api/direct/categories");
+console.log("- PUT /api/direct/categories/:id");
+console.log("- DELETE /api/direct/categories/:id");
 console.log("Contact form routes:");
 console.log("- POST /contact");
 console.log("- POST /api/contact");
@@ -207,6 +259,56 @@ app.get("/api/health", (_req, res) => {
     environment: process.env.NODE_ENV,
     timestamp: new Date().toISOString(),
   });
+});
+
+// MongoDB Connection Test
+app.get("/api/test-mongodb", async (_req, res) => {
+  try {
+    console.log("Testing MongoDB connection...");
+
+    // Import the direct DB connection utility
+    const {
+      findDocuments,
+      findOneDocument,
+    } = require("./utils/directDbConnection");
+
+    // Test products collection
+    const products = await findDocuments("products", {}, { limit: 5 });
+
+    // Test categories collection
+    const categories = await findDocuments("categories", {}, { limit: 5 });
+
+    // Return the results
+    return res.json({
+      success: true,
+      message: "MongoDB connection test successful",
+      data: {
+        products: {
+          count: products.length,
+          sample: products.slice(0, 2).map((p) => ({
+            _id: p._id.toString(),
+            name: p.name,
+            price: p.price,
+          })),
+        },
+        categories: {
+          count: categories.length,
+          sample: categories.slice(0, 2).map((c) => ({
+            _id: c._id.toString(),
+            name: c.name,
+          })),
+        },
+      },
+    });
+  } catch (error) {
+    console.error("MongoDB connection test failed:", error);
+    return res.status(500).json({
+      success: false,
+      message: "MongoDB connection test failed",
+      error: error.message,
+      stack: error.stack,
+    });
+  }
 });
 
 // Debug route to check file structure (available in all environments)

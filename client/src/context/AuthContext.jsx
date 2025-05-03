@@ -203,36 +203,59 @@ export const AuthProvider = ({ children }) => {
       setLoading(true);
       setError(null);
 
-      // Try the regular admin login endpoint first
-      const regularApiUrl = "/api/auth/admin/login";
-      const directApiUrl = "/api/auth/admin/direct-login";
+      // Determine if we're in development or production
+      const baseUrl = window.location.origin;
+      const isDevelopment = !baseUrl.includes("onrender.com");
+      const localServerUrl = "http://localhost:5000";
 
-      console.log("Attempting admin login with regular API:", regularApiUrl);
+      // Try the direct admin login endpoint first (more reliable)
+      const directApiUrl = isDevelopment
+        ? `${localServerUrl}/api/auth/admin/direct-login`
+        : "/api/auth/admin/direct-login";
+
+      const regularApiUrl = isDevelopment
+        ? `${localServerUrl}/api/auth/admin/login`
+        : "/api/auth/admin/login";
+
+      console.log("Attempting admin login with direct API:", directApiUrl);
 
       // Variable to hold the response
       let response;
 
       try {
-        // Special admin login endpoint - validates against .env credentials
-        response = await axios.post(regularApiUrl, {
-          email,
-          password,
-        });
-      } catch (error) {
-        // If the regular endpoint fails with a 500 error, try the direct login endpoint
-        if (error.response && error.response.status === 500) {
-          console.log(
-            "Regular admin login failed with server error, trying direct login"
-          );
-
-          // Try the direct login endpoint as a fallback
-          response = await axios.post(directApiUrl, {
+        // Try the direct login endpoint first (bypasses MongoDB)
+        response = await axios.post(
+          directApiUrl,
+          {
             email,
             password,
-          });
-        } else {
-          // If it's not a 500 error, rethrow it
-          throw error;
+          },
+          {
+            timeout: 30000, // 30 seconds timeout
+          }
+        );
+      } catch (directError) {
+        console.log(
+          "Direct admin login failed, trying regular login endpoint:",
+          directError.message
+        );
+
+        // If the direct endpoint fails, try the regular login endpoint
+        try {
+          // Special admin login endpoint - validates against .env credentials
+          response = await axios.post(
+            regularApiUrl,
+            {
+              email,
+              password,
+            },
+            {
+              timeout: 30000, // 30 seconds timeout
+            }
+          );
+        } catch (regularError) {
+          console.error("Both login endpoints failed:", regularError.message);
+          throw regularError;
         }
       }
 

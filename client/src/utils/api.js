@@ -39,7 +39,7 @@ const getBaseURL = () => {
 // Create axios instance with base URL
 const api = axios.create({
   baseURL: getBaseURL(),
-  timeout: 10000,
+  timeout: 30000, // Increased timeout to 30 seconds
   withCredentials: false, // Must be false to work with wildcard CORS
   headers: {
     Accept: "application/json",
@@ -67,15 +67,29 @@ const productsAPI = {
       // Try multiple endpoints - prioritize direct endpoints
       const baseUrl = window.location.origin;
       const deployedUrl = "https://furniture-q3nb.onrender.com";
+      const localServerUrl = "http://localhost:5000";
+
+      // Determine if we're in development or production
+      const isDevelopment = !baseUrl.includes("onrender.com");
+
       const endpoints = [
         // Direct endpoints first (most reliable)
-        `${baseUrl}/api/direct/products`,
+        // In development, use the local server port 5000
+        ...(isDevelopment
+          ? [`${localServerUrl}/api/direct/products`]
+          : [`${baseUrl}/api/direct/products`]),
         `${deployedUrl}/api/direct/products`,
+
         // Then try standard API endpoints
-        `${baseUrl}/api/products`,
+        ...(isDevelopment
+          ? [`${localServerUrl}/api/products`]
+          : [`${baseUrl}/api/products`]),
         `${deployedUrl}/api/products`,
+
         // Then try fallback endpoints
-        `${baseUrl}/products`,
+        ...(isDevelopment
+          ? [`${localServerUrl}/products`]
+          : [`${baseUrl}/products`]),
         `${baseUrl}/api/api/products`,
         `${deployedUrl}/products`,
       ];
@@ -178,12 +192,30 @@ const productsAPI = {
       // Try multiple endpoints
       const baseUrl = window.location.origin;
       const deployedUrl = "https://furniture-q3nb.onrender.com";
+      const localServerUrl = "http://localhost:5000";
+
+      // Determine if we're in development or production
+      const isDevelopment = !baseUrl.includes("onrender.com");
+
       const endpoints = [
-        `${baseUrl}/api/products/${id}`,
-        `${baseUrl}/products/${id}`,
-        `${baseUrl}/api/api/products/${id}`,
-        `${deployedUrl}/api/products/${id}`,
+        // Direct endpoints first (most reliable)
+        // In development, use the local server port 5000
+        ...(isDevelopment
+          ? [`${localServerUrl}/api/direct/products/${id}`]
+          : [`${baseUrl}/api/direct/products/${id}`]),
         `${deployedUrl}/api/direct/products/${id}`,
+
+        // Then try standard API endpoints
+        ...(isDevelopment
+          ? [`${localServerUrl}/api/products/${id}`]
+          : [`${baseUrl}/api/products/${id}`]),
+        `${deployedUrl}/api/products/${id}`,
+
+        // Then try fallback endpoints
+        ...(isDevelopment
+          ? [`${localServerUrl}/products/${id}`]
+          : [`${baseUrl}/products/${id}`]),
+        `${baseUrl}/api/api/products/${id}`,
       ];
 
       // Try each endpoint until one works
@@ -586,16 +618,33 @@ const categoriesAPI = {
         },
       });
 
-      // Try multiple endpoints
+      // Try multiple endpoints - prioritize direct endpoints
       const baseUrl = window.location.origin;
       const deployedUrl = "https://furniture-q3nb.onrender.com";
+      const localServerUrl = "http://localhost:5000";
+
+      // Determine if we're in development or production
+      const isDevelopment = !baseUrl.includes("onrender.com");
+
       const endpoints = [
-        `${baseUrl}/api/direct/categories`,
-        `${baseUrl}/api/categories`,
-        `${baseUrl}/categories`,
-        `${baseUrl}/api/api/categories`,
+        // Direct endpoints first (most reliable)
+        // In development, use the local server port 5000
+        ...(isDevelopment
+          ? [`${localServerUrl}/api/direct/categories`]
+          : [`${baseUrl}/api/direct/categories`]),
         `${deployedUrl}/api/direct/categories`,
+
+        // Then try standard API endpoints
+        ...(isDevelopment
+          ? [`${localServerUrl}/api/categories`]
+          : [`${baseUrl}/api/categories`]),
         `${deployedUrl}/api/categories`,
+
+        // Then try fallback endpoints
+        ...(isDevelopment
+          ? [`${localServerUrl}/categories`]
+          : [`${baseUrl}/categories`]),
+        `${baseUrl}/api/api/categories`,
       ];
 
       // Try each endpoint until one works
@@ -705,13 +754,30 @@ const categoriesAPI = {
       // Try multiple endpoints
       const baseUrl = window.location.origin;
       const deployedUrl = "https://furniture-q3nb.onrender.com";
+      const localServerUrl = "http://localhost:5000";
+
+      // Determine if we're in development or production
+      const isDevelopment = !baseUrl.includes("onrender.com");
+
       const endpoints = [
-        `${baseUrl}/api/direct/categories/${id}`,
-        `${baseUrl}/api/categories/${id}`,
-        `${baseUrl}/categories/${id}`,
-        `${baseUrl}/api/api/categories/${id}`,
+        // Direct endpoints first (most reliable)
+        // In development, use the local server port 5000
+        ...(isDevelopment
+          ? [`${localServerUrl}/api/direct/categories/${id}`]
+          : [`${baseUrl}/api/direct/categories/${id}`]),
         `${deployedUrl}/api/direct/categories/${id}`,
+
+        // Then try standard API endpoints
+        ...(isDevelopment
+          ? [`${localServerUrl}/api/categories/${id}`]
+          : [`${baseUrl}/api/categories/${id}`]),
         `${deployedUrl}/api/categories/${id}`,
+
+        // Then try fallback endpoints
+        ...(isDevelopment
+          ? [`${localServerUrl}/categories/${id}`]
+          : [`${baseUrl}/categories/${id}`]),
+        `${baseUrl}/api/api/categories/${id}`,
       ];
 
       // Try each endpoint until one works
@@ -757,13 +823,30 @@ const categoriesAPI = {
       // Try multiple endpoints
       const baseUrl = window.location.origin;
       const deployedUrl = "https://furniture-q3nb.onrender.com";
+      const localServerUrl = "http://localhost:5000";
+
+      // Determine if we're in development or production
+      const isDevelopment = !baseUrl.includes("onrender.com");
+
       const endpoints = [
-        `${baseUrl}/api/direct/categories`,
-        `${baseUrl}/api/categories`,
-        `${baseUrl}/categories`,
-        `${baseUrl}/api/api/categories`,
+        // Direct endpoints first (most reliable)
+        // In development, use the local server port 5000
+        ...(isDevelopment
+          ? [`${localServerUrl}/api/direct/categories`]
+          : [`${baseUrl}/api/direct/categories`]),
         `${deployedUrl}/api/direct/categories`,
+
+        // Then try standard API endpoints
+        ...(isDevelopment
+          ? [`${localServerUrl}/api/categories`]
+          : [`${baseUrl}/api/categories`]),
         `${deployedUrl}/api/categories`,
+
+        // Then try fallback endpoints
+        ...(isDevelopment
+          ? [`${localServerUrl}/categories`]
+          : [`${baseUrl}/categories`]),
+        `${baseUrl}/api/api/categories`,
       ];
 
       // Try each endpoint until one works

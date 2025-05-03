@@ -45,51 +45,21 @@ const Login = () => {
   };
 
   // Validate form
-  // const validateForm = () => {
-  //   const errors = {};
-
-  //   if (!formData.email.trim()) {
-  //     errors.email = "Email is required";
-  //   } else if (!/^\S+@\S+\.\S+$/.test(formData.email)) {
-  //     errors.email = "Please enter a valid email address";
-  //   }
-
-  //   if (!formData.password) {
-  //     errors.password = "Password is required";
-  //   }
-
-  //   setFormErrors(errors);
-  //   return Object.keys(errors).length === 0;
-  // };
   const validateForm = () => {
-    // Check required fields
-    if (
-      !formData.name ||
-      !formData.email ||
-      !formData.password ||
-      !formData.confirmPassword
-    ) {
-      return "Please fill in all required fields";
+    const errors = {};
+
+    if (!formData.email.trim()) {
+      errors.email = "Email is required";
+    } else if (!/^\S+@\S+\.\S+$/.test(formData.email)) {
+      errors.email = "Please enter a valid email address";
     }
 
-    // Validate email format
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      return "Please enter a valid email address";
+    if (!formData.password) {
+      errors.password = "Password is required";
     }
 
-    // Check password match
-    if (formData.password !== formData.confirmPassword) {
-      return "Passwords do not match";
-    }
-
-    // Check password strength
-    if (
-      !/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])/.test(formData.password)
-    ) {
-      return "Password must contain at least one uppercase letter, one lowercase letter, one number and one special character";
-    }
-
-    return null;
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
   };
 
   // Handle form submission
@@ -100,23 +70,21 @@ const Login = () => {
     clearError();
 
     // Validate form
-    const validationError = validateForm();
-    if (validationError) {
-      setError(validationError);
-      return;
-    }
     if (!validateForm()) {
       return;
     }
 
     try {
-      // Attempt login
-      await login(formData.email, formData.password);
+      console.log("Attempting admin login with:", formData.email);
+
+      // Attempt admin login
+      await adminLogin(formData.email, formData.password);
 
       // If successful, navigate to dashboard (handled by useEffect)
+      console.log("Admin login successful, redirecting to:", redirectPath);
     } catch (error) {
       // Error handling is done by the auth context
-      console.error("Login error:", error);
+      console.error("Admin login error:", error);
     }
   };
 
