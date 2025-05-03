@@ -112,17 +112,21 @@ const connectDB = async (retryCount = 0, maxRetries = 5) => {
 
     // Significantly increased timeouts for Render deployment
     const connectionOptions = {
-      serverSelectionTimeoutMS: 300000, // 300 seconds (5 minutes)
-      socketTimeoutMS: 300000, // 300 seconds (5 minutes)
-      connectTimeoutMS: 300000, // 300 seconds (5 minutes)
+      serverSelectionTimeoutMS: 600000, // 600 seconds (10 minutes)
+      socketTimeoutMS: 600000, // 600 seconds (10 minutes)
+      connectTimeoutMS: 600000, // 600 seconds (10 minutes)
       heartbeatFrequencyMS: 30000, // 30 seconds
       retryWrites: true,
       w: 1, // Write acknowledgment from primary only (faster than majority)
       j: false, // Don't wait for journal commit (faster)
-      maxPoolSize: 10,
+      maxPoolSize: 20, // Increased pool size
+      minPoolSize: 5, // Ensure minimum connections
       bufferCommands: false, // Disable command buffering
       autoIndex: true, // Build indexes
       family: 4, // Use IPv4, skip trying IPv6
+      maxIdleTimeMS: 120000, // 2 minutes max idle time
+      keepAlive: true, // Keep connections alive
+      keepAliveInitialDelay: 300000, // 5 minutes
       // Note: bufferMaxEntries, useNewUrlParser, and useUnifiedTopology are no longer needed
       // in newer MongoDB driver versions and have been removed
     };
@@ -1023,6 +1027,59 @@ if (!staticPath) {
           success: false,
           message: "Products page test failed",
           error: error.message,
+        });
+      }
+    });
+
+    // MongoDB connection health check endpoint
+    app.get("/api/health/mongodb", async (_req, res) => {
+      try {
+        console.log("Checking MongoDB connection health");
+
+        // Import the direct DB connection utility
+        const { getMongoClient } = require("./server/utils/directDbConnection");
+
+        // Start timer
+        const startTime = Date.now();
+
+        // Get MongoDB client with retry logic
+        const { db } = await getMongoClient(0, 2);
+
+        // Ping the database
+        await db.command({ ping: 1 });
+
+        // Calculate response time
+        const responseTime = Date.now() - startTime;
+
+        // Get server stats (with limited info for security)
+        const serverStatus = await db.command({
+          serverStatus: 1,
+          repl: 0,
+          metrics: 0,
+          locks: 0,
+        });
+
+        // Get connection info
+        const connectionInfo = {
+          version: serverStatus.version,
+          uptime: serverStatus.uptime,
+          connections: serverStatus.connections,
+          responseTimeMs: responseTime,
+        };
+
+        return res.json({
+          success: true,
+          message: "MongoDB connection is healthy",
+          timestamp: new Date().toISOString(),
+          connectionInfo,
+        });
+      } catch (error) {
+        console.error("MongoDB health check failed:", error);
+        return res.status(500).json({
+          success: false,
+          message: "MongoDB connection health check failed",
+          error: error.message,
+          timestamp: new Date().toISOString(),
         });
       }
     });

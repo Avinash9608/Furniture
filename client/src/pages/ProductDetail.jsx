@@ -29,12 +29,53 @@ const ProductDetail = () => {
   const [reviewError, setReviewError] = useState(null);
   const [reviewSuccess, setReviewSuccess] = useState(null);
 
-  // Function to test product details connection
-  const testProductConnection = async () => {
+  // Function to test MongoDB connection health
+  const testMongoDbHealth = async () => {
     try {
       setLoading(true);
-      setError(null);
+      setError("Testing MongoDB connection health...");
 
+      // Determine if we're in development or production
+      const baseUrl = window.location.origin;
+      const isDevelopment = !baseUrl.includes("onrender.com");
+      const localServerUrl = "http://localhost:5000";
+
+      // Use the appropriate URL based on environment
+      const healthUrl = isDevelopment
+        ? `${localServerUrl}/api/health/mongodb`
+        : `${baseUrl}/api/health/mongodb`;
+
+      console.log("Testing MongoDB connection health at:", healthUrl);
+
+      // Make the request
+      const healthResponse = await axios.get(healthUrl, { timeout: 60000 });
+
+      console.log("MongoDB health check response:", healthResponse.data);
+
+      if (healthResponse.data && healthResponse.data.success) {
+        setError(
+          `MongoDB connection is healthy! Response time: ${healthResponse.data.connectionInfo.responseTimeMs}ms`
+        );
+
+        // Now test the product details endpoint
+        await testProductDetails();
+      } else {
+        setError(
+          `MongoDB health check failed: ${
+            healthResponse.data.message || "Unknown error"
+          }`
+        );
+      }
+    } catch (error) {
+      console.error("MongoDB health check failed:", error);
+      setError(`MongoDB health check failed: ${error.message}`);
+      setLoading(false);
+    }
+  };
+
+  // Function to test product details connection
+  const testProductDetails = async () => {
+    try {
       // Determine if we're in development or production
       const baseUrl = window.location.origin;
       const isDevelopment = !baseUrl.includes("onrender.com");
@@ -48,7 +89,7 @@ const ProductDetail = () => {
       console.log("Testing product details connection at:", testUrl);
 
       // Make the request
-      const response = await axios.get(testUrl, { timeout: 30000 });
+      const response = await axios.get(testUrl, { timeout: 60000 });
 
       console.log("Product details connection test response:", response.data);
 
@@ -296,30 +337,55 @@ const ProductDetail = () => {
       <div className="container-custom py-16">
         <Alert type="error" message={error} />
         <div className="mt-4 text-center flex flex-col gap-4 items-center">
-          {/* Test button - only visible in production or when there's an error */}
+          {/* Test buttons - only visible in production or when there's an error */}
           {(window.location.origin.includes("onrender.com") ||
-            error.includes("Failed to load")) && (
-            <Button
-              onClick={testProductConnection}
-              variant="secondary"
-              size="small"
-            >
-              <svg
-                className="w-4 h-4 mr-2"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                xmlns="http://www.w3.org/2000/svg"
+            error.includes("Failed to load") ||
+            error.includes("timed out")) && (
+            <div className="flex flex-col sm:flex-row gap-3">
+              <Button
+                onClick={testMongoDbHealth}
+                variant="secondary"
+                size="small"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                ></path>
-              </svg>
-              Test Product Connection
-            </Button>
+                <svg
+                  className="w-4 h-4 mr-2"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
+                  ></path>
+                </svg>
+                Test MongoDB Connection
+              </Button>
+
+              <Button
+                onClick={testProductDetails}
+                variant="secondary"
+                size="small"
+              >
+                <svg
+                  className="w-4 h-4 mr-2"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  ></path>
+                </svg>
+                Test Product Details
+              </Button>
+            </div>
           )}
           <Link to="/products" className="text-primary hover:underline">
             Back to Products
