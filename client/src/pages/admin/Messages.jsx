@@ -20,6 +20,7 @@ const AdminMessages = () => {
   const [successMessage, setSuccessMessage] = useState(null);
   const [debugInfo, setDebugInfo] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [debugMode, setDebugMode] = useState(false);
 
   // Function to handle logout and redirect to login page
   const handleLogout = () => {
@@ -229,6 +230,47 @@ const AdminMessages = () => {
     fetchMessages();
   }, [refreshKey]);
 
+  // Function to filter out mock data from messages
+  const filterOutMockData = () => {
+    console.log("Filtering out mock data from messages...");
+
+    const originalCount = messages.length;
+
+    // Filter out messages with suspicious IDs or names
+    const filteredMessages = messages.filter((message) => {
+      const isSuspicious =
+        // Check for temp IDs
+        (message._id && message._id.includes("temp_")) ||
+        (message._id && message._id.includes("mock_")) ||
+        // Check for system messages
+        (message.name && message.name.includes("System")) ||
+        (message.name && message.name.includes("John Doe")) ||
+        (message.name && message.name.includes("Jane Smith")) ||
+        // Check for example emails
+        (message.email && message.email.includes("example.com")) ||
+        (message.email && message.email.includes("john@")) ||
+        (message.email && message.email.includes("jane@")) ||
+        (message.email && message.email.includes("system@"));
+
+      return !isSuspicious;
+    });
+
+    const removedCount = originalCount - filteredMessages.length;
+
+    if (removedCount > 0) {
+      console.log(`Removed ${removedCount} mock messages`);
+      setMessages(filteredMessages);
+      setSuccessMessage(
+        `Removed ${removedCount} mock messages from the display`
+      );
+    } else {
+      console.log("No mock messages found to remove");
+      setSuccessMessage("No mock messages found to remove");
+    }
+
+    return filteredMessages;
+  };
+
   // Filter messages by status
   const filteredMessages =
     statusFilter === "all"
@@ -274,6 +316,60 @@ const AdminMessages = () => {
     }
   };
 
+  // Function to clear all mock data from localStorage and sessionStorage
+  const clearAllMockData = () => {
+    console.log(
+      "Clearing all mock data from localStorage and sessionStorage..."
+    );
+
+    // Clear all localStorage items that might contain mock data
+    const localStorageKeys = Object.keys(localStorage);
+    localStorageKeys.forEach((key) => {
+      if (
+        key.includes("mock") ||
+        key.includes("cache") ||
+        key.includes("temp") ||
+        key.includes("messages") ||
+        key.includes("data")
+      ) {
+        console.log(`Removing localStorage item: ${key}`);
+        localStorage.removeItem(key);
+      }
+    });
+
+    // Clear all sessionStorage items that might contain mock data
+    const sessionStorageKeys = Object.keys(sessionStorage);
+    sessionStorageKeys.forEach((key) => {
+      if (
+        key.includes("mock") ||
+        key.includes("cache") ||
+        key.includes("temp") ||
+        key.includes("messages") ||
+        key.includes("data")
+      ) {
+        console.log(`Removing sessionStorage item: ${key}`);
+        sessionStorage.removeItem(key);
+      }
+    });
+
+    // Remove specific items that might contain mock data
+    localStorage.removeItem("cachedMessages");
+    localStorage.removeItem("messagesLastFetched");
+    localStorage.removeItem("useMockData");
+    localStorage.removeItem("mockMessages");
+    localStorage.removeItem("tempMessages");
+    localStorage.removeItem("fallbackMessages");
+
+    sessionStorage.removeItem("cachedMessages");
+    sessionStorage.removeItem("messagesLastFetched");
+    sessionStorage.removeItem("useMockData");
+    sessionStorage.removeItem("mockMessages");
+    sessionStorage.removeItem("tempMessages");
+    sessionStorage.removeItem("fallbackMessages");
+
+    console.log("All mock data cleared from localStorage and sessionStorage");
+  };
+
   // Force refresh function
   const handleForceRefresh = () => {
     console.log("Force refreshing messages...");
@@ -284,17 +380,8 @@ const AdminMessages = () => {
       return;
     }
 
-    // Clear any cached data that might be interfering
-    localStorage.removeItem("cachedMessages");
-    localStorage.removeItem("messagesLastFetched");
-
-    // Clear any session storage data
-    sessionStorage.removeItem("cachedMessages");
-    sessionStorage.removeItem("messagesLastFetched");
-
-    // Remove any mock data flags
-    localStorage.removeItem("useMockData");
-    sessionStorage.removeItem("useMockData");
+    // Clear all mock data
+    clearAllMockData();
 
     setLoading(true);
     setError(null);
@@ -302,6 +389,110 @@ const AdminMessages = () => {
     setDebugInfo(null);
     setRefreshKey((prevKey) => prevKey + 1);
     setSuccessMessage("Refreshing messages...");
+  };
+
+  // Function to check for hardcoded mock data in the component
+  const checkForMockData = () => {
+    console.log("Checking for hardcoded mock data in the component...");
+
+    // Check if any of the messages have suspicious IDs or names
+    const suspiciousMessages = messages.filter((message) => {
+      return (
+        // Check for temp IDs
+        (message._id && message._id.includes("temp_")) ||
+        (message._id && message._id.includes("mock_")) ||
+        // Check for system messages
+        (message.name && message.name.includes("System")) ||
+        (message.name && message.name.includes("John Doe")) ||
+        (message.name && message.name.includes("Jane Smith")) ||
+        // Check for example emails
+        (message.email && message.email.includes("example.com")) ||
+        (message.email && message.email.includes("john@")) ||
+        (message.email && message.email.includes("jane@")) ||
+        (message.email && message.email.includes("system@"))
+      );
+    });
+
+    if (suspiciousMessages.length > 0) {
+      console.warn("Found suspicious mock messages:", suspiciousMessages);
+      setDebugInfo({
+        mockDataDetected: true,
+        suspiciousMessages,
+        timestamp: new Date().toISOString(),
+      });
+      setUpdateError(
+        `Found ${suspiciousMessages.length} suspicious mock messages. Check debug info for details.`
+      );
+      return true;
+    }
+
+    console.log("No suspicious mock messages found");
+    return false;
+  };
+
+  // Function to directly fetch messages from the API
+  const handleDirectFetch = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      setDebugInfo(null);
+
+      // Clear all mock data first
+      clearAllMockData();
+
+      // Get the token
+      const token = localStorage.getItem("token");
+
+      // Make a direct fetch request
+      const response = await fetch("/api/admin/messages", {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          Authorization: token ? `Bearer ${token}` : "",
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          Pragma: "no-cache",
+          Expires: "0",
+          "X-Requested-With": "XMLHttpRequest",
+        },
+        credentials: "include",
+      });
+
+      if (!response.ok) {
+        throw new Error(`API returned status ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log("Direct fetch response:", data);
+
+      // Set the debug info
+      setDebugInfo({
+        apiResponse: data,
+        fetchMethod: "direct-fetch",
+        timestamp: new Date().toISOString(),
+      });
+
+      // If the response has the expected format, update the messages
+      if (
+        data &&
+        data.source === "direct_database" &&
+        data.data &&
+        Array.isArray(data.data)
+      ) {
+        console.log("Setting messages from direct fetch:", data.data);
+        setMessages(data.data);
+        setSuccessMessage(
+          "Successfully fetched messages directly from the API!"
+        );
+      } else {
+        setUpdateError("API response doesn't have the expected format");
+      }
+    } catch (error) {
+      console.error("Error in direct fetch:", error);
+      setUpdateError(`Direct fetch error: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Debug function to test the admin messages page
@@ -427,18 +618,88 @@ const AdminMessages = () => {
             >
               Debug Test
             </button>
+
+            {/* Direct Fetch button */}
+            <button
+              onClick={handleDirectFetch}
+              className="px-3 py-1 text-sm font-medium rounded-md bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-900/50"
+            >
+              Direct Fetch
+            </button>
+
+            {/* Clear Mock Data button */}
+            <button
+              onClick={() => {
+                clearAllMockData();
+                setSuccessMessage(
+                  "All mock data cleared from localStorage and sessionStorage"
+                );
+              }}
+              className="px-3 py-1 text-sm font-medium rounded-md bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300 hover:bg-orange-200 dark:hover:bg-orange-900/50"
+            >
+              Clear Mock Data
+            </button>
+
+            {/* Check Mock Data button */}
+            <button
+              onClick={checkForMockData}
+              className="px-3 py-1 text-sm font-medium rounded-md bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 hover:bg-yellow-200 dark:hover:bg-yellow-900/50"
+            >
+              Check Mock Data
+            </button>
+
+            {/* Remove Mock Data button */}
+            <button
+              onClick={filterOutMockData}
+              className="px-3 py-1 text-sm font-medium rounded-md bg-pink-100 dark:bg-pink-900/30 text-pink-800 dark:text-pink-300 hover:bg-pink-200 dark:hover:bg-pink-900/50"
+            >
+              Remove Mock Data
+            </button>
+
+            {/* Debug Mode Toggle */}
+            <button
+              onClick={() => setDebugMode(!debugMode)}
+              className={`px-3 py-1 text-sm font-medium rounded-md ${
+                debugMode
+                  ? "bg-purple-500 text-white"
+                  : "bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300 hover:bg-purple-200 dark:hover:bg-purple-900/50"
+              }`}
+            >
+              {debugMode ? "Debug Mode: ON" : "Debug Mode: OFF"}
+            </button>
           </div>
         </div>
 
         {/* Debug info */}
-        {debugInfo && (
+        {(debugInfo || debugMode) && (
           <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
             <h3 className="text-sm font-medium text-blue-800 dark:text-blue-300 mb-2">
               Debug Information
             </h3>
-            <pre className="text-xs overflow-auto max-h-40 p-2 bg-white dark:bg-gray-800 rounded border border-blue-100 dark:border-blue-800">
-              {JSON.stringify(debugInfo, null, 2)}
-            </pre>
+
+            {debugInfo && (
+              <pre className="text-xs overflow-auto max-h-40 p-2 bg-white dark:bg-gray-800 rounded border border-blue-100 dark:border-blue-800 mb-4">
+                {JSON.stringify(debugInfo, null, 2)}
+              </pre>
+            )}
+
+            {debugMode && (
+              <div>
+                <h4 className="text-sm font-medium text-blue-800 dark:text-blue-300 mb-2">
+                  Current Messages State
+                </h4>
+                <pre className="text-xs overflow-auto max-h-40 p-2 bg-white dark:bg-gray-800 rounded border border-blue-100 dark:border-blue-800 mb-4">
+                  {JSON.stringify(messages, null, 2)}
+                </pre>
+
+                <h4 className="text-sm font-medium text-blue-800 dark:text-blue-300 mb-2">
+                  Filtered Messages
+                </h4>
+                <pre className="text-xs overflow-auto max-h-40 p-2 bg-white dark:bg-gray-800 rounded border border-blue-100 dark:border-blue-800">
+                  {JSON.stringify(filteredMessages, null, 2)}
+                </pre>
+              </div>
+            )}
           </div>
         )}
       </div>

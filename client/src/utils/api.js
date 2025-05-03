@@ -1601,38 +1601,55 @@ const contactAPI = {
         }
       }
 
-      // If all else fails, return mock data with a helpful error message
+      // If all else fails, try one more direct approach with fetch
       console.error("All attempts to fetch contact messages failed");
 
-      // Create mock messages for testing in case of MongoDB buffering timeout
-      const mockMessages = [
-        {
-          _id: `temp_${Date.now()}_1`,
-          name: "System Message",
-          email: "system@example.com",
-          subject: "Database Connection Issue",
-          message:
-            "The application is currently experiencing issues connecting to the database. This is likely due to a MongoDB buffering timeout. Please try again later.",
-          status: "unread",
-          createdAt: new Date().toISOString(),
-        },
-        {
-          _id: `temp_${Date.now()}_2`,
-          name: "System Message",
-          email: "system@example.com",
-          subject: "Temporary Data",
-          message:
-            "This is temporary data displayed while the application is unable to connect to the database. Your actual messages will be displayed once the connection is restored.",
-          status: "unread",
-          createdAt: new Date().toISOString(),
-        },
-      ];
+      try {
+        console.log("Trying one final direct fetch approach...");
 
+        // Get the token
+        const token = localStorage.getItem("token");
+
+        // Make a direct fetch request with all possible headers
+        const finalResponse = await fetch("/api/admin/messages", {
+          method: "GET",
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+            Authorization: token ? `Bearer ${token}` : "",
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            Pragma: "no-cache",
+            Expires: "0",
+            "X-Requested-With": "XMLHttpRequest",
+          },
+          credentials: "include",
+        });
+
+        if (finalResponse.ok) {
+          const finalData = await finalResponse.json();
+          console.log("Final direct fetch successful:", finalData);
+
+          if (
+            finalData &&
+            finalData.source === "direct_database" &&
+            finalData.data
+          ) {
+            console.log("Successfully retrieved real data in final attempt!");
+            return {
+              data: finalData,
+            };
+          }
+        }
+      } catch (finalError) {
+        console.error("Final fetch attempt failed:", finalError);
+      }
+
+      // If we still can't get real data, return an error
       return {
-        data: mockMessages,
+        data: [],
         error:
-          "Database operation timed out. This is often due to slow network connection to MongoDB. The application is displaying temporary data. Please try again later.",
-        isTemporaryData: true,
+          "Failed to fetch messages from the database. Please try refreshing the page or logging in again.",
+        isTemporaryData: false,
       };
     } catch (error) {
       console.error("Error in contactAPI.getAll:", error);
