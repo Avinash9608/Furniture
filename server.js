@@ -125,8 +125,7 @@ const connectDB = async (retryCount = 0, maxRetries = 5) => {
       autoIndex: true, // Build indexes
       family: 4, // Use IPv4, skip trying IPv6
       maxIdleTimeMS: 120000, // 2 minutes max idle time
-      keepAlive: true, // Keep connections alive
-      keepAliveInitialDelay: 300000, // 5 minutes
+      // Removed unsupported options: keepAlive, keepAliveInitialDelay
       // Note: bufferMaxEntries, useNewUrlParser, and useUnifiedTopology are no longer needed
       // in newer MongoDB driver versions and have been removed
     };
@@ -1036,16 +1035,27 @@ if (!staticPath) {
       try {
         console.log("Checking MongoDB connection health");
 
-        // Import the direct DB connection utility
-        const { getMongoClient } = require("./server/utils/directDbConnection");
-
         // Start timer
         const startTime = Date.now();
 
-        // Get MongoDB client with retry logic
-        const { db } = await getMongoClient(0, 2);
+        // Check mongoose connection first (safer)
+        if (mongoose.connection.readyState !== 1) {
+          // Try to connect if not connected
+          if (mongoose.connection.readyState === 0) {
+            console.log("Mongoose not connected, attempting connection...");
+            await mongoose.connect(process.env.MONGODB_URI, connectionOptions);
+          }
 
-        // Ping the database
+          // Check again after connection attempt
+          if (mongoose.connection.readyState !== 1) {
+            throw new Error(
+              `Mongoose connection not ready (state: ${mongoose.connection.readyState})`
+            );
+          }
+        }
+
+        // Use mongoose connection to ping
+        const db = mongoose.connection.db;
         await db.command({ ping: 1 });
 
         // Calculate response time
@@ -1065,6 +1075,7 @@ if (!staticPath) {
           uptime: serverStatus.uptime,
           connections: serverStatus.connections,
           responseTimeMs: responseTime,
+          mongooseState: mongoose.connection.readyState,
         };
 
         return res.json({
@@ -1075,12 +1086,36 @@ if (!staticPath) {
         });
       } catch (error) {
         console.error("MongoDB health check failed:", error);
-        return res.status(500).json({
-          success: false,
-          message: "MongoDB connection health check failed",
-          error: error.message,
-          timestamp: new Date().toISOString(),
-        });
+
+        // Try direct connection as fallback
+        try {
+          console.log("Trying direct connection as fallback...");
+          const {
+            getMongoClient,
+          } = require("./server/utils/directDbConnection");
+          const { db } = await getMongoClient(0, 1);
+          await db.command({ ping: 1 });
+
+          return res.json({
+            success: true,
+            message: "MongoDB connection is healthy (via direct connection)",
+            timestamp: new Date().toISOString(),
+            connectionInfo: {
+              method: "direct_connection",
+              responseTimeMs: Date.now() - startTime,
+            },
+          });
+        } catch (fallbackError) {
+          console.error("Fallback connection also failed:", fallbackError);
+
+          return res.status(500).json({
+            success: false,
+            message: "MongoDB connection health check failed",
+            error: error.message,
+            fallbackError: fallbackError.message,
+            timestamp: new Date().toISOString(),
+          });
+        }
       }
     });
 

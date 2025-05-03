@@ -77,12 +77,11 @@ const getMongoClient = async (retryCount = 0, maxRetries = 3) => {
     retryWrites: true,
     w: 1, // Write acknowledgment from primary only (faster than majority)
     wtimeoutMS: 60000, // 1 minute
-    keepAlive: true, // Keep connections alive
-    keepAliveInitialDelay: 300000, // 5 minutes
     maxIdleTimeMS: 120000, // 2 minutes max idle time
     directConnection: false, // Allow for replica set connections
     readPreference: "primaryPreferred", // Read from primary if available, otherwise secondary
     retryReads: true, // Retry read operations
+    // Removed unsupported options: keepAlive, keepAliveInitialDelay
   });
 
   try {
