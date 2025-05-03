@@ -77,8 +77,8 @@ ContactSchema.statics.mockData = [
   },
 ];
 
-// Apply the timeout plugin
-ContactSchema.plugin(timeoutPlugin, { timeout: 60000 });
+// Apply the timeout plugin with increased timeout
+ContactSchema.plugin(timeoutPlugin, { timeout: 300000 }); // 300 seconds (5 minutes)
 
 // Check if model exists before creating a new one
 const Contact =

@@ -112,16 +112,21 @@ const connectDB = async (retryCount = 0, maxRetries = 5) => {
 
     // Significantly increased timeouts for Render deployment
     const connectionOptions = {
-      serverSelectionTimeoutMS: 120000, // 120 seconds (2 minutes)
-      socketTimeoutMS: 120000, // 120 seconds (2 minutes)
-      connectTimeoutMS: 120000, // 120 seconds (2 minutes)
+      serverSelectionTimeoutMS: 300000, // 300 seconds (5 minutes)
+      socketTimeoutMS: 300000, // 300 seconds (5 minutes)
+      connectTimeoutMS: 300000, // 300 seconds (5 minutes)
       heartbeatFrequencyMS: 30000, // 30 seconds
       retryWrites: true,
-      w: "majority",
+      w: 1, // Write acknowledgment from primary only (faster than majority)
+      j: false, // Don't wait for journal commit (faster)
       maxPoolSize: 10,
       bufferCommands: false, // Disable command buffering
       autoIndex: true, // Build indexes
       family: 4, // Use IPv4, skip trying IPv6
+      // Additional options to prevent buffering timeout
+      bufferMaxEntries: 0, // Disable buffering when connection is lost
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
     };
 
     console.log(

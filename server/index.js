@@ -323,13 +323,23 @@ const connectDB = async () => {
     );
     console.log("Using connection string:", redactedUri);
 
-    // Connect with options suitable for Atlas
+    // Connect with options suitable for Atlas with increased timeouts
     await mongoose.connect(uri, {
-      serverSelectionTimeoutMS: 5000, // Timeout after 5s instead of 30s
-      socketTimeoutMS: 45000, // Close sockets after 45s of inactivity
+      serverSelectionTimeoutMS: 300000, // 300 seconds (5 minutes)
+      socketTimeoutMS: 300000, // 300 seconds (5 minutes)
+      connectTimeoutMS: 300000, // 300 seconds (5 minutes)
+      heartbeatFrequencyMS: 30000, // 30 seconds
       retryWrites: true,
-      w: "majority",
+      w: 1, // Write acknowledgment from primary only (faster than majority)
+      j: false, // Don't wait for journal commit (faster)
       maxPoolSize: 10,
+      bufferCommands: false, // Disable command buffering
+      autoIndex: true, // Build indexes
+      family: 4, // Use IPv4, skip trying IPv6
+      // Additional options to prevent buffering timeout
+      bufferMaxEntries: 0, // Disable buffering when connection is lost
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
     });
 
     console.log("MongoDB Atlas connected successfully");
