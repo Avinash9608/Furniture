@@ -224,6 +224,14 @@ exports.getProductById = async (req, res) => {
         console.log(`Fetching category details for ID: ${product.category}`);
         const { findOneDocument } = require("../utils/directDbConnection");
 
+        // Define category mapping for fallback
+        const categoryMap = {
+          "680c9481ab11e96a288ef6d9": "Sofa Beds",
+          "680c9484ab11e96a288ef6da": "Tables",
+          "680c9486ab11e96a288ef6db": "Chairs",
+          "680c9489ab11e96a288ef6dc": "Wardrobes",
+        };
+
         // Try to fetch the category
         const category = await findOneDocument("categories", {
           $or: [
@@ -241,13 +249,56 @@ exports.getProductById = async (req, res) => {
           product.category = {
             _id: category._id,
             name: category.name,
-            slug: category.slug,
+            slug:
+              category.slug || category.name.toLowerCase().replace(/\s+/g, "-"),
             image: category.image,
           };
+        } else {
+          // If category not found in database, use the mapping
+          const categoryId = product.category.toString();
+          if (categoryMap[categoryId]) {
+            console.log(
+              `Using category mapping for ID ${categoryId}: ${categoryMap[categoryId]}`
+            );
+            product.category = {
+              _id: categoryId,
+              name: categoryMap[categoryId],
+              slug: categoryMap[categoryId].toLowerCase().replace(/\s+/g, "-"),
+            };
+          } else {
+            // Create a generic category object if no mapping exists
+            console.log(`No mapping found for category ID: ${categoryId}`);
+            product.category = {
+              _id: categoryId,
+              name:
+                categoryId.length === 24
+                  ? `Category ${categoryId.substring(0, 8)}`
+                  : categoryId,
+              slug: `category-${categoryId.substring(0, 8)}`,
+            };
+          }
         }
       } catch (categoryError) {
         console.error("Error fetching category details:", categoryError);
-        // If there's an error, we'll just keep the category as an ID
+        // If there's an error, create a fallback category object
+        const categoryId = product.category.toString();
+        const categoryMap = {
+          "680c9481ab11e96a288ef6d9": "Sofa Beds",
+          "680c9484ab11e96a288ef6da": "Tables",
+          "680c9486ab11e96a288ef6db": "Chairs",
+          "680c9489ab11e96a288ef6dc": "Wardrobes",
+        };
+
+        product.category = {
+          _id: categoryId,
+          name:
+            categoryMap[categoryId] || `Category ${categoryId.substring(0, 8)}`,
+          slug: (
+            categoryMap[categoryId] || `Category ${categoryId.substring(0, 8)}`
+          )
+            .toLowerCase()
+            .replace(/\s+/g, "-"),
+        };
       }
     }
 
@@ -300,7 +351,11 @@ exports.getProductById = async (req, res) => {
           "This is a sample product shown when the database query fails.",
         price: 19999,
         discountPrice: 15999,
-        category: "sample-category",
+        category: {
+          _id: "sample-category",
+          name: "Sample Category",
+          slug: "sample-category",
+        },
         stock: 10,
         ratings: 4.5,
         numReviews: 12,

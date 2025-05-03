@@ -1,192 +1,212 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Shyam Furnitures</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            line-height: 1.6;
-            margin: 0;
-            padding: 20px;
-            background-color: #f5f5f5;
-            color: #333;
-        }
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-        header {
-            background-color: #D68C45;
-            color: white;
-            padding: 20px;
-            text-align: center;
-        }
-        nav {
-            display: flex;
-            justify-content: center;
-            background-color: #2A4747;
-            padding: 10px;
-        }
-        nav a {
-            color: white;
-            text-decoration: none;
-            padding: 10px 15px;
-            margin: 0 5px;
-        }
-        nav a:hover {
-            background-color: #3A6060;
-        }
-        .hero {
-            background-image: url('https://images.unsplash.com/photo-1556228453-efd6c1ff04f6?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1770&q=80');
-            background-size: cover;
-            background-position: center;
-            height: 400px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            color: white;
-            position: relative;
-        }
-        .hero::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.5);
-        }
-        .hero-content {
-            position: relative;
-            z-index: 1;
-            max-width: 800px;
-            padding: 20px;
-        }
-        .hero h1 {
-            font-size: 2.5rem;
-            margin-bottom: 20px;
-        }
-        .btn {
-            display: inline-block;
-            background-color: #D68C45;
-            color: white;
-            padding: 10px 20px;
-            text-decoration: none;
-            border-radius: 5px;
-            font-weight: bold;
-            margin-top: 20px;
-        }
-        .btn:hover {
-            background-color: #B97234;
-        }
-        .featured {
-            padding: 40px 0;
-        }
-        .featured h2 {
-            text-align: center;
-            margin-bottom: 30px;
-            color: #2A4747;
-        }
-        .products {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-            gap: 20px;
-        }
-        .product {
-            background: white;
-            border-radius: 5px;
-            overflow: hidden;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-        }
-        .product img {
-            width: 100%;
-            height: 200px;
-            object-fit: cover;
-        }
-        .product-info {
-            padding: 15px;
-        }
-        .product-title {
-            font-weight: bold;
-            margin-bottom: 5px;
-        }
-        .product-price {
-            color: #D68C45;
-            font-weight: bold;
-        }
-        footer {
-            background-color: #2A4747;
-            color: white;
-            text-align: center;
-            padding: 20px;
-            margin-top: 40px;
-        }
+      body {
+        font-family: Arial, sans-serif;
+        line-height: 1.6;
+        margin: 0;
+        padding: 20px;
+        background-color: #f5f5f5;
+        color: #333;
+      }
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+      header {
+        background-color: #d68c45;
+        color: white;
+        padding: 20px;
+        text-align: center;
+      }
+      nav {
+        display: flex;
+        justify-content: center;
+        background-color: #2a4747;
+        padding: 10px;
+      }
+      nav a {
+        color: white;
+        text-decoration: none;
+        padding: 10px 15px;
+        margin: 0 5px;
+      }
+      nav a:hover {
+        background-color: #3a6060;
+      }
+      .hero {
+        background-image: url("https://images.unsplash.com/photo-1556228453-efd6c1ff04f6?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1770&q=80");
+        background-size: cover;
+        background-position: center;
+        height: 400px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        color: white;
+        position: relative;
+      }
+      .hero::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+      }
+      .hero-content {
+        position: relative;
+        z-index: 1;
+        max-width: 800px;
+        padding: 20px;
+      }
+      .hero h1 {
+        font-size: 2.5rem;
+        margin-bottom: 20px;
+      }
+      .btn {
+        display: inline-block;
+        background-color: #d68c45;
+        color: white;
+        padding: 10px 20px;
+        text-decoration: none;
+        border-radius: 5px;
+        font-weight: bold;
+        margin-top: 20px;
+      }
+      .btn:hover {
+        background-color: #b97234;
+      }
+      .featured {
+        padding: 40px 0;
+      }
+      .featured h2 {
+        text-align: center;
+        margin-bottom: 30px;
+        color: #2a4747;
+      }
+      .products {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+        gap: 20px;
+      }
+      .product {
+        background: white;
+        border-radius: 5px;
+        overflow: hidden;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+      }
+      .product img {
+        width: 100%;
+        height: 200px;
+        object-fit: cover;
+      }
+      .product-info {
+        padding: 15px;
+      }
+      .product-title {
+        font-weight: bold;
+        margin-bottom: 5px;
+      }
+      .product-price {
+        color: #d68c45;
+        font-weight: bold;
+      }
+      footer {
+        background-color: #2a4747;
+        color: white;
+        text-align: center;
+        padding: 20px;
+        margin-top: 40px;
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <header>
-        <h1>Shyam Furnitures</h1>
-        <p>Quality furniture for your home and office</p>
+      <h1>Shyam Furnitures</h1>
+      <p>Quality furniture for your home and office</p>
     </header>
-    
+
     <nav>
-        <a href="#">Home</a>
-        <a href="#">Products</a>
-        <a href="#">About</a>
-        <a href="#">Contact</a>
-        <a href="#">Cart</a>
+      <a href="#">Home</a>
+      <a href="#">Products</a>
+      <a href="#">About</a>
+      <a href="#">Contact</a>
+      <a href="#">Cart</a>
     </nav>
-    
+
     <div class="hero">
-        <div class="hero-content">
-            <h1>Transform Your Space with Elegant Furniture</h1>
-            <p>Discover premium quality furniture for your home and office at Shyam Furnitures, Sharsha's finest furniture destination.</p>
-            <a href="#" class="btn">Explore Collection</a>
-        </div>
+      <div class="hero-content">
+        <h1>Transform Your Space with Elegant Furniture</h1>
+        <p>
+          Discover premium quality furniture for your home and office at Shyam
+          Furnitures, Sharsha's finest furniture destination.
+        </p>
+        <a href="#" class="btn">Explore Collection</a>
+      </div>
     </div>
-    
+
     <div class="container">
-        <section class="featured">
-            <h2>Featured Products</h2>
-            <div class="products">
-                <div class="product">
-                    <img src="https://images.unsplash.com/photo-1555041469-a586c61ea9bc?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1770&q=80" alt="Modern Sofa Set">
-                    <div class="product-info">
-                        <div class="product-title">Modern Sofa Set</div>
-                        <div class="product-price">₹24,999</div>
-                    </div>
-                </div>
-                <div class="product">
-                    <img src="https://images.unsplash.com/photo-1533090161767-e6ffed986c88?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1769&q=80" alt="Wooden Dining Table">
-                    <div class="product-info">
-                        <div class="product-title">Wooden Dining Table</div>
-                        <div class="product-price">₹18,999</div>
-                    </div>
-                </div>
-                <div class="product">
-                    <img src="https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1770&q=80" alt="King Size Bed">
-                    <div class="product-info">
-                        <div class="product-title">King Size Bed</div>
-                        <div class="product-price">₹32,999</div>
-                    </div>
-                </div>
-                <div class="product">
-                    <img src="https://images.unsplash.com/photo-1580480055273-228ff5388ef8?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1000&q=80" alt="Ergonomic Office Chair">
-                    <div class="product-info">
-                        <div class="product-title">Ergonomic Office Chair</div>
-                        <div class="product-price">₹9,999</div>
-                    </div>
-                </div>
+      <section class="featured">
+        <h2>Featured Products</h2>
+        <div class="products">
+          <div class="product">
+            <img
+              src="https://images.unsplash.com/photo-1555041469-a586c61ea9bc?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1770&q=80"
+              alt="Modern Sofa Set"
+            />
+            <div class="product-info">
+              <div class="product-title">Modern Sofa Set</div>
+              <div class="product-price">₹24,999</div>
             </div>
-        </section>
+          </div>
+          <div class="product">
+            <img
+              src="https://images.unsplash.com/photo-1533090161767-e6ffed986c88?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1769&q=80"
+              alt="Wooden Dining Table"
+            />
+            <div class="product-info">
+              <div class="product-title">Wooden Dining Table</div>
+              <div class="product-price">₹18,999</div>
+            </div>
+          </div>
+          <div class="product">
+            <img
+              src="https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1770&q=80"
+              alt="King Size Bed"
+            />
+            <div class="product-info">
+              <div class="product-title">King Size Bed</div>
+              <div class="product-price">₹32,999</div>
+            </div>
+          </div>
+          <div class="product">
+            <img
+              src="https://images.unsplash.com/photo-1580480055273-228ff5388ef8?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1000&q=80"
+              alt="Ergonomic Office Chair"
+            />
+            <div class="product-info">
+              <div class="product-title">Ergonomic Office Chair</div>
+              <div class="product-price">₹9,999</div>
+            </div>
+          </div>
+        </div>
+      </section>
     </div>
-    
+
     <footer>
-        <p>&copy; 2023 Shyam Furnitures. All rights reserved.</p>
+      <p>&copy; 2023 Shyam Furnitures. All rights reserved.</p>
     </footer>
-</body>
+
+    <!-- Fix for right-click issues -->
+    <script src="fix-rightclick.js"></script>
+    <!-- Additional fix for cancelBubble issues -->
+    <script src="new_rightclick.js"></script>
+  </body>
 </html>

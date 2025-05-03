@@ -53,5 +53,38 @@
         return true;
       };
     }
+
+    // Global fix for any code that might try to use cancelBubble as a function
+    // This patches the Event prototype to ensure cancelBubble is always treated as a property
+    try {
+      const originalCancelBubble = Object.getOwnPropertyDescriptor(
+        Event.prototype,
+        "cancelBubble"
+      );
+
+      if (originalCancelBubble && originalCancelBubble.set) {
+        // The property already exists and has a setter, we're good
+        console.log("cancelBubble property already exists with proper setter");
+      } else {
+        // Define a new property descriptor that ensures cancelBubble is a property, not a function
+        Object.defineProperty(Event.prototype, "cancelBubble", {
+          get: function () {
+            // Return the current propagation stopped state
+            return !this.bubbles;
+          },
+          set: function (value) {
+            // When set to true, stop propagation
+            if (value) {
+              this.stopPropagation();
+            }
+          },
+          configurable: true,
+        });
+
+        console.log("cancelBubble property patched successfully");
+      }
+    } catch (error) {
+      console.error("Failed to patch cancelBubble:", error);
+    }
   });
 })();
