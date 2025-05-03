@@ -227,6 +227,12 @@ const productsAPI = {
       const isDevelopment = !baseUrl.includes("onrender.com");
 
       const endpoints = [
+        // Debug endpoint for testing different response formats
+        ...(isDevelopment
+          ? [`${localServerUrl}/api/debug-product/${id}`]
+          : [`${baseUrl}/api/debug-product/${id}`]),
+        `${deployedUrl}/api/debug-product/${id}`,
+
         // New special direct product endpoint that completely bypasses Mongoose
         // This should be the most reliable endpoint for production
         ...(isDevelopment

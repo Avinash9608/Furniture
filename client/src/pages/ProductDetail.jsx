@@ -328,6 +328,50 @@ const ProductDetail = () => {
 
         console.log(`Fetching product details for ID: ${id}`);
 
+        // Check if we have preloaded product data from the server
+        if (
+          window.__PRELOADED_PRODUCT_DATA__ &&
+          window.__PRELOADED_PRODUCT_DATA__.data
+        ) {
+          console.log(
+            "Using preloaded product data:",
+            window.__PRELOADED_PRODUCT_DATA__
+          );
+
+          const preloadedData = window.__PRELOADED_PRODUCT_DATA__.data;
+
+          // Create a safe product from the preloaded data
+          const safeProduct = {
+            ...preloadedData,
+            name: preloadedData.name || "Unknown Product",
+            description:
+              preloadedData.description || "No description available",
+            price: preloadedData.price || 0,
+            discountPrice: preloadedData.discountPrice || null,
+            stock: preloadedData.stock || 0,
+            ratings: preloadedData.ratings || 0,
+            numReviews: preloadedData.numReviews || 0,
+            images: Array.isArray(preloadedData.images)
+              ? preloadedData.images
+              : [],
+            category: preloadedData.category || null,
+            reviews: Array.isArray(preloadedData.reviews)
+              ? preloadedData.reviews
+              : [],
+            specifications: Array.isArray(preloadedData.specifications)
+              ? preloadedData.specifications
+              : [],
+          };
+
+          setProduct(safeProduct);
+          setLoading(false);
+
+          // Clear the preloaded data to avoid using it again
+          window.__PRELOADED_PRODUCT_DATA__ = null;
+
+          return;
+        }
+
         // Add retry logic at the component level
         let retryCount = 0;
         const maxRetries = 3;
@@ -364,14 +408,37 @@ const ProductDetail = () => {
           }
         }
 
-        // Check if we have valid product data
-        if (!response || !response.data || !response.data.data) {
+        // Check if we have valid product data and handle different response formats
+        let productData = null;
+
+        if (response && response.data) {
+          if (response.data.data) {
+            // Standard API response format
+            productData = response.data.data;
+            console.log(
+              "Product data received from standard format:",
+              productData
+            );
+          } else if (response.data.success && response.data.data) {
+            // Direct API response format
+            productData = response.data.data;
+            console.log(
+              "Product data received from direct API format:",
+              productData
+            );
+          } else if (typeof response.data === "object" && response.data._id) {
+            // Direct object response
+            productData = response.data;
+            console.log("Product data received as direct object:", productData);
+          }
+        }
+
+        if (!productData) {
           console.error("Invalid product data received:", response);
           throw new Error("Product data is invalid or missing");
         }
 
-        const productData = response.data.data;
-        console.log("Product data received:", productData);
+        console.log("Final product data to use:", productData);
 
         // Check if this is a mock product due to database timeout
         if (productData.__isMock) {
