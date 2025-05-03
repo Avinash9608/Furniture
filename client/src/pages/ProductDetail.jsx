@@ -73,6 +73,89 @@ const ProductDetail = () => {
     }
   };
 
+  // Function to debug product details
+  const debugProductDetails = async () => {
+    try {
+      setLoading(true);
+      setError("Debugging product details...");
+
+      // Determine if we're in development or production
+      const baseUrl = window.location.origin;
+      const isDevelopment = !baseUrl.includes("onrender.com");
+      const localServerUrl = "http://localhost:5000";
+
+      // Use the appropriate URL based on environment
+      const debugUrl = isDevelopment
+        ? `${localServerUrl}/api/debug/product/${id}`
+        : `${baseUrl}/api/debug/product/${id}`;
+
+      console.log("Debugging product details at:", debugUrl);
+
+      // Make the request
+      const response = await axios.get(debugUrl, { timeout: 60000 });
+
+      console.log("Product debug response:", response.data);
+
+      if (response.data && response.data.success) {
+        const results = response.data.results;
+        const connectionState = results.connectionState;
+        const methods = results.methods;
+        const errors = results.errors;
+
+        // Build a detailed debug message
+        let debugInfo = `MongoDB connection state: ${
+          connectionState === 1 ? "Connected" : "Not connected"
+        }\n`;
+        debugInfo += `Product ID: ${id}\n\n`;
+
+        // Add method results
+        debugInfo += "Query methods:\n";
+        for (const [method, result] of Object.entries(methods)) {
+          debugInfo += `- ${method}: ${result.success ? "Success" : "Failed"}`;
+          if (result.success && result.data) {
+            debugInfo += ` (Found: ${result.data.name})`;
+          } else if (!result.success && result.error) {
+            debugInfo += ` (Error: ${result.error})`;
+          }
+          debugInfo += "\n";
+        }
+
+        // Add errors
+        if (errors && errors.length > 0) {
+          debugInfo += "\nErrors:\n";
+          errors.forEach((error) => {
+            debugInfo += `- ${error}\n`;
+          });
+        }
+
+        // Show the debug info
+        setError(debugInfo);
+
+        // If we found a product with any method, try to load it
+        const successfulMethod = Object.entries(methods).find(
+          ([_, result]) => result.success && result.data
+        );
+        if (successfulMethod) {
+          const [methodName, result] = successfulMethod;
+          setError(
+            `Found product with method ${methodName}. Trying to load full details...`
+          );
+
+          // Try to load the product
+          await testProductDetails();
+        }
+      } else {
+        setError(
+          `Product debug failed: ${response.data.error || "Unknown error"}`
+        );
+      }
+    } catch (error) {
+      console.error("Product debug failed:", error);
+      setError(`Product debug failed: ${error.message}`);
+      setLoading(false);
+    }
+  };
+
   // Function to test database collections
   const testDatabaseCollections = async () => {
     try {
@@ -402,7 +485,7 @@ const ProductDetail = () => {
           {(window.location.origin.includes("onrender.com") ||
             error.includes("Failed to load") ||
             error.includes("timed out")) && (
-            <div className="flex flex-col sm:flex-row gap-3">
+            <div className="flex flex-col sm:flex-row gap-3 flex-wrap justify-center">
               <Button
                 onClick={testMongoDbHealth}
                 variant="secondary"
@@ -467,6 +550,28 @@ const ProductDetail = () => {
                   ></path>
                 </svg>
                 Test Product Details
+              </Button>
+
+              <Button
+                onClick={debugProductDetails}
+                variant="primary"
+                size="small"
+              >
+                <svg
+                  className="w-4 h-4 mr-2"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"
+                  ></path>
+                </svg>
+                Debug Product Details
               </Button>
             </div>
           )}
