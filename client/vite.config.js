@@ -58,6 +58,8 @@ export default defineConfig(({ command, mode }) => ({
         format: "es",
         manualChunks: undefined,
       },
+      // Explicitly mark react-toastify as external to prevent build errors
+      external: ["react-toastify"],
     },
   },
   resolve: {

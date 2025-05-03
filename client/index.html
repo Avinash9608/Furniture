@@ -17,6 +17,41 @@
     <title>Shyam Furnitures | Quality Furniture in Sharsha, Bihar</title>
     <!-- Fix for right-click issues -->
     <script src="/fix-rightclick.js"></script>
+
+    <!-- Make react-toastify available globally -->
+    <script>
+      window.addEventListener("load", function () {
+        // Make react-toastify available globally if it's loaded
+        if (window.ReactToastify === undefined) {
+          try {
+            // Try to find the toast instance from react-toastify
+            const toastContainers = document.querySelectorAll(".Toastify");
+            if (toastContainers.length > 0) {
+              // Create a global reference
+              window.ReactToastify = {
+                toast: {
+                  warning: function (message) {
+                    console.warn("Toast warning:", message);
+                  },
+                  error: function (message) {
+                    console.error("Toast error:", message);
+                  },
+                  success: function (message) {
+                    console.log("Toast success:", message);
+                  },
+                  info: function (message) {
+                    console.log("Toast info:", message);
+                  },
+                },
+              };
+              console.log("Created global ReactToastify reference");
+            }
+          } catch (e) {
+            console.warn("Could not create global ReactToastify reference:", e);
+          }
+        }
+      });
+    </script>
   </head>
   <body>
     <div id="root"></div>
