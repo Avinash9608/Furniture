@@ -1103,6 +1103,14 @@ if (!staticPath) {
     app.put("/api/direct/products/:id", updateProduct);
     app.delete("/api/direct/products/:id", deleteProduct);
 
+    // Special direct product details route that completely bypasses Mongoose
+    // This route is specifically designed to handle the timeout issues
+    const directProductDetails = require("./server/controllers/directProductDetails");
+    app.get("/api/direct-product/:id", directProductDetails.getProductById);
+
+    // Also add the route for the product page URL pattern
+    app.get("/products/:id", directProductDetails.getProductById);
+
     // Direct API routes for categories
     app.get("/api/direct/categories", getAllCategories);
     app.get("/api/direct/categories/:id", getCategoryById);

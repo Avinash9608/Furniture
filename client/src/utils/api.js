@@ -227,7 +227,14 @@ const productsAPI = {
       const isDevelopment = !baseUrl.includes("onrender.com");
 
       const endpoints = [
-        // Direct endpoints first (most reliable)
+        // New special direct product endpoint that completely bypasses Mongoose
+        // This should be the most reliable endpoint for production
+        ...(isDevelopment
+          ? [`${localServerUrl}/api/direct-product/${id}`]
+          : [`${baseUrl}/api/direct-product/${id}`]),
+        `${deployedUrl}/api/direct-product/${id}`,
+
+        // Direct endpoints next
         ...(isDevelopment
           ? [`${localServerUrl}/api/direct/products/${id}`]
           : [`${baseUrl}/api/direct/products/${id}`]),
