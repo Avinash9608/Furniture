@@ -1,11 +1,11 @@
 /**
  * Enhanced Contact API
- * 
+ *
  * This module provides robust contact form submission with multiple fallback mechanisms
  * for handling MongoDB connection issues in both development and production environments.
  */
 
-import axios from 'axios';
+import axios from "axios";
 
 // Create a contact message with enhanced error handling
 export const createContact = async (contactData) => {
@@ -16,12 +16,12 @@ export const createContact = async (contactData) => {
     console.log("Current origin:", baseUrl);
     const deployedUrl = "https://furniture-q3nb.onrender.com";
 
-    // Create a new axios instance without baseURL
+    // Create a new axios instance without baseURL and with increased timeout
     const directApi = axios.create({
-      timeout: 60000, // Increased timeout to 60 seconds
+      timeout: 300000, // Increased timeout to 300 seconds (5 minutes)
       headers: {
         "Content-Type": "application/json",
-        "Accept": "application/json",
+        Accept: "application/json",
       },
     });
 
@@ -82,7 +82,10 @@ export const createContact = async (contactData) => {
           // Even if status is 500, try to extract useful information
           if (error.response.data.message || error.response.data.error) {
             return {
-              error: error.response.data.message || error.response.data.error || "Failed to send message",
+              error:
+                error.response.data.message ||
+                error.response.data.error ||
+                "Failed to send message",
               data: null,
             };
           }

@@ -563,8 +563,8 @@ if (!staticPath) {
     const paymentSettingsRoutes = require("./server/routes/paymentSettings");
     const paymentRequestsRoutes = require("./server/routes/paymentRequests");
 
-    // Import enhanced contact controller for robust error handling
-    const contactController = require("./server/controllers/enhancedContact");
+    // Import final contact controller for direct MongoDB connection
+    const contactController = require("./server/controllers/finalContactController");
 
     // Import admin controllers directly
     const {
