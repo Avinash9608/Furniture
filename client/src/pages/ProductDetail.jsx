@@ -14,16 +14,21 @@ import Loading from "../components/Loading";
 import Alert from "../components/Alert";
 import Button from "../components/Button";
 import ProductCard from "../components/ProductCard";
+import ProductDetailFallback from "../components/ProductDetailFallback";
 
 const ProductDetail = () => {
   const { id } = useParams();
   const { addToCart } = useCart();
   const { isAuthenticated } = useAuth();
 
+  // These states will be managed by the ProductDetailFallback component
+  // but we keep them here for compatibility with the rest of the component
   const [product, setProduct] = useState(null);
   const [relatedProducts, setRelatedProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // These states are still managed directly by this component
   const [quantity, setQuantity] = useState(1);
   const [selectedImage, setSelectedImage] = useState(0);
   const [reviewForm, setReviewForm] = useState({
@@ -33,6 +38,9 @@ const ProductDetail = () => {
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [reviewError, setReviewError] = useState(null);
   const [reviewSuccess, setReviewSuccess] = useState(null);
+
+  // Track the data source for debugging
+  const [dataSource, setDataSource] = useState(null);
 
   // Function to test MongoDB connection health
   const testMongoDbHealth = async () => {
@@ -798,585 +806,733 @@ const ProductDetail = () => {
     );
   }
 
+  // Use our new ProductDetailFallback component to handle all the data fetching
   return (
-    <div className="theme-bg-primary py-8">
-      <div className="container-custom">
-        {/* Breadcrumbs */}
-        <nav className="flex mb-6 text-sm">
-          <Link to="/" className="theme-text-secondary hover:text-primary">
-            Home
-          </Link>
-          <span className="mx-2 theme-text-secondary">/</span>
-          <Link
-            to="/products"
-            className="theme-text-secondary hover:text-primary"
-          >
-            Products
-          </Link>
-          <span className="mx-2 theme-text-secondary">/</span>
-          {product.category ? (
-            typeof product.category === "object" && product.category.name ? (
-              <Link
-                to={`/products?category=${
-                  product.category._id || product.category.slug || ""
-                }`}
-                className="theme-text-secondary hover:text-primary"
-              >
-                {product.category.name}
-              </Link>
-            ) : typeof product.category === "string" ? (
-              <Link
-                to={`/products?category=${product.category}`}
-                className="theme-text-secondary hover:text-primary"
-              >
-                {getCategoryNameFromId(product.category)}
-              </Link>
-            ) : (
-              <span className="theme-text-secondary">Uncategorized</span>
-            )
-          ) : (
-            <span className="theme-text-secondary">Uncategorized</span>
-          )}
-          <span className="mx-2 theme-text-secondary">/</span>
-          <span className="theme-text-primary font-medium">{product.name}</span>
-        </nav>
+    <ProductDetailFallback
+      onProductLoaded={(loadedProduct, source) => {
+        console.log(`Product loaded from source: ${source}`, loadedProduct);
+        setProduct(loadedProduct);
+        setLoading(false);
+        setDataSource(source);
 
-        {/* Product Details */}
-        <div className="theme-bg-primary rounded-lg shadow-md overflow-hidden">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 p-6">
-            {/* Product Images */}
-            <div>
-              <div className="relative h-80 md:h-96 rounded-lg overflow-hidden mb-4">
-                {/* Main Product Image with defensive coding */}
-                <img
-                  src={
-                    product &&
-                    product.images &&
-                    Array.isArray(product.images) &&
-                    product.images.length > 0 &&
-                    selectedImage < product.images.length
-                      ? getImageUrl(product.images[selectedImage])
-                      : "https://placehold.co/800x600/gray/white?text=Product"
-                  }
-                  alt={(product && product.name) || "Product"}
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    console.log("Image load error:", e.target.src);
-                    e.target.onerror = null;
-                    e.target.src =
-                      "https://placehold.co/800x600/gray/white?text=Image+Not+Found";
-                  }}
-                />
-              </div>
+        // Try to fetch related products if we have a category
+        const categoryId =
+          loadedProduct.category && typeof loadedProduct.category === "object"
+            ? loadedProduct.category._id
+            : typeof loadedProduct.category === "string"
+            ? loadedProduct.category
+            : null;
 
-              {/* Thumbnail Gallery with defensive coding */}
-              {product &&
-                product.images &&
-                Array.isArray(product.images) &&
-                product.images.length > 1 && (
-                  <div className="flex space-x-2 overflow-x-auto pb-2">
-                    {product.images.map((image, index) => (
-                      <div
-                        key={index}
-                        className={`w-20 h-20 rounded-md overflow-hidden cursor-pointer border-2 ${
-                          selectedImage === index
-                            ? "border-primary"
-                            : "border-transparent"
-                        }`}
-                        onClick={() => setSelectedImage(index)}
-                      >
-                        <img
-                          src={getImageUrl(image)}
-                          alt={`${
-                            (product && product.name) || "Product"
-                          } - Image ${index + 1}`}
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            console.log("Thumbnail load error:", e.target.src);
-                            e.target.onerror = null;
-                            e.target.src =
-                              "https://placehold.co/100x100/gray/white?text=Image+Not+Found";
-                          }}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                )}
-            </div>
-
-            {/* Product Info */}
-            <div>
-              <h1 className="text-2xl md:text-3xl font-serif font-bold mb-2 theme-text-primary">
-                {product && product.name ? product.name : "Product"}
-              </h1>
-
-              <div className="flex items-center mb-4">
-                {/* Rating Stars with defensive coding */}
-                <div className="flex">
-                  {[...Array(5)].map((_, index) => (
-                    <svg
-                      key={index}
-                      className={`w-5 h-5 ${
-                        product &&
-                        product.ratings &&
-                        index < Math.round(product.ratings)
-                          ? "text-yellow-400"
-                          : "text-gray-300"
-                      }`}
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path>
-                    </svg>
-                  ))}
+        if (categoryId) {
+          productsAPI
+            .getAll({
+              category: categoryId,
+              limit: 3,
+            })
+            .then((response) => {
+              if (
+                response &&
+                response.data &&
+                Array.isArray(response.data.data)
+              ) {
+                // Filter out the current product
+                const filteredRelated = response.data.data.filter(
+                  (item) => item && item._id !== loadedProduct._id
+                );
+                setRelatedProducts(filteredRelated);
+              }
+            })
+            .catch((error) => {
+              console.error("Error fetching related products:", error);
+            });
+        }
+      }}
+      onError={(errorMessage) => {
+        console.error("Error loading product:", errorMessage);
+        setError(errorMessage);
+        setLoading(false);
+      }}
+    >
+      {({
+        product: fallbackProduct,
+        loading: fallbackLoading,
+        error: fallbackError,
+        source,
+      }) => {
+        // If we're still loading, show the loading spinner
+        if (fallbackLoading) {
+          return (
+            <div className="theme-bg-primary py-8">
+              <div className="container-custom">
+                <div className="flex flex-col items-center justify-center py-12">
+                  <Loading />
+                  <p className="mt-4 text-lg theme-text-primary">
+                    Loading product details...
+                  </p>
                 </div>
-
-                <span className="theme-text-secondary ml-2">
-                  {product && typeof product.ratings === "number"
-                    ? `${product.ratings.toFixed(1)} (${
-                        product.numReviews || 0
-                      } reviews)`
-                    : "0.0 (0 reviews)"}
-                </span>
               </div>
+            </div>
+          );
+        }
 
-              {/* Price with defensive coding */}
-              <div className="mb-6">
-                {product &&
-                product.discountPrice &&
-                product.price &&
-                product.discountPrice < product.price ? (
-                  <div className="flex flex-wrap items-center">
-                    <span className="text-3xl font-bold text-primary mr-3">
-                      {formatPrice(product.discountPrice)}
-                    </span>
-                    <div>
-                      <span className="text-lg theme-text-secondary line-through block">
-                        {formatPrice(product.price)}
-                      </span>
-                      <span className="bg-red-100 text-red-800 text-xs font-medium px-2 py-0.5 rounded inline-block mt-1">
-                        {calculateDiscountPercentage(
-                          product.price,
-                          product.discountPrice
-                        )}
-                        % OFF
-                      </span>
-                    </div>
-                  </div>
-                ) : (
-                  <span className="text-3xl font-bold text-primary">
-                    {formatPrice(product && product.price ? product.price : 0)}
-                  </span>
-                )}
+        // If there's an error and no product, show the error
+        if (fallbackError && !fallbackProduct) {
+          return (
+            <div className="theme-bg-primary py-8">
+              <div className="container-custom">
+                <div className="theme-bg-secondary rounded-lg shadow-md p-6 text-center">
+                  <h2 className="text-2xl font-bold mb-4 theme-text-primary">
+                    Error Loading Product
+                  </h2>
+                  <p className="theme-text-primary mb-6">{fallbackError}</p>
+                  <Link to="/products" className="text-primary hover:underline">
+                    Back to Products
+                  </Link>
+                </div>
               </div>
+            </div>
+          );
+        }
 
-              {/* Stock Status with defensive coding */}
-              <div className="mb-6">
-                {product && product.stock && product.stock > 0 ? (
-                  <span className="bg-green-100 text-green-800 text-sm font-medium px-2.5 py-0.5 rounded">
-                    In Stock ({product.stock} available)
-                  </span>
-                ) : (
-                  <span className="bg-red-100 text-red-800 text-sm font-medium px-2.5 py-0.5 rounded">
-                    Out of Stock
-                  </span>
-                )}
-              </div>
+        // Use the fallback product if our state doesn't have one yet
+        const displayProduct = product || fallbackProduct;
 
-              {/* Short Description with defensive coding */}
-              <div className="mb-6">
-                <p className="theme-text-primary">
-                  {product && product.description
-                    ? product.description.split(".")[0]
-                    : "No description available"}
-                </p>
-              </div>
-
-              {/* Quantity Selector with defensive coding */}
-              {product && product.stock && product.stock > 0 && (
-                <div className="mb-6">
-                  <label className="block theme-text-primary font-medium mb-2">
-                    Quantity
-                  </label>
-                  <div className="flex items-center">
-                    <button
-                      onClick={() => handleQuantityChange(-1)}
-                      className="theme-bg-secondary theme-text-primary hover:bg-gray-300 h-10 w-10 rounded-l-md flex items-center justify-center"
-                    >
-                      <svg
-                        className="w-4 h-4"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                        xmlns="http://www.w3.org/2000/svg"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth="2"
-                          d="M20 12H4"
-                        ></path>
-                      </svg>
-                    </button>
-                    <input
-                      type="number"
-                      min="1"
-                      max={product.stock}
-                      value={quantity}
-                      onChange={(e) =>
-                        setQuantity(parseInt(e.target.value) || 1)
-                      }
-                      className="h-10 w-16 border-y theme-border theme-bg-primary theme-text-primary text-center"
-                    />
-                    <button
-                      onClick={() => handleQuantityChange(1)}
-                      className="theme-bg-secondary theme-text-primary hover:bg-gray-300 h-10 w-10 rounded-r-md flex items-center justify-center"
-                    >
-                      <svg
-                        className="w-4 h-4"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                        xmlns="http://www.w3.org/2000/svg"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth="2"
-                          d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                        ></path>
-                      </svg>
-                    </button>
-                  </div>
+        // If we have a product, show the product details
+        return (
+          <div className="theme-bg-primary py-8">
+            <div className="container-custom">
+              {/* Data source indicator for debugging */}
+              {source && (
+                <div className="mb-2 text-xs theme-text-secondary">
+                  Data source: {source}
                 </div>
               )}
 
-              {/* Add to Cart Button with defensive coding */}
-              <div className="flex flex-wrap gap-4 mb-6">
-                <Button
-                  onClick={handleAddToCart}
-                  disabled={!product || !product.stock || product.stock === 0}
-                  className="flex-grow sm:flex-grow-0"
-                >
-                  <svg
-                    className="w-5 h-5 mr-2"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"
-                    ></path>
-                  </svg>
-                  Add to Cart
-                </Button>
-
-                <Button variant="outline" className="flex-grow sm:flex-grow-0">
-                  <svg
-                    className="w-5 h-5 mr-2"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
-                    ></path>
-                  </svg>
-                  Add to Wishlist
-                </Button>
-              </div>
-
-              {/* Product Specifications with defensive coding */}
-              <div className="border-t border-gray-200 pt-4">
-                <h3 className="text-lg font-medium mb-2">Specifications</h3>
-                <ul className="space-y-2 text-sm">
-                  {/* Check for specifications array first */}
-                  {product &&
-                  product.specifications &&
-                  Array.isArray(product.specifications) &&
-                  product.specifications.length > 0 ? (
-                    // Render from specifications array
-                    product.specifications.map((spec, index) => (
-                      <li key={`spec-${index}`} className="flex">
-                        <span className="font-medium w-24">
-                          {spec.name || "Spec"}:
-                        </span>
-                        <span className="theme-text-primary">
-                          {spec.value || ""}
-                        </span>
-                      </li>
-                    ))
-                  ) : (
-                    // Fallback to individual properties
-                    <>
-                      {product && product.material && (
-                        <li className="flex">
-                          <span className="font-medium w-24">Material:</span>
-                          <span className="theme-text-primary">
-                            {product.material}
-                          </span>
-                        </li>
-                      )}
-                      {product && product.color && (
-                        <li className="flex">
-                          <span className="font-medium w-24">Color:</span>
-                          <span className="theme-text-primary">
-                            {product.color}
-                          </span>
-                        </li>
-                      )}
-                      {product &&
-                        product.dimensions &&
-                        typeof product.dimensions === "object" && (
-                          <li className="flex">
-                            <span className="font-medium w-24">
-                              Dimensions:
-                            </span>
-                            <span className="theme-text-primary">
-                              {product.dimensions.length || 0} x{" "}
-                              {product.dimensions.width || 0} x{" "}
-                              {product.dimensions.height || 0} cm
-                            </span>
-                          </li>
-                        )}
-                    </>
-                  )}
-                  {/* Always show category */}
-                  <li className="flex">
-                    <span className="font-medium w-24">Category:</span>
-                    {product && product.category ? (
-                      typeof product.category === "object" &&
-                      product.category.name ? (
-                        <Link
-                          to={`/products?category=${
-                            product.category._id || product.category.slug || ""
-                          }`}
-                          className="text-primary hover:underline"
-                        >
-                          {product.category.name}
-                        </Link>
-                      ) : typeof product.category === "string" ? (
-                        <Link
-                          to={`/products?category=${product.category}`}
-                          className="text-primary hover:underline"
-                        >
-                          {getCategoryNameFromId(product.category)}
-                        </Link>
-                      ) : (
-                        <span className="theme-text-primary">
-                          Uncategorized
-                        </span>
-                      )
-                    ) : (
-                      <span className="theme-text-primary">Uncategorized</span>
-                    )}
-                  </li>
-                </ul>
-              </div>
-            </div>
-          </div>
-
-          {/* Product Description and Reviews Tabs */}
-          <div className="border-t border-gray-200">
-            <div className="p-6">
-              <div className="mb-8">
-                <h2 className="text-xl font-serif font-bold mb-4">
-                  Description
-                </h2>
-                <div className="prose max-w-none theme-text-primary">
-                  <p>{product.description || "No description available"}</p>
+              {/* Error message if there is one */}
+              {(error || fallbackError) && (
+                <div className="mb-4 p-3 bg-yellow-100 text-yellow-800 rounded-md">
+                  {error || fallbackError}
                 </div>
-              </div>
+              )}
 
-              {/* Reviews Section */}
-              <div>
-                <h2 className="text-xl font-serif font-bold mb-4">
-                  Reviews (
-                  {product.reviews && Array.isArray(product.reviews)
-                    ? product.reviews.length
-                    : 0}
-                  )
-                </h2>
-
-                {/* Review Form */}
-                <div className="theme-bg-secondary rounded-lg p-4 mb-6">
-                  <h3 className="text-lg font-medium mb-2">Write a Review</h3>
-
-                  {reviewSuccess && (
-                    <Alert
-                      type="success"
-                      message={reviewSuccess}
-                      onClose={() => setReviewSuccess(null)}
-                    />
-                  )}
-
-                  {reviewError && (
-                    <Alert
-                      type="error"
-                      message={reviewError}
-                      onClose={() => setReviewError(null)}
-                    />
-                  )}
-
-                  {!isAuthenticated ? (
-                    <div className="text-center py-4">
-                      <p className="theme-text-primary mb-2">
-                        Please login to write a review
-                      </p>
-                      <Link
-                        to="/login"
-                        className="text-primary hover:underline font-medium"
-                      >
-                        Login here
-                      </Link>
-                    </div>
+              {/* Breadcrumbs */}
+              <nav className="flex mb-6 text-sm">
+                <Link
+                  to="/"
+                  className="theme-text-secondary hover:text-primary"
+                >
+                  Home
+                </Link>
+                <span className="mx-2 theme-text-secondary">/</span>
+                <Link
+                  to="/products"
+                  className="theme-text-secondary hover:text-primary"
+                >
+                  Products
+                </Link>
+                <span className="mx-2 theme-text-secondary">/</span>
+                {displayProduct.category ? (
+                  typeof displayProduct.category === "object" &&
+                  displayProduct.category.name ? (
+                    <Link
+                      to={`/products?category=${
+                        displayProduct.category._id ||
+                        displayProduct.category.slug ||
+                        ""
+                      }`}
+                      className="theme-text-secondary hover:text-primary"
+                    >
+                      {displayProduct.category.name}
+                    </Link>
+                  ) : typeof displayProduct.category === "string" ? (
+                    <Link
+                      to={`/products?category=${displayProduct.category}`}
+                      className="theme-text-secondary hover:text-primary"
+                    >
+                      {getCategoryNameFromId(displayProduct.category)}
+                    </Link>
                   ) : (
-                    <form onSubmit={handleReviewSubmit}>
-                      <div className="mb-4">
-                        <label className="block theme-text-primary font-medium mb-2">
-                          Rating
-                        </label>
-                        <div className="flex">
-                          {[5, 4, 3, 2, 1].map((rating) => (
-                            <label key={rating} className="mr-4 cursor-pointer">
-                              <input
-                                type="radio"
-                                name="rating"
-                                value={rating}
-                                checked={parseInt(reviewForm.rating) === rating}
-                                onChange={handleReviewFormChange}
-                                className="sr-only"
+                    <span className="theme-text-secondary">Uncategorized</span>
+                  )
+                ) : (
+                  <span className="theme-text-secondary">Uncategorized</span>
+                )}
+                <span className="mx-2 theme-text-secondary">/</span>
+                <span className="theme-text-primary font-medium">
+                  {displayProduct.name}
+                </span>
+              </nav>
+
+              {/* Product Details */}
+              <div className="theme-bg-primary rounded-lg shadow-md overflow-hidden">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 p-6">
+                  {/* Product Images */}
+                  <div>
+                    <div className="relative h-80 md:h-96 rounded-lg overflow-hidden mb-4">
+                      {/* Main Product Image with defensive coding */}
+                      <img
+                        src={
+                          product &&
+                          product.images &&
+                          Array.isArray(product.images) &&
+                          product.images.length > 0 &&
+                          selectedImage < product.images.length
+                            ? getImageUrl(product.images[selectedImage])
+                            : "https://placehold.co/800x600/gray/white?text=Product"
+                        }
+                        alt={(product && product.name) || "Product"}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          console.log("Image load error:", e.target.src);
+                          e.target.onerror = null;
+                          e.target.src =
+                            "https://placehold.co/800x600/gray/white?text=Image+Not+Found";
+                        }}
+                      />
+                    </div>
+
+                    {/* Thumbnail Gallery with defensive coding */}
+                    {product &&
+                      product.images &&
+                      Array.isArray(product.images) &&
+                      product.images.length > 1 && (
+                        <div className="flex space-x-2 overflow-x-auto pb-2">
+                          {product.images.map((image, index) => (
+                            <div
+                              key={index}
+                              className={`w-20 h-20 rounded-md overflow-hidden cursor-pointer border-2 ${
+                                selectedImage === index
+                                  ? "border-primary"
+                                  : "border-transparent"
+                              }`}
+                              onClick={() => setSelectedImage(index)}
+                            >
+                              <img
+                                src={getImageUrl(image)}
+                                alt={`${
+                                  (product && product.name) || "Product"
+                                } - Image ${index + 1}`}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  console.log(
+                                    "Thumbnail load error:",
+                                    e.target.src
+                                  );
+                                  e.target.onerror = null;
+                                  e.target.src =
+                                    "https://placehold.co/100x100/gray/white?text=Image+Not+Found";
+                                }}
                               />
-                              <div className="flex items-center">
-                                <svg
-                                  className={`w-8 h-8 ${
-                                    parseInt(reviewForm.rating) >= rating
-                                      ? "text-yellow-400"
-                                      : "text-gray-300"
-                                  }`}
-                                  fill="currentColor"
-                                  viewBox="0 0 20 20"
-                                  xmlns="http://www.w3.org/2000/svg"
-                                >
-                                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path>
-                                </svg>
-                                <span className="ml-1">{rating}</span>
-                              </div>
-                            </label>
+                            </div>
                           ))}
                         </div>
-                      </div>
-
-                      <div className="mb-4">
-                        <label
-                          htmlFor="comment"
-                          className="block theme-text-primary font-medium mb-2"
-                        >
-                          Your Review
-                        </label>
-                        <textarea
-                          id="comment"
-                          name="comment"
-                          rows="4"
-                          value={reviewForm.comment}
-                          onChange={handleReviewFormChange}
-                          className="w-full border theme-border theme-bg-primary theme-text-primary rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-primary"
-                          placeholder="Share your experience with this product..."
-                          required
-                        ></textarea>
-                      </div>
-
-                      <Button
-                        type="submit"
-                        disabled={reviewSubmitting}
-                        className="w-full md:w-auto"
-                      >
-                        {reviewSubmitting ? "Submitting..." : "Submit Review"}
-                      </Button>
-                    </form>
-                  )}
-                </div>
-
-                {/* Reviews List */}
-                {!product.reviews ||
-                !Array.isArray(product.reviews) ||
-                product.reviews.length === 0 ? (
-                  <div className="text-center py-8 theme-text-secondary">
-                    No reviews yet. Be the first to review this product!
+                      )}
                   </div>
-                ) : (
-                  <div className="space-y-6">
-                    {product.reviews.map((review, index) => (
-                      <div
-                        key={review._id || `review-${index}`}
-                        className="border-b border-gray-200 pb-6 last:border-b-0"
-                      >
-                        <div className="flex items-center mb-2">
-                          <div className="font-medium">
-                            {review.name || "Anonymous"}
-                          </div>
-                          <span className="mx-2 text-gray-300">•</span>
-                          <div className="text-sm theme-text-secondary">
-                            {review.createdAt
-                              ? new Date(review.createdAt).toLocaleDateString()
-                              : "Unknown date"}
+
+                  {/* Product Info */}
+                  <div>
+                    <h1 className="text-2xl md:text-3xl font-serif font-bold mb-2 theme-text-primary">
+                      {product && product.name ? product.name : "Product"}
+                    </h1>
+
+                    <div className="flex items-center mb-4">
+                      {/* Rating Stars with defensive coding */}
+                      <div className="flex">
+                        {[...Array(5)].map((_, index) => (
+                          <svg
+                            key={index}
+                            className={`w-5 h-5 ${
+                              product &&
+                              product.ratings &&
+                              index < Math.round(product.ratings)
+                                ? "text-yellow-400"
+                                : "text-gray-300"
+                            }`}
+                            fill="currentColor"
+                            viewBox="0 0 20 20"
+                            xmlns="http://www.w3.org/2000/svg"
+                          >
+                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path>
+                          </svg>
+                        ))}
+                      </div>
+
+                      <span className="theme-text-secondary ml-2">
+                        {product && typeof product.ratings === "number"
+                          ? `${product.ratings.toFixed(1)} (${
+                              product.numReviews || 0
+                            } reviews)`
+                          : "0.0 (0 reviews)"}
+                      </span>
+                    </div>
+
+                    {/* Price with defensive coding */}
+                    <div className="mb-6">
+                      {product &&
+                      product.discountPrice &&
+                      product.price &&
+                      product.discountPrice < product.price ? (
+                        <div className="flex flex-wrap items-center">
+                          <span className="text-3xl font-bold text-primary mr-3">
+                            {formatPrice(product.discountPrice)}
+                          </span>
+                          <div>
+                            <span className="text-lg theme-text-secondary line-through block">
+                              {formatPrice(product.price)}
+                            </span>
+                            <span className="bg-red-100 text-red-800 text-xs font-medium px-2 py-0.5 rounded inline-block mt-1">
+                              {calculateDiscountPercentage(
+                                product.price,
+                                product.discountPrice
+                              )}
+                              % OFF
+                            </span>
                           </div>
                         </div>
+                      ) : (
+                        <span className="text-3xl font-bold text-primary">
+                          {formatPrice(
+                            product && product.price ? product.price : 0
+                          )}
+                        </span>
+                      )}
+                    </div>
 
-                        <div className="flex mb-2">
-                          {[...Array(5)].map((_, starIndex) => (
+                    {/* Stock Status with defensive coding */}
+                    <div className="mb-6">
+                      {product && product.stock && product.stock > 0 ? (
+                        <span className="bg-green-100 text-green-800 text-sm font-medium px-2.5 py-0.5 rounded">
+                          In Stock ({product.stock} available)
+                        </span>
+                      ) : (
+                        <span className="bg-red-100 text-red-800 text-sm font-medium px-2.5 py-0.5 rounded">
+                          Out of Stock
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Short Description with defensive coding */}
+                    <div className="mb-6">
+                      <p className="theme-text-primary">
+                        {product && product.description
+                          ? product.description.split(".")[0]
+                          : "No description available"}
+                      </p>
+                    </div>
+
+                    {/* Quantity Selector with defensive coding */}
+                    {product && product.stock && product.stock > 0 && (
+                      <div className="mb-6">
+                        <label className="block theme-text-primary font-medium mb-2">
+                          Quantity
+                        </label>
+                        <div className="flex items-center">
+                          <button
+                            onClick={() => handleQuantityChange(-1)}
+                            className="theme-bg-secondary theme-text-primary hover:bg-gray-300 h-10 w-10 rounded-l-md flex items-center justify-center"
+                          >
                             <svg
-                              key={starIndex}
-                              className={`w-4 h-4 ${
-                                starIndex < (review.rating || 0)
-                                  ? "text-yellow-400"
-                                  : "text-gray-300"
-                              }`}
-                              fill="currentColor"
-                              viewBox="0 0 20 20"
+                              className="w-4 h-4"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
                               xmlns="http://www.w3.org/2000/svg"
                             >
-                              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path>
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth="2"
+                                d="M20 12H4"
+                              ></path>
                             </svg>
-                          ))}
+                          </button>
+                          <input
+                            type="number"
+                            min="1"
+                            max={product.stock}
+                            value={quantity}
+                            onChange={(e) =>
+                              setQuantity(parseInt(e.target.value) || 1)
+                            }
+                            className="h-10 w-16 border-y theme-border theme-bg-primary theme-text-primary text-center"
+                          />
+                          <button
+                            onClick={() => handleQuantityChange(1)}
+                            className="theme-bg-secondary theme-text-primary hover:bg-gray-300 h-10 w-10 rounded-r-md flex items-center justify-center"
+                          >
+                            <svg
+                              className="w-4 h-4"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                              xmlns="http://www.w3.org/2000/svg"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth="2"
+                                d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                              ></path>
+                            </svg>
+                          </button>
                         </div>
+                      </div>
+                    )}
 
-                        <p className="theme-text-primary">
-                          {review.comment || "No comment provided"}
+                    {/* Add to Cart Button with defensive coding */}
+                    <div className="flex flex-wrap gap-4 mb-6">
+                      <Button
+                        onClick={handleAddToCart}
+                        disabled={
+                          !product || !product.stock || product.stock === 0
+                        }
+                        className="flex-grow sm:flex-grow-0"
+                      >
+                        <svg
+                          className="w-5 h-5 mr-2"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                          xmlns="http://www.w3.org/2000/svg"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="2"
+                            d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"
+                          ></path>
+                        </svg>
+                        Add to Cart
+                      </Button>
+
+                      <Button
+                        variant="outline"
+                        className="flex-grow sm:flex-grow-0"
+                      >
+                        <svg
+                          className="w-5 h-5 mr-2"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                          xmlns="http://www.w3.org/2000/svg"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="2"
+                            d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+                          ></path>
+                        </svg>
+                        Add to Wishlist
+                      </Button>
+                    </div>
+
+                    {/* Product Specifications with defensive coding */}
+                    <div className="border-t border-gray-200 pt-4">
+                      <h3 className="text-lg font-medium mb-2">
+                        Specifications
+                      </h3>
+                      <ul className="space-y-2 text-sm">
+                        {/* Check for specifications array first */}
+                        {product &&
+                        product.specifications &&
+                        Array.isArray(product.specifications) &&
+                        product.specifications.length > 0 ? (
+                          // Render from specifications array
+                          product.specifications.map((spec, index) => (
+                            <li key={`spec-${index}`} className="flex">
+                              <span className="font-medium w-24">
+                                {spec.name || "Spec"}:
+                              </span>
+                              <span className="theme-text-primary">
+                                {spec.value || ""}
+                              </span>
+                            </li>
+                          ))
+                        ) : (
+                          // Fallback to individual properties
+                          <>
+                            {product && product.material && (
+                              <li className="flex">
+                                <span className="font-medium w-24">
+                                  Material:
+                                </span>
+                                <span className="theme-text-primary">
+                                  {product.material}
+                                </span>
+                              </li>
+                            )}
+                            {product && product.color && (
+                              <li className="flex">
+                                <span className="font-medium w-24">Color:</span>
+                                <span className="theme-text-primary">
+                                  {product.color}
+                                </span>
+                              </li>
+                            )}
+                            {product &&
+                              product.dimensions &&
+                              typeof product.dimensions === "object" && (
+                                <li className="flex">
+                                  <span className="font-medium w-24">
+                                    Dimensions:
+                                  </span>
+                                  <span className="theme-text-primary">
+                                    {product.dimensions.length || 0} x{" "}
+                                    {product.dimensions.width || 0} x{" "}
+                                    {product.dimensions.height || 0} cm
+                                  </span>
+                                </li>
+                              )}
+                          </>
+                        )}
+                        {/* Always show category */}
+                        <li className="flex">
+                          <span className="font-medium w-24">Category:</span>
+                          {product && product.category ? (
+                            typeof product.category === "object" &&
+                            product.category.name ? (
+                              <Link
+                                to={`/products?category=${
+                                  product.category._id ||
+                                  product.category.slug ||
+                                  ""
+                                }`}
+                                className="text-primary hover:underline"
+                              >
+                                {product.category.name}
+                              </Link>
+                            ) : typeof product.category === "string" ? (
+                              <Link
+                                to={`/products?category=${product.category}`}
+                                className="text-primary hover:underline"
+                              >
+                                {getCategoryNameFromId(product.category)}
+                              </Link>
+                            ) : (
+                              <span className="theme-text-primary">
+                                Uncategorized
+                              </span>
+                            )
+                          ) : (
+                            <span className="theme-text-primary">
+                              Uncategorized
+                            </span>
+                          )}
+                        </li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Product Description and Reviews Tabs */}
+                <div className="border-t border-gray-200">
+                  <div className="p-6">
+                    <div className="mb-8">
+                      <h2 className="text-xl font-serif font-bold mb-4">
+                        Description
+                      </h2>
+                      <div className="prose max-w-none theme-text-primary">
+                        <p>
+                          {product.description || "No description available"}
                         </p>
                       </div>
+                    </div>
+
+                    {/* Reviews Section */}
+                    <div>
+                      <h2 className="text-xl font-serif font-bold mb-4">
+                        Reviews (
+                        {product.reviews && Array.isArray(product.reviews)
+                          ? product.reviews.length
+                          : 0}
+                        )
+                      </h2>
+
+                      {/* Review Form */}
+                      <div className="theme-bg-secondary rounded-lg p-4 mb-6">
+                        <h3 className="text-lg font-medium mb-2">
+                          Write a Review
+                        </h3>
+
+                        {reviewSuccess && (
+                          <Alert
+                            type="success"
+                            message={reviewSuccess}
+                            onClose={() => setReviewSuccess(null)}
+                          />
+                        )}
+
+                        {reviewError && (
+                          <Alert
+                            type="error"
+                            message={reviewError}
+                            onClose={() => setReviewError(null)}
+                          />
+                        )}
+
+                        {!isAuthenticated ? (
+                          <div className="text-center py-4">
+                            <p className="theme-text-primary mb-2">
+                              Please login to write a review
+                            </p>
+                            <Link
+                              to="/login"
+                              className="text-primary hover:underline font-medium"
+                            >
+                              Login here
+                            </Link>
+                          </div>
+                        ) : (
+                          <form onSubmit={handleReviewSubmit}>
+                            <div className="mb-4">
+                              <label className="block theme-text-primary font-medium mb-2">
+                                Rating
+                              </label>
+                              <div className="flex">
+                                {[5, 4, 3, 2, 1].map((rating) => (
+                                  <label
+                                    key={rating}
+                                    className="mr-4 cursor-pointer"
+                                  >
+                                    <input
+                                      type="radio"
+                                      name="rating"
+                                      value={rating}
+                                      checked={
+                                        parseInt(reviewForm.rating) === rating
+                                      }
+                                      onChange={handleReviewFormChange}
+                                      className="sr-only"
+                                    />
+                                    <div className="flex items-center">
+                                      <svg
+                                        className={`w-8 h-8 ${
+                                          parseInt(reviewForm.rating) >= rating
+                                            ? "text-yellow-400"
+                                            : "text-gray-300"
+                                        }`}
+                                        fill="currentColor"
+                                        viewBox="0 0 20 20"
+                                        xmlns="http://www.w3.org/2000/svg"
+                                      >
+                                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path>
+                                      </svg>
+                                      <span className="ml-1">{rating}</span>
+                                    </div>
+                                  </label>
+                                ))}
+                              </div>
+                            </div>
+
+                            <div className="mb-4">
+                              <label
+                                htmlFor="comment"
+                                className="block theme-text-primary font-medium mb-2"
+                              >
+                                Your Review
+                              </label>
+                              <textarea
+                                id="comment"
+                                name="comment"
+                                rows="4"
+                                value={reviewForm.comment}
+                                onChange={handleReviewFormChange}
+                                className="w-full border theme-border theme-bg-primary theme-text-primary rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-primary"
+                                placeholder="Share your experience with this product..."
+                                required
+                              ></textarea>
+                            </div>
+
+                            <Button
+                              type="submit"
+                              disabled={reviewSubmitting}
+                              className="w-full md:w-auto"
+                            >
+                              {reviewSubmitting
+                                ? "Submitting..."
+                                : "Submit Review"}
+                            </Button>
+                          </form>
+                        )}
+                      </div>
+
+                      {/* Reviews List */}
+                      {!displayProduct.reviews ||
+                      !Array.isArray(displayProduct.reviews) ||
+                      displayProduct.reviews.length === 0 ? (
+                        <div className="text-center py-8 theme-text-secondary">
+                          No reviews yet. Be the first to review this product!
+                        </div>
+                      ) : (
+                        <div className="space-y-6">
+                          {displayProduct.reviews.map((review, index) => (
+                            <div
+                              key={review._id || `review-${index}`}
+                              className="border-b border-gray-200 pb-6 last:border-b-0"
+                            >
+                              <div className="flex items-center mb-2">
+                                <div className="font-medium">
+                                  {review.name || "Anonymous"}
+                                </div>
+                                <span className="mx-2 text-gray-300">•</span>
+                                <div className="text-sm theme-text-secondary">
+                                  {review.createdAt
+                                    ? new Date(
+                                        review.createdAt
+                                      ).toLocaleDateString()
+                                    : "Unknown date"}
+                                </div>
+                              </div>
+
+                              <div className="flex mb-2">
+                                {[...Array(5)].map((_, starIndex) => (
+                                  <svg
+                                    key={starIndex}
+                                    className={`w-4 h-4 ${
+                                      starIndex < (review.rating || 0)
+                                        ? "text-yellow-400"
+                                        : "text-gray-300"
+                                    }`}
+                                    fill="currentColor"
+                                    viewBox="0 0 20 20"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                  >
+                                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path>
+                                  </svg>
+                                ))}
+                              </div>
+
+                              <p className="theme-text-primary">
+                                {review.comment || "No comment provided"}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Related Products */}
+              {relatedProducts.length > 0 && (
+                <div className="mt-12">
+                  <h2 className="text-2xl font-serif font-bold mb-6">
+                    Related Products
+                  </h2>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {relatedProducts.map((product) => (
+                      <ProductCard key={product._id} product={product} />
                     ))}
                   </div>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           </div>
-        </div>
-
-        {/* Related Products */}
-        {relatedProducts.length > 0 && (
-          <div className="mt-12">
-            <h2 className="text-2xl font-serif font-bold mb-6">
-              Related Products
-            </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {relatedProducts.map((product) => (
-                <ProductCard key={product._id} product={product} />
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
+        );
+      }}
+    </ProductDetailFallback>
   );
 };
 

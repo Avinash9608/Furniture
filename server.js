@@ -1354,167 +1354,20 @@ if (!staticPath) {
     });
 
     // Special product details endpoint with enhanced error handling
-    app.get("/api/products/:id", async (req, res) => {
+    // This is the legacy route that was causing 500 errors - now it uses our direct controller
+    app.get("/api/products/:id", async (req, res, next) => {
       try {
-        console.log(`Getting product with ID: ${req.params.id}`);
+        console.log(
+          `Legacy /api/products/:id route called for ID: ${req.params.id} - Redirecting to direct controller`
+        );
 
-        // First try to find by ID (either ObjectId or string ID)
-        let product = null;
-        let productId = req.params.id;
-        let errors = [];
-
-        // Import required modules
-        const {
-          findOneDocument,
-          findDocuments,
-        } = require("./server/utils/directDbConnection");
-        const { ObjectId } = require("mongodb");
-
-        // Try to convert to ObjectId if it looks like one
-        let objectIdQuery = null;
-        if (/^[0-9a-fA-F]{24}$/.test(productId)) {
-          try {
-            objectIdQuery = { _id: new ObjectId(productId) };
-            console.log("Trying to find product with ObjectId:", objectIdQuery);
-            product = await findOneDocument("products", objectIdQuery);
-            if (product) {
-              console.log("Product found with ObjectId query");
-            } else {
-              errors.push("ObjectId query returned no results");
-            }
-          } catch (error) {
-            console.log(
-              "Error converting to ObjectId, will try string ID:",
-              error.message
-            );
-            errors.push(`ObjectId query error: ${error.message}`);
-          }
-        }
-
-        // If not found by ObjectId, try string ID
-        if (!product) {
-          try {
-            console.log(
-              "Product not found by ObjectId, trying string ID:",
-              productId
-            );
-            product = await findOneDocument("products", { _id: productId });
-            if (product) {
-              console.log("Product found with string ID query");
-            } else {
-              errors.push("String ID query returned no results");
-            }
-          } catch (error) {
-            console.log("Error with string ID query:", error.message);
-            errors.push(`String ID query error: ${error.message}`);
-          }
-        }
-
-        // If still not found, try by slug
-        if (!product) {
-          try {
-            console.log("Product not found by ID, trying slug:", productId);
-            product = await findOneDocument("products", { slug: productId });
-            if (product) {
-              console.log("Product found with slug query");
-            } else {
-              errors.push("Slug query returned no results");
-            }
-          } catch (error) {
-            console.log("Error with slug query:", error.message);
-            errors.push(`Slug query error: ${error.message}`);
-          }
-        }
-
-        // If still not found, try a more flexible query
-        if (!product) {
-          try {
-            console.log(
-              "Product not found by ID or slug, trying flexible query"
-            );
-            product = await findOneDocument("products", {
-              $or: [
-                objectIdQuery,
-                { _id: productId },
-                { slug: productId },
-                { name: productId },
-              ].filter(Boolean), // Remove null values
-            });
-            if (product) {
-              console.log("Product found with flexible query");
-            } else {
-              errors.push("Flexible query returned no results");
-            }
-          } catch (error) {
-            console.log("Error with flexible query:", error.message);
-            errors.push(`Flexible query error: ${error.message}`);
-          }
-        }
-
-        // If still not found, get a sample product as fallback
-        if (!product) {
-          try {
-            console.log("Getting a sample product as fallback");
-            const products = await findDocuments("products", {}, { limit: 1 });
-            if (products && products.length > 0) {
-              product = products[0];
-              console.log("Using sample product as fallback:", product.name);
-            } else {
-              errors.push("Sample product query returned no results");
-            }
-          } catch (error) {
-            console.log("Error getting sample product:", error.message);
-            errors.push(`Sample product query error: ${error.message}`);
-          }
-        }
-
-        // Check if product exists
-        if (!product) {
-          console.log("Product not found with any query method");
-
-          // Create a mock product as last resort
-          const mockProduct = {
-            _id: productId,
-            name: "Sample Product (Mock)",
-            description:
-              "This is a sample product shown when no products are found in the database.",
-            price: 19999,
-            discountPrice: 15999,
-            category: "sample-category",
-            stock: 10,
-            ratings: 4.5,
-            numReviews: 12,
-            images: [
-              "https://placehold.co/800x600/gray/white?text=Sample+Product",
-            ],
-            specifications: [
-              { name: "Material", value: "Wood" },
-              { name: "Dimensions", value: "80 x 60 x 40 cm" },
-              { name: "Weight", value: "15 kg" },
-            ],
-            reviews: [],
-            source: "mock_data",
-          };
-
-          return res.status(200).json({
-            success: true,
-            message: "No product found in database, returning mock product",
-            data: mockProduct,
-            source: "mock_data",
-            errors,
-          });
-        }
-
-        console.log("Product found:", product.name);
-
-        // Return product
-        return res.status(200).json({
-          success: true,
-          data: product,
-          source: "direct_database",
-        });
+        // Simply use our direct controller instead of the old implementation
+        return directProductDetails.getProductById(req, res, next);
       } catch (error) {
-        console.error("Error getting product:", error);
+        console.error(
+          `Error in legacy /api/products/:id route for ID ${req.params.id}:`,
+          error
+        );
 
         // Return a mock product as last resort
         return res.status(200).json({
@@ -1523,10 +1376,14 @@ if (!staticPath) {
             _id: req.params.id,
             name: "Error Product (Mock)",
             description:
-              "This is a sample product shown when an error occurred.",
+              "This is a sample product shown when an error occurred in the legacy route.",
             price: 19999,
             discountPrice: 15999,
-            category: "error-category",
+            category: {
+              _id: "error-category",
+              name: "Error Category",
+              slug: "error-category",
+            },
             stock: 10,
             ratings: 4.5,
             numReviews: 12,
@@ -1535,7 +1392,7 @@ if (!staticPath) {
             ],
             specifications: [{ name: "Error", value: error.message }],
             reviews: [],
-            source: "error_mock_data",
+            source: "legacy_route_error_mock_data",
           },
           error: error.message,
         });
