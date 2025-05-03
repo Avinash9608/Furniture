@@ -98,20 +98,27 @@ const connectDB = async (retryCount = 0, maxRetries = 5) => {
     // Close any existing connection first
     if (mongoose.connection.readyState !== 0) {
       console.log("Closing existing MongoDB connection before reconnecting...");
-      await mongoose.connection.close();
+      try {
+        await mongoose.connection.close();
+      } catch (closeError) {
+        console.warn("Error closing existing connection:", closeError.message);
+        console.log("Continuing with connection attempt anyway...");
+      }
     }
 
     // Configure mongoose before connecting
     mongoose.set("strictQuery", false);
 
-    // Disable buffering globally - VERY IMPORTANT to prevent timeout errors
-    mongoose.set("bufferCommands", false);
+    // Set global mongoose options to prevent buffering timeouts
+    mongoose.set("bufferCommands", false); // VERY IMPORTANT to prevent timeout errors
+    mongoose.set("bufferTimeoutMS", 60000); // 60 seconds buffer timeout
 
     // Set global timeout for all operations
     mongoose.set("maxTimeMS", 60000);
 
     // Significantly increased timeouts for Render deployment
-    const connectionOptions = {
+    // Create a base set of options that works with all Mongoose versions
+    const baseConnectionOptions = {
       serverSelectionTimeoutMS: 600000, // 600 seconds (10 minutes)
       socketTimeoutMS: 600000, // 600 seconds (10 minutes)
       connectTimeoutMS: 600000, // 600 seconds (10 minutes)
@@ -119,24 +126,85 @@ const connectDB = async (retryCount = 0, maxRetries = 5) => {
       retryWrites: true,
       w: 1, // Write acknowledgment from primary only (faster than majority)
       j: false, // Don't wait for journal commit (faster)
-      maxPoolSize: 20, // Increased pool size
-      minPoolSize: 5, // Ensure minimum connections
       bufferCommands: false, // Disable command buffering - CRITICAL for preventing timeouts
       autoIndex: true, // Build indexes
       family: 4, // Use IPv4, skip trying IPv6
-      maxIdleTimeMS: 120000, // 2 minutes max idle time
-      // Removed unsupported options: keepAlive, keepAliveInitialDelay
-      // Note: bufferMaxEntries, useNewUrlParser, and useUnifiedTopology are no longer needed
-      // in newer MongoDB driver versions and have been removed
     };
 
-    // Set global mongoose options to prevent buffering timeouts
-    mongoose.set("bufferCommands", false);
-    mongoose.set("bufferTimeoutMS", 60000); // 60 seconds buffer timeout
+    // Add options that might not be supported in all versions
+    // We'll use try/catch to handle any compatibility issues
+    let connectionOptions = { ...baseConnectionOptions };
+
+    try {
+      // These options might not be supported in all versions
+      const additionalOptions = {
+        maxPoolSize: 20, // Increased pool size
+        minPoolSize: 5, // Ensure minimum connections
+        maxIdleTimeMS: 120000, // 2 minutes max idle time
+      };
+
+      // Merge the additional options
+      connectionOptions = { ...connectionOptions, ...additionalOptions };
+
+      console.log("Using extended connection options");
+    } catch (optionsError) {
+      console.warn(
+        "Error with extended connection options:",
+        optionsError.message
+      );
+      console.log("Using base connection options only");
+    }
+
+    // Log the final connection options
+    console.log("Final connection options:", connectionOptions);
 
     // Disable Mongoose's default buffering behavior globally
-    if (mongoose.connection.base) {
-      mongoose.connection.base.setOptions({ bufferCommands: false });
+    // Note: Different versions of Mongoose have different ways to set options
+    if (!global.__SKIP_MONGOOSE_BASE_OPTIONS) {
+      try {
+        // For newer versions of Mongoose
+        if (
+          mongoose.connection &&
+          typeof mongoose.connection.set === "function"
+        ) {
+          mongoose.connection.set("bufferCommands", false);
+          console.log("Set bufferCommands=false on mongoose.connection");
+        }
+        // For older versions that might have base property - SKIP if we've seen the error before
+        else if (
+          mongoose.connection &&
+          mongoose.connection.base &&
+          typeof mongoose.connection.base.setOptions === "function"
+        ) {
+          mongoose.connection.base.setOptions({ bufferCommands: false });
+          console.log("Set bufferCommands=false on mongoose.connection.base");
+        } else {
+          console.log(
+            "Could not set bufferCommands on connection directly, using global setting only"
+          );
+        }
+      } catch (optionsError) {
+        console.warn(
+          "Error setting mongoose connection options:",
+          optionsError.message
+        );
+        console.log("Continuing with global mongoose settings only");
+
+        // Set the flag to skip this code on future attempts
+        if (
+          optionsError.message &&
+          optionsError.message.includes("setOptions is not a function")
+        ) {
+          global.__SKIP_MONGOOSE_BASE_OPTIONS = true;
+          console.log(
+            "Will skip problematic code in future connection attempts"
+          );
+        }
+      }
+    } else {
+      console.log(
+        "Skipping problematic mongoose.connection.base.setOptions code due to previous errors"
+      );
     }
 
     console.log(
@@ -270,38 +338,75 @@ const connectDB = async (retryCount = 0, maxRetries = 5) => {
 
     return true;
   } catch (error) {
-    console.error(
-      `❌ MongoDB connection failed (Attempt ${retryCount + 1}/${
-        maxRetries + 1
-      }):`,
-      error.message
-    );
-    console.error("Error stack:", error.stack);
-
-    if (retryCount < maxRetries) {
-      console.log(
-        `Retrying connection in 5 seconds... (${retryCount + 1}/${maxRetries})`
-      );
-      // Wait 5 seconds before retrying
-      await new Promise((resolve) => setTimeout(resolve, 5000));
-      return connectDB(retryCount + 1, maxRetries);
-    } else {
+    // Special handling for the mongoose.connection.base.setOptions error
+    if (
+      error.message &&
+      error.message.includes(
+        "mongoose.connection.base.setOptions is not a function"
+      )
+    ) {
       console.error(
-        "❌ All MongoDB connection attempts failed. Using fallback data."
+        `❌ MongoDB connection failed (Attempt ${retryCount + 1}/${
+          maxRetries + 1
+        }): ${error.message}`
       );
-      console.log("Please verify:");
-      console.log("- IP is whitelisted in Atlas (current IP must be allowed)");
+      console.error("Error stack:", error.stack);
+
       console.log(
-        "- Connection string is correct (no spaces in username/password)"
+        "This is a known issue with the current Mongoose version. Retrying with modified settings..."
       );
-      console.log("- Database user exists and has correct permissions");
-      console.log("- Network connectivity to MongoDB Atlas is available");
 
-      // Create mock data for fallback
-      createMockData();
+      // Skip the problematic code on the next attempt
+      global.__SKIP_MONGOOSE_BASE_OPTIONS = true;
 
-      return false;
+      if (retryCount < maxRetries) {
+        console.log(
+          `Retrying connection in 5 seconds... (${
+            retryCount + 1
+          }/${maxRetries})`
+        );
+        // Wait 5 seconds before retrying
+        await new Promise((resolve) => setTimeout(resolve, 5000));
+        return connectDB(retryCount + 1, maxRetries);
+      }
+    } else {
+      // Handle other errors
+      console.error(
+        `❌ MongoDB connection failed (Attempt ${retryCount + 1}/${
+          maxRetries + 1
+        }):`,
+        error.message
+      );
+      console.error("Error stack:", error.stack);
+
+      if (retryCount < maxRetries) {
+        console.log(
+          `Retrying connection in 5 seconds... (${
+            retryCount + 1
+          }/${maxRetries})`
+        );
+        // Wait 5 seconds before retrying
+        await new Promise((resolve) => setTimeout(resolve, 5000));
+        return connectDB(retryCount + 1, maxRetries);
+      }
     }
+
+    // If we've exhausted all retries
+    console.error(
+      "❌ All MongoDB connection attempts failed. Using fallback data."
+    );
+    console.log("Please verify:");
+    console.log("- IP is whitelisted in Atlas (current IP must be allowed)");
+    console.log(
+      "- Connection string is correct (no spaces in username/password)"
+    );
+    console.log("- Database user exists and has correct permissions");
+    console.log("- Network connectivity to MongoDB Atlas is available");
+
+    // Create mock data for fallback
+    createMockData();
+
+    return false;
   }
 };
 
