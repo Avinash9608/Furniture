@@ -115,8 +115,8 @@ exports.createContact = async (req, res) => {
 
         // Insert document with increased timeout options
         const insertOptions = {
-          maxTimeMS: 60000, // 60 seconds timeout
-          wtimeout: 60000, // 60 seconds write timeout
+          maxTimeMS: 300000, // 300 seconds (5 minutes) timeout
+          wtimeout: 300000, // 300 seconds (5 minutes) write timeout
           w: 1, // Write acknowledgment from primary only
           j: false, // Don't wait for journal commit (faster)
         };

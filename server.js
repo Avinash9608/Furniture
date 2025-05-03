@@ -123,10 +123,8 @@ const connectDB = async (retryCount = 0, maxRetries = 5) => {
       bufferCommands: false, // Disable command buffering
       autoIndex: true, // Build indexes
       family: 4, // Use IPv4, skip trying IPv6
-      // Additional options to prevent buffering timeout
-      bufferMaxEntries: 0, // Disable buffering when connection is lost
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
+      // Note: bufferMaxEntries, useNewUrlParser, and useUnifiedTopology are no longer needed
+      // in newer MongoDB driver versions and have been removed
     };
 
     console.log(
