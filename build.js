@@ -71,6 +71,37 @@ async function build() {
 
   // Step 4: Build client
   log("\nStep 4: Building client...", colors.yellow);
+
+  // First, ensure react-toastify is removed from package.json if it exists
+  try {
+    const clientPackageJsonPath = path.join(
+      process.cwd(),
+      "client",
+      "package.json"
+    );
+    const packageJson = JSON.parse(
+      fs.readFileSync(clientPackageJsonPath, "utf8")
+    );
+
+    // Check if react-toastify is in dependencies
+    if (
+      packageJson.dependencies &&
+      packageJson.dependencies["react-toastify"]
+    ) {
+      log("Removing react-toastify from dependencies...", colors.yellow);
+      delete packageJson.dependencies["react-toastify"];
+      fs.writeFileSync(
+        clientPackageJsonPath,
+        JSON.stringify(packageJson, null, 2)
+      );
+      log("Removed react-toastify from package.json", colors.green);
+    }
+  } catch (error) {
+    log(`Error updating package.json: ${error.message}`, colors.red);
+    // Continue anyway
+  }
+
+  // Now run the build
   if (!execute("npm run build", path.join(process.cwd(), "client"))) {
     log("Failed to build client.", colors.red);
     return false;

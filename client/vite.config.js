@@ -1,10 +1,45 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
+import fs from "fs";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ command, mode }) => ({
   plugins: [
+    // Custom plugin to check for react-toastify
+    {
+      name: "check-dependencies",
+      buildStart() {
+        try {
+          const packageJsonPath = path.resolve(__dirname, "package.json");
+          if (fs.existsSync(packageJsonPath)) {
+            const packageJson = JSON.parse(
+              fs.readFileSync(packageJsonPath, "utf8")
+            );
+
+            // Check if react-toastify is in dependencies
+            if (
+              packageJson.dependencies &&
+              packageJson.dependencies["react-toastify"]
+            ) {
+              console.warn(
+                "Warning: react-toastify found in dependencies. This may cause build issues."
+              );
+
+              // Remove it from dependencies
+              delete packageJson.dependencies["react-toastify"];
+              fs.writeFileSync(
+                packageJsonPath,
+                JSON.stringify(packageJson, null, 2)
+              );
+              console.log("Removed react-toastify from package.json");
+            }
+          }
+        } catch (error) {
+          console.error("Error checking package.json:", error);
+        }
+      },
+    },
     react({
       // Force classic JSX runtime for production
       jsxRuntime: "classic",
@@ -59,12 +94,11 @@ export default defineConfig(({ command, mode }) => ({
         manualChunks: {
           // Group vendor dependencies
           vendor: ["react", "react-dom", "react-router-dom"],
-          // Put react-toastify in its own chunk
-          "react-toastify": ["react-toastify"],
+          // Group UI libraries
+          ui: ["framer-motion", "date-fns"],
         },
       },
-      // Explicitly mark react-toastify as external to prevent build errors
-      external: ["react-toastify"],
+      // No external dependencies
     },
   },
   resolve: {
