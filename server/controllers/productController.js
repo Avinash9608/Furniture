@@ -300,11 +300,10 @@ const createProduct = async (req, res) => {
         connectTimeoutMS: 600000, // 10 minutes
         socketTimeoutMS: 600000, // 10 minutes
         serverSelectionTimeoutMS: 600000, // 10 minutes
-        maxPoolSize: 30,
-        minPoolSize: 10,
-        keepAlive: true,
-        keepAliveInitialDelay: 300000, // 5 minutes
-        bufferCommands: false, // Disable command buffering to prevent timeouts
+        maxPoolSize: 20, // Increased pool size
+        minPoolSize: 5, // Ensure minimum connections
+        maxIdleTimeMS: 120000, // 2 minutes max idle time
+        // Removed unsupported options: keepAlive, keepAliveInitialDelay, poolSize, bufferCommands
       };
 
       // Create a new MongoClient
@@ -455,11 +454,10 @@ const getAllProducts = async (req, res) => {
         connectTimeoutMS: 600000, // 10 minutes
         socketTimeoutMS: 600000, // 10 minutes
         serverSelectionTimeoutMS: 600000, // 10 minutes
-        maxPoolSize: 30,
-        minPoolSize: 10,
-        keepAlive: true,
-        keepAliveInitialDelay: 300000, // 5 minutes
-        bufferCommands: false, // Disable command buffering to prevent timeouts
+        maxPoolSize: 20, // Increased pool size
+        minPoolSize: 5, // Ensure minimum connections
+        maxIdleTimeMS: 120000, // 2 minutes max idle time
+        // Removed unsupported options: keepAlive, keepAliveInitialDelay, poolSize, bufferCommands
       };
 
       // Create a new MongoClient
@@ -690,11 +688,10 @@ const getProductById = async (req, res) => {
         connectTimeoutMS: 600000, // 10 minutes
         socketTimeoutMS: 600000, // 10 minutes
         serverSelectionTimeoutMS: 600000, // 10 minutes
-        maxPoolSize: 30,
-        minPoolSize: 10,
-        keepAlive: true,
-        keepAliveInitialDelay: 300000, // 5 minutes
-        bufferCommands: false, // Disable command buffering to prevent timeouts
+        maxPoolSize: 20, // Increased pool size
+        minPoolSize: 5, // Ensure minimum connections
+        maxIdleTimeMS: 120000, // 2 minutes max idle time
+        // Removed unsupported options: keepAlive, keepAliveInitialDelay, poolSize, bufferCommands
       };
 
       // Create a new MongoClient
@@ -869,11 +866,10 @@ const updateProduct = async (req, res) => {
         connectTimeoutMS: 600000, // 10 minutes
         socketTimeoutMS: 600000, // 10 minutes
         serverSelectionTimeoutMS: 600000, // 10 minutes
-        maxPoolSize: 30,
-        minPoolSize: 10,
-        keepAlive: true,
-        keepAliveInitialDelay: 300000, // 5 minutes
-        bufferCommands: false, // Disable command buffering to prevent timeouts
+        maxPoolSize: 20, // Increased pool size
+        minPoolSize: 5, // Ensure minimum connections
+        maxIdleTimeMS: 120000, // 2 minutes max idle time
+        // Removed unsupported options: keepAlive, keepAliveInitialDelay, poolSize, bufferCommands
       };
 
       // Create a new MongoClient

@@ -145,12 +145,8 @@ const connectDB = async (retryCount = 0, maxRetries = 5) => {
       family: 4, // Use IPv4, skip trying IPv6
       // Add buffer timeout but NOT maxTimeMS (which is unsupported in connection options)
       bufferTimeoutMS: 600000, // 10 minutes buffer timeout
-      // Add these options for better connection handling
-      keepAlive: true,
-      keepAliveInitialDelay: 300000, // 5 minutes
-      poolSize: 30, // Increase pool size for more concurrent connections
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
+      // Only use options that are supported by the MongoDB driver
+      // Removed: keepAlive, keepAliveInitialDelay, poolSize
     };
 
     // Add options that might not be supported in all versions
@@ -163,6 +159,8 @@ const connectDB = async (retryCount = 0, maxRetries = 5) => {
         maxPoolSize: 20, // Increased pool size
         minPoolSize: 5, // Ensure minimum connections
         maxIdleTimeMS: 120000, // 2 minutes max idle time
+        // Make sure we don't include any unsupported options
+        // keepAlive, keepAliveInitialDelay, and poolSize are not supported
       };
 
       // Merge the additional options

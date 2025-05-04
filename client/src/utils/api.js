@@ -809,12 +809,50 @@ api.interceptors.response.use(
         "Server error:",
         error.response?.data?.message || "Unknown server error"
       );
+
+      // For product-related endpoints, try to recover with client-side fallback
+      if (error.config?.url?.includes("/products")) {
+        console.log(
+          "Attempting to recover from server error for products endpoint"
+        );
+
+        // Return a successful response with empty data to trigger client-side fallbacks
+        return Promise.resolve({
+          data: {
+            success: true,
+            count: 0,
+            data: [],
+            error: error.message,
+            source: "error-fallback",
+          },
+        });
+      }
+
       // Don't redirect, just show the error to the user
     }
 
     // Handle network errors
     if (error.message === "Network Error") {
       console.error("Network error - server might be down");
+
+      // For product-related endpoints, try to recover with client-side fallback
+      if (error.config?.url?.includes("/products")) {
+        console.log(
+          "Attempting to recover from network error for products endpoint"
+        );
+
+        // Return a successful response with empty data to trigger client-side fallbacks
+        return Promise.resolve({
+          data: {
+            success: true,
+            count: 0,
+            data: [],
+            error: "Network Error - Server might be down",
+            source: "network-error-fallback",
+          },
+        });
+      }
+
       // Don't redirect, just show the error to the user
     }
 
