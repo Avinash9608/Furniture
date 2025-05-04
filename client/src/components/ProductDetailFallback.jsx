@@ -53,12 +53,27 @@ const ProductDetailFallback = ({ children, onProductLoaded, onError }) => {
         const localServerUrl = "http://localhost:5000";
         const isDevelopment = !baseUrl.includes("onrender.com");
 
-        // Create a list of endpoints to try
+        // Create a list of endpoints to try - always include both local and deployed endpoints
+        // This ensures we try all possible sources regardless of environment
         const endpointsToTry = [
-          ...(isDevelopment
-            ? [`${localServerUrl}/api/products/${id}`]
-            : [`${baseUrl}/api/products/${id}`]),
+          // Try direct endpoints first (most reliable)
+          `${baseUrl}/api/direct/products/${id}`,
+          `${deployedUrl}/api/direct/products/${id}`,
+
+          // Then try standard API endpoints
+          `${baseUrl}/api/products/${id}`,
           `${deployedUrl}/api/products/${id}`,
+
+          // Try local server in development
+          ...(isDevelopment ? [`${localServerUrl}/api/products/${id}`] : []),
+
+          // Try special debug endpoints
+          `${baseUrl}/api/debug/product/${id}`,
+          `${deployedUrl}/api/debug/product/${id}`,
+
+          // Try test endpoints
+          `${baseUrl}/api/test/product/${id}`,
+          `${deployedUrl}/api/test/product/${id}`,
         ];
 
         // Try each endpoint
@@ -85,53 +100,158 @@ const ProductDetailFallback = ({ children, onProductLoaded, onError }) => {
           for (const endpoint of endpointsToTry) {
             try {
               console.log(`Trying endpoint: ${endpoint}`);
-              const response = await axios.get(endpoint, {
-                timeout: 15000,
+              console.log(`Attempting to fetch product from: ${endpoint}`);
+
+              // Create a direct axios instance with retry capability
+              const directApi = axios.create({
+                timeout: 30000, // Increased timeout to 30 seconds
                 headers: {
                   Accept: "application/json",
                   "Content-Type": "application/json",
                 },
+                // Add retry configuration
+                retry: 2,
+                retryDelay: 1000,
               });
 
+              // Add retry interceptor
+              directApi.interceptors.response.use(undefined, async (err) => {
+                const { config } = err;
+                if (!config || !config.retry) {
+                  return Promise.reject(err);
+                }
+                config.__retryCount = config.__retryCount || 0;
+                if (config.__retryCount >= config.retry) {
+                  return Promise.reject(err);
+                }
+                config.__retryCount += 1;
+                console.log(
+                  `Retrying request to ${endpoint} (${config.__retryCount}/${config.retry})...`
+                );
+                await new Promise((resolve) =>
+                  setTimeout(resolve, config.retryDelay)
+                );
+                return directApi(config);
+              });
+
+              const response = await directApi.get(endpoint);
+
               if (response && response.data) {
+                console.log(`Response from ${endpoint}:`, response.data);
+
+                // Handle different response formats
+                let extractedData = null;
+
+                // Format 1: { data: { ... } }
                 if (response.data.data) {
-                  productData = response.data.data;
-                  endpointSource = endpoint;
-
-                  // Save to localStorage for future use
-                  try {
-                    localStorage.setItem(
-                      `product-${id}`,
-                      JSON.stringify(productData)
-                    );
-                  } catch (saveError) {
-                    console.error("Error saving to localStorage:", saveError);
-                  }
-
-                  break;
-                } else if (
+                  extractedData = response.data.data;
+                  console.log("Extracted product data from response.data.data");
+                }
+                // Format 2: { _id: ... }
+                else if (
                   typeof response.data === "object" &&
                   response.data._id
                 ) {
-                  productData = response.data;
-                  endpointSource = endpoint;
+                  extractedData = response.data;
+                  console.log(
+                    "Extracted product data directly from response.data"
+                  );
+                }
+                // Format 3: { success: true, data: { ... } }
+                else if (response.data.success && response.data.data) {
+                  extractedData = response.data.data;
+                  console.log("Extracted product data from success response");
+                }
 
-                  // Save to localStorage for future use
-                  try {
-                    localStorage.setItem(
-                      `product-${id}`,
-                      JSON.stringify(productData)
+                // Verify the extracted data has the required product ID
+                if (extractedData && extractedData._id) {
+                  console.log(
+                    `Successfully extracted product with ID: ${extractedData._id}`
+                  );
+
+                  // Verify this is the product we're looking for
+                  const extractedId = extractedData._id.toString();
+                  const requestedId = id.toString();
+
+                  if (
+                    extractedId === requestedId ||
+                    extractedId.includes(requestedId) ||
+                    requestedId.includes(extractedId)
+                  ) {
+                    console.log("Product ID matches requested ID");
+                    productData = extractedData;
+                    endpointSource = endpoint;
+
+                    // Save to localStorage for future use
+                    try {
+                      localStorage.setItem(
+                        `product-${id}`,
+                        JSON.stringify(productData)
+                      );
+                      console.log(
+                        `Product saved to localStorage with key: product-${id}`
+                      );
+                    } catch (saveError) {
+                      console.error("Error saving to localStorage:", saveError);
+                    }
+
+                    break;
+                  } else {
+                    console.warn(
+                      `Product ID mismatch: expected ${requestedId}, got ${extractedId}`
                     );
-                  } catch (saveError) {
-                    console.error("Error saving to localStorage:", saveError);
                   }
-
-                  break;
+                } else {
+                  console.warn(
+                    "Could not extract valid product data from response"
+                  );
                 }
               }
             } catch (error) {
               console.error(`Error with endpoint ${endpoint}:`, error.message);
             }
+          }
+        }
+
+        // If we still don't have product data, try one last direct approach
+        if (!productData) {
+          try {
+            console.log("Attempting direct fetch as last resort");
+            const directUrl = `${deployedUrl}/api/direct-product/${id}`;
+
+            console.log(`Trying direct product endpoint: ${directUrl}`);
+            const directResponse = await axios.get(directUrl, {
+              timeout: 60000, // Extended timeout for direct fetch
+              headers: {
+                Accept: "application/json",
+                "Content-Type": "application/json",
+              },
+            });
+
+            if (directResponse && directResponse.data) {
+              console.log("Direct fetch response:", directResponse.data);
+
+              if (directResponse.data.data) {
+                productData = directResponse.data.data;
+                endpointSource = "direct-fetch";
+                console.log("Successfully retrieved product via direct fetch");
+
+                // Save to localStorage
+                try {
+                  localStorage.setItem(
+                    `product-${id}`,
+                    JSON.stringify(productData)
+                  );
+                } catch (saveError) {
+                  console.error(
+                    "Error saving direct fetch result to localStorage:",
+                    saveError
+                  );
+                }
+              }
+            }
+          } catch (directError) {
+            console.error("Direct fetch attempt failed:", directError.message);
           }
         }
 

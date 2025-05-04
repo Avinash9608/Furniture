@@ -221,6 +221,140 @@ app.get("/api/products", getAllProducts);
 app.get("/products/:id", getProductById);
 app.get("/api/products/:id", getProductById);
 
+// Special direct product endpoint for client fallback
+app.get("/api/direct-product/:id", async (req, res) => {
+  try {
+    console.log("Direct product endpoint called for ID:", req.params.id);
+
+    // Import the MongoDB client
+    const { MongoClient, ObjectId } = require("mongodb");
+
+    // Get the MongoDB URI
+    const uri = process.env.MONGO_URI;
+
+    // Connection options
+    const options = {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+      connectTimeoutMS: 60000,
+      socketTimeoutMS: 60000,
+      serverSelectionTimeoutMS: 60000,
+      maxPoolSize: 20,
+      minPoolSize: 5,
+      maxIdleTimeMS: 120000,
+    };
+
+    // Create a new client
+    const client = new MongoClient(uri, options);
+
+    try {
+      // Connect to MongoDB
+      await client.connect();
+      console.log("Connected to MongoDB for direct product fetch");
+
+      // Get the database name from the connection string
+      const dbName = uri.split("/").pop().split("?")[0];
+      const db = client.db(dbName);
+
+      // Get the product collection
+      const productsCollection = db.collection("products");
+
+      // Try to find the product by ID
+      let product = null;
+
+      try {
+        // Try ObjectId first
+        product = await productsCollection.findOne({
+          _id: new ObjectId(req.params.id),
+        });
+      } catch (idError) {
+        console.log("Not a valid ObjectId, trying as string");
+        product = await productsCollection.findOne({ _id: req.params.id });
+      }
+
+      // If not found, try by slug
+      if (!product) {
+        console.log("Product not found by ID, trying by slug");
+        product = await productsCollection.findOne({ slug: req.params.id });
+      }
+
+      // If still not found, try a more flexible approach
+      if (!product) {
+        console.log(
+          "Product not found by ID or slug, trying flexible approach"
+        );
+
+        // Get all products
+        const allProducts = await productsCollection.find({}).toArray();
+        console.log(
+          `Fetched ${allProducts.length} products for flexible search`
+        );
+
+        // Try to find a product with a matching ID or slug
+        product = allProducts.find((p) => {
+          if (!p._id) return false;
+          const productId = p._id.toString();
+          return (
+            productId.includes(req.params.id) ||
+            (p.slug && p.slug.includes(req.params.id))
+          );
+        });
+      }
+
+      // If product found, try to get category info
+      if (product && product.category) {
+        try {
+          const categoriesCollection = db.collection("categories");
+          let categoryId;
+
+          try {
+            categoryId = new ObjectId(product.category);
+          } catch (idError) {
+            categoryId = product.category;
+          }
+
+          const category = await categoriesCollection.findOne({
+            _id: categoryId,
+          });
+
+          if (category) {
+            product.categoryInfo = category;
+          }
+        } catch (categoryError) {
+          console.error("Error fetching category info:", categoryError);
+        }
+      }
+
+      // Return the product
+      if (product) {
+        console.log("Product found:", product._id);
+        return res.status(200).json({
+          success: true,
+          data: product,
+          source: "direct-mongodb",
+        });
+      } else {
+        console.log("Product not found");
+        return res.status(404).json({
+          success: false,
+          message: "Product not found",
+        });
+      }
+    } finally {
+      // Close the client
+      await client.close();
+      console.log("MongoDB connection closed");
+    }
+  } catch (error) {
+    console.error("Error in direct product endpoint:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Error fetching product",
+      error: error.message,
+    });
+  }
+});
+
 // Direct API routes for categories
 app.get("/api/direct/categories", getAllCategories);
 app.get("/api/direct/categories/:id", getCategoryById);
@@ -315,6 +449,90 @@ app.get("/api/test-mongodb", async (_req, res) => {
       message: "MongoDB connection test failed",
       error: error.message,
       stack: error.stack,
+    });
+  }
+});
+
+// Debug route for product data
+app.get("/api/debug/product/:id", async (req, res) => {
+  try {
+    console.log("Debug product endpoint called for ID:", req.params.id);
+
+    // Import the MongoDB client
+    const { MongoClient, ObjectId } = require("mongodb");
+
+    // Get the MongoDB URI
+    const uri = process.env.MONGO_URI;
+
+    // Connection options
+    const options = {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+      connectTimeoutMS: 60000,
+      socketTimeoutMS: 60000,
+      serverSelectionTimeoutMS: 60000,
+    };
+
+    // Create a new client
+    const client = new MongoClient(uri, options);
+
+    try {
+      // Connect to MongoDB
+      await client.connect();
+      console.log("Connected to MongoDB for debug product fetch");
+
+      // Get the database name from the connection string
+      const dbName = uri.split("/").pop().split("?")[0];
+      const db = client.db(dbName);
+
+      // Get the product collection
+      const productsCollection = db.collection("products");
+
+      // Get a sample of products
+      const products = await productsCollection.find({}).limit(10).toArray();
+
+      // Try to find the specific product
+      let targetProduct = null;
+
+      try {
+        // Try ObjectId first
+        targetProduct = await productsCollection.findOne({
+          _id: new ObjectId(req.params.id),
+        });
+      } catch (idError) {
+        console.log("Not a valid ObjectId, trying as string");
+        targetProduct = await productsCollection.findOne({
+          _id: req.params.id,
+        });
+      }
+
+      // Return debug information
+      return res.status(200).json({
+        success: true,
+        message: "Debug information for product",
+        mongodbConnected: true,
+        databaseName: dbName,
+        productCount: products.length,
+        sampleProductIds: products.map((p) => p._id.toString()),
+        targetProduct: targetProduct,
+        requestedId: req.params.id,
+        environment: process.env.NODE_ENV,
+        timestamp: new Date().toISOString(),
+      });
+    } finally {
+      // Close the client
+      await client.close();
+      console.log("MongoDB connection closed");
+    }
+  } catch (error) {
+    console.error("Error in debug product endpoint:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Error fetching debug information",
+      error: error.message,
+      stack: error.stack,
+      environment: process.env.NODE_ENV,
+      timestamp: new Date().toISOString(),
     });
   }
 });
