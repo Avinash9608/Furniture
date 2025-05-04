@@ -293,14 +293,15 @@ const createProduct = async (req, res) => {
       // Get the MongoDB URI
       const uri = getMongoURI();
 
-      // Direct connection options
+      // Direct connection options with increased timeouts for Render deployment
       const options = {
         useNewUrlParser: true,
         useUnifiedTopology: true,
-        connectTimeoutMS: 30000,
-        socketTimeoutMS: 45000,
-        serverSelectionTimeoutMS: 30000,
-        maxPoolSize: 5,
+        connectTimeoutMS: 600000, // 10 minutes
+        socketTimeoutMS: 600000, // 10 minutes
+        serverSelectionTimeoutMS: 600000, // 10 minutes
+        maxPoolSize: 10,
+        bufferCommands: false, // Disable command buffering to prevent timeouts
       };
 
       // Create a new MongoClient
@@ -444,14 +445,15 @@ const getAllProducts = async (req, res) => {
       // Get the MongoDB URI
       const uri = getMongoURI();
 
-      // Direct connection options
+      // Direct connection options with increased timeouts for Render deployment
       const options = {
         useNewUrlParser: true,
         useUnifiedTopology: true,
-        connectTimeoutMS: 30000,
-        socketTimeoutMS: 45000,
-        serverSelectionTimeoutMS: 30000,
-        maxPoolSize: 5,
+        connectTimeoutMS: 600000, // 10 minutes
+        socketTimeoutMS: 600000, // 10 minutes
+        serverSelectionTimeoutMS: 600000, // 10 minutes
+        maxPoolSize: 10,
+        bufferCommands: false, // Disable command buffering to prevent timeouts
       };
 
       // Create a new MongoClient
@@ -559,14 +561,15 @@ const getProductById = async (req, res) => {
       // Get the MongoDB URI
       const uri = getMongoURI();
 
-      // Direct connection options
+      // Direct connection options with increased timeouts for Render deployment
       const options = {
         useNewUrlParser: true,
         useUnifiedTopology: true,
-        connectTimeoutMS: 30000,
-        socketTimeoutMS: 45000,
-        serverSelectionTimeoutMS: 30000,
-        maxPoolSize: 5,
+        connectTimeoutMS: 600000, // 10 minutes
+        socketTimeoutMS: 600000, // 10 minutes
+        serverSelectionTimeoutMS: 600000, // 10 minutes
+        maxPoolSize: 10,
+        bufferCommands: false, // Disable command buffering to prevent timeouts
       };
 
       // Create a new MongoClient
@@ -679,14 +682,15 @@ const updateProduct = async (req, res) => {
       // Get the MongoDB URI
       const uri = getMongoURI();
 
-      // Direct connection options
+      // Direct connection options with increased timeouts for Render deployment
       const options = {
         useNewUrlParser: true,
         useUnifiedTopology: true,
-        connectTimeoutMS: 30000,
-        socketTimeoutMS: 45000,
-        serverSelectionTimeoutMS: 30000,
-        maxPoolSize: 5,
+        connectTimeoutMS: 600000, // 10 minutes
+        socketTimeoutMS: 600000, // 10 minutes
+        serverSelectionTimeoutMS: 600000, // 10 minutes
+        maxPoolSize: 10,
+        bufferCommands: false, // Disable command buffering to prevent timeouts
       };
 
       // Create a new MongoClient
