@@ -1,12 +1,6 @@
-import React, { useState, useEffect } from "react";
-import { useParams, Link } from "react-router-dom";
-import axios from "axios";
-import {
-  productsAPI,
-  getImageUrl,
-  getCategoryNameFromId,
-  CATEGORY_MAP,
-} from "../utils/api";
+import React, { useState, useRef, useEffect } from "react";
+import { Link, useParams } from "react-router-dom";
+import { getImageUrl } from "../utils/api";
 import { formatPrice, calculateDiscountPercentage } from "../utils/format";
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
@@ -15,542 +9,83 @@ import Alert from "../components/Alert";
 import Button from "../components/Button";
 import ProductCard from "../components/ProductCard";
 import ProductDetailFallback from "../components/ProductDetailFallback";
+import ReviewForm from "../components/ReviewForm";
+import ReviewsList from "../components/ReviewsList";
+import { motion } from "framer-motion";
 
 const ProductDetail = () => {
-  const { id } = useParams();
   const { addToCart } = useCart();
   const { isAuthenticated } = useAuth();
 
-  // These states will be managed by the ProductDetailFallback component
-  // but we keep them here for compatibility with the rest of the component
-  const [product, setProduct] = useState(null);
-  const [relatedProducts, setRelatedProducts] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-
-  // These states are still managed directly by this component
+  // State for product details
   const [quantity, setQuantity] = useState(1);
   const [selectedImage, setSelectedImage] = useState(0);
-  const [reviewForm, setReviewForm] = useState({
-    rating: 5,
-    comment: "",
-  });
-  const [reviewSubmitting, setReviewSubmitting] = useState(false);
-  const [reviewError, setReviewError] = useState(null);
-  const [reviewSuccess, setReviewSuccess] = useState(null);
+  const [isZoomed, setIsZoomed] = useState(false);
+  const [zoomPosition, setZoomPosition] = useState({ x: 0, y: 0 });
+  const [currentProduct, setCurrentProduct] = useState(null);
+  const imageRef = useRef(null);
+  const productLoadedRef = useRef(false);
 
-  // Track the data source for debugging
-  const [dataSource, setDataSource] = useState(null);
+  // State for related products
+  const [relatedProducts, setRelatedProducts] = useState([]);
+  const { id } = useParams();
 
-  // Function to test MongoDB connection health
-  const testMongoDbHealth = async () => {
-    try {
-      setLoading(true);
-      setError("Testing MongoDB connection health...");
-
-      // Determine if we're in development or production
-      const baseUrl = window.location.origin;
-      const isDevelopment = !baseUrl.includes("onrender.com");
-      const localServerUrl = "http://localhost:5000";
-
-      // Use the appropriate URL based on environment
-      const healthUrl = isDevelopment
-        ? `${localServerUrl}/api/health/mongodb`
-        : `${baseUrl}/api/health/mongodb`;
-
-      console.log("Testing MongoDB connection health at:", healthUrl);
-
-      // Make the request
-      const healthResponse = await axios.get(healthUrl, { timeout: 60000 });
-
-      console.log("MongoDB health check response:", healthResponse.data);
-
-      if (healthResponse.data && healthResponse.data.success) {
-        setError(
-          `MongoDB connection is healthy! Response time: ${healthResponse.data.connectionInfo.responseTimeMs}ms`
-        );
-
-        // Now test the product details endpoint
-        await testProductDetails();
-      } else {
-        setError(
-          `MongoDB health check failed: ${
-            healthResponse.data.message || "Unknown error"
-          }`
-        );
-      }
-    } catch (error) {
-      console.error("MongoDB health check failed:", error);
-      setError(`MongoDB health check failed: ${error.message}`);
-      setLoading(false);
-    }
-  };
-
-  // Function to debug product details
-  const debugProductDetails = async () => {
-    try {
-      setLoading(true);
-      setError("Debugging product details...");
-
-      // Determine if we're in development or production
-      const baseUrl = window.location.origin;
-      const isDevelopment = !baseUrl.includes("onrender.com");
-      const localServerUrl = "http://localhost:5000";
-
-      // Use the appropriate URL based on environment
-      const debugUrl = isDevelopment
-        ? `${localServerUrl}/api/debug/product/${id}`
-        : `${baseUrl}/api/debug/product/${id}`;
-
-      console.log("Debugging product details at:", debugUrl);
-
-      // Make the request
-      const response = await axios.get(debugUrl, { timeout: 60000 });
-
-      console.log("Product debug response:", response.data);
-
-      if (response.data && response.data.success) {
-        const results = response.data.results;
-        const connectionState = results.connectionState;
-        const methods = results.methods;
-        const errors = results.errors;
-
-        // Build a detailed debug message
-        let debugInfo = `MongoDB connection state: ${
-          connectionState === 1 ? "Connected" : "Not connected"
-        }\n`;
-        debugInfo += `Product ID: ${id}\n\n`;
-
-        // Add method results
-        debugInfo += "Query methods:\n";
-        for (const [method, result] of Object.entries(methods)) {
-          debugInfo += `- ${method}: ${result.success ? "Success" : "Failed"}`;
-          if (result.success && result.data) {
-            debugInfo += ` (Found: ${result.data.name})`;
-          } else if (!result.success && result.error) {
-            debugInfo += ` (Error: ${result.error})`;
-          }
-          debugInfo += "\n";
-        }
-
-        // Add errors
-        if (errors && errors.length > 0) {
-          debugInfo += "\nErrors:\n";
-          errors.forEach((error) => {
-            debugInfo += `- ${error}\n`;
-          });
-        }
-
-        // Show the debug info
-        setError(debugInfo);
-
-        // If we found a product with any method, try to load it
-        const successfulMethod = Object.entries(methods).find(
-          ([_, result]) => result.success && result.data
-        );
-        if (successfulMethod) {
-          const [methodName, result] = successfulMethod;
-          setError(
-            `Found product with method ${methodName}. Trying to load full details...`
-          );
-
-          // Try to load the product
-          await testProductDetails();
-        }
-      } else {
-        setError(
-          `Product debug failed: ${response.data.error || "Unknown error"}`
-        );
-      }
-    } catch (error) {
-      console.error("Product debug failed:", error);
-      setError(`Product debug failed: ${error.message}`);
-      setLoading(false);
-    }
-  };
-
-  // Function to test database collections
-  const testDatabaseCollections = async () => {
-    try {
-      setLoading(true);
-      setError("Testing database collections...");
-
-      // Determine if we're in development or production
-      const baseUrl = window.location.origin;
-      const isDevelopment = !baseUrl.includes("onrender.com");
-      const localServerUrl = "http://localhost:5000";
-
-      // Use the appropriate URL based on environment
-      const testUrl = isDevelopment
-        ? `${localServerUrl}/api/test/direct-db`
-        : `${baseUrl}/api/test/direct-db`;
-
-      console.log("Testing database collections at:", testUrl);
-
-      // Make the request
-      const response = await axios.get(testUrl, { timeout: 60000 });
-
-      console.log("Database collections test response:", response.data);
-
-      if (response.data && response.data.success) {
-        const collections = response.data.collections || [];
-        const collectionData = response.data.collectionData || {};
-
-        let collectionInfo = `Database collections found: ${collections.join(
-          ", "
-        )}`;
-
-        if (collections.includes("products")) {
-          collectionInfo += `\nProducts collection: ${
-            collectionData.products?.count || 0
-          } items`;
-
-          if (collectionData.products?.samples) {
-            collectionInfo += `\nSample products: ${collectionData.products.samples
-              .map((p) => p.name)
-              .join(", ")}`;
-          }
-        }
-
-        setError(collectionInfo);
-
-        // Now test the product details endpoint
-        await testProductDetails();
-      } else {
-        setError(
-          `Database collections test failed: ${
-            response.data.message || "Unknown error"
-          }`
-        );
-      }
-    } catch (error) {
-      console.error("Database collections test failed:", error);
-      setError(`Database collections test failed: ${error.message}`);
-      setLoading(false);
-    }
-  };
-
-  // Function to test product details connection
-  const testProductDetails = async () => {
-    try {
-      // Determine if we're in development or production
-      const baseUrl = window.location.origin;
-      const isDevelopment = !baseUrl.includes("onrender.com");
-      const localServerUrl = "http://localhost:5000";
-
-      // Use the appropriate URL based on environment
-      const testUrl = isDevelopment
-        ? `${localServerUrl}/api/test/product-details/${id}`
-        : `${baseUrl}/api/test/product-details/${id}`;
-
-      console.log("Testing product details connection at:", testUrl);
-
-      // Make the request
-      const response = await axios.get(testUrl, { timeout: 60000 });
-
-      console.log("Product details connection test response:", response.data);
-
-      if (response.data && response.data.data) {
-        // Show success message
-        setError(
-          `Product connection successful! Found product: ${response.data.data.name} from source: ${response.data.source}`
-        );
-
-        // Ensure product has all required properties
-        const productData = response.data.data;
-        const safeProduct = {
-          ...productData,
-          name: productData.name || "Unknown Product",
-          description: productData.description || "No description available",
-          price: productData.price || 0,
-          discountPrice: productData.discountPrice || null,
-          stock: productData.stock || 0,
-          ratings: productData.ratings || 0,
-          numReviews: productData.numReviews || 0,
-          images: Array.isArray(productData.images) ? productData.images : [],
-          category: productData.category || null,
-          reviews: Array.isArray(productData.reviews)
-            ? productData.reviews
-            : [],
-          specifications: Array.isArray(productData.specifications)
-            ? productData.specifications
-            : [],
-        };
-
-        // Set the product
-        setProduct(safeProduct);
-
-        // Fetch related products if category exists
-        const categoryId =
-          response.data.data.category &&
-          typeof response.data.data.category === "object"
-            ? response.data.data.category._id
-            : typeof response.data.data.category === "string"
-            ? response.data.data.category
-            : null;
-
-        if (categoryId) {
-          try {
-            console.log(
-              `Fetching related products for category: ${categoryId}`
-            );
-            const relatedResponse = await productsAPI.getAll({
-              category: categoryId,
-              limit: 3,
-            });
-
-            if (
-              relatedResponse &&
-              relatedResponse.data &&
-              Array.isArray(relatedResponse.data.data)
-            ) {
-              // Filter out the current product from related products
-              const filteredRelated = relatedResponse.data.data.filter(
-                (item) => item && item._id !== response.data.data._id
-              );
-
-              console.log(`Found ${filteredRelated.length} related products`);
-              setRelatedProducts(filteredRelated);
-            }
-          } catch (relatedError) {
-            console.error("Error fetching related products:", relatedError);
-          }
-        }
-      } else {
-        setError("Product not found in the database");
-      }
-    } catch (error) {
-      console.error("Product connection test failed:", error);
-      setError(`Product connection test failed: ${error.message}`);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Fetch product details with enhanced error handling and retry logic
+  // Reset productLoadedRef when the component unmounts or when the product ID changes
   useEffect(() => {
-    const fetchProductDetails = async () => {
-      try {
-        setLoading(true);
-        setError(null);
+    // Reset the ref when the product ID changes
+    productLoadedRef.current = false;
 
-        console.log(`Fetching product details for ID: ${id}`);
-
-        // Check if we have preloaded product data from the server
-        if (
-          window.__PRELOADED_PRODUCT_DATA__ &&
-          window.__PRELOADED_PRODUCT_DATA__.data
-        ) {
-          console.log(
-            "Using preloaded product data:",
-            window.__PRELOADED_PRODUCT_DATA__
-          );
-
-          const preloadedData = window.__PRELOADED_PRODUCT_DATA__.data;
-
-          // Create a safe product from the preloaded data
-          const safeProduct = {
-            ...preloadedData,
-            name: preloadedData.name || "Unknown Product",
-            description:
-              preloadedData.description || "No description available",
-            price: preloadedData.price || 0,
-            discountPrice: preloadedData.discountPrice || null,
-            stock: preloadedData.stock || 0,
-            ratings: preloadedData.ratings || 0,
-            numReviews: preloadedData.numReviews || 0,
-            images: Array.isArray(preloadedData.images)
-              ? preloadedData.images
-              : [],
-            category: preloadedData.category || null,
-            reviews: Array.isArray(preloadedData.reviews)
-              ? preloadedData.reviews
-              : [],
-            specifications: Array.isArray(preloadedData.specifications)
-              ? preloadedData.specifications
-              : [],
-          };
-
-          setProduct(safeProduct);
-          setLoading(false);
-
-          // Clear the preloaded data to avoid using it again
-          window.__PRELOADED_PRODUCT_DATA__ = null;
-
-          return;
-        }
-
-        // Add retry logic at the component level
-        let retryCount = 0;
-        const maxRetries = 3;
-        let response = null;
-        let lastError = null;
-
-        while (retryCount <= maxRetries) {
-          try {
-            if (retryCount > 0) {
-              console.log(
-                `Retry attempt ${retryCount}/${maxRetries} for product ${id}`
-              );
-              // Wait longer between retries
-              await new Promise((resolve) =>
-                setTimeout(resolve, retryCount * 2000)
-              );
-            }
-
-            response = await productsAPI.getById(id);
-
-            // If we got a response, break out of the retry loop
-            if (response && response.data) {
-              break;
-            }
-          } catch (retryError) {
-            console.error(`Error in retry attempt ${retryCount}:`, retryError);
-            lastError = retryError;
-            retryCount++;
-
-            // If we've exhausted all retries, throw the last error
-            if (retryCount > maxRetries) {
-              throw lastError;
-            }
-          }
-        }
-
-        // Check if we have valid product data and handle different response formats
-        let productData = null;
-
-        if (response && response.data) {
-          if (response.data.data) {
-            // Standard API response format
-            productData = response.data.data;
-            console.log(
-              "Product data received from standard format:",
-              productData
-            );
-          } else if (response.data.success && response.data.data) {
-            // Direct API response format
-            productData = response.data.data;
-            console.log(
-              "Product data received from direct API format:",
-              productData
-            );
-          } else if (typeof response.data === "object" && response.data._id) {
-            // Direct object response
-            productData = response.data;
-            console.log("Product data received as direct object:", productData);
-          }
-        }
-
-        if (!productData) {
-          console.error("Invalid product data received:", response);
-          throw new Error("Product data is invalid or missing");
-        }
-
-        console.log("Final product data to use:", productData);
-
-        // Check if this is a mock product due to database timeout
-        if (productData.__isMock) {
-          console.warn(
-            "Received mock product due to database timeout:",
-            productData
-          );
-          setError(
-            "Note: Showing a placeholder product due to database connection issues. " +
-              "This is a temporary display while our database is being optimized. " +
-              "Please try refreshing the page in a few moments."
-          );
-        }
-
-        // Ensure product has all required properties
-        const safeProduct = {
-          ...productData,
-          name: productData.name || "Unknown Product",
-          description: productData.description || "No description available",
-          price: productData.price || 0,
-          discountPrice: productData.discountPrice || null,
-          stock: productData.stock || 0,
-          ratings: productData.ratings || 0,
-          numReviews: productData.numReviews || 0,
-          images: Array.isArray(productData.images) ? productData.images : [],
-          category: productData.category || null,
-          reviews: Array.isArray(productData.reviews)
-            ? productData.reviews
-            : [],
-          specifications: Array.isArray(productData.specifications)
-            ? productData.specifications
-            : [],
-        };
-
-        setProduct(safeProduct);
-        console.log("Safe product data set:", safeProduct);
-
-        // Fetch related products from the same category if category exists
-        const categoryId =
-          safeProduct.category && typeof safeProduct.category === "object"
-            ? safeProduct.category._id
-            : typeof safeProduct.category === "string"
-            ? safeProduct.category
-            : null;
-
-        if (categoryId) {
-          try {
-            console.log(
-              `Fetching related products for category: ${categoryId}`
-            );
-            const relatedResponse = await productsAPI.getAll({
-              category: categoryId,
-              limit: 3,
-            });
-
-            // Ensure we have valid related products data
-            if (
-              relatedResponse &&
-              relatedResponse.data &&
-              Array.isArray(relatedResponse.data.data)
-            ) {
-              // Filter out the current product from related products
-              const filteredRelated = relatedResponse.data.data.filter(
-                (item) => item && item._id !== safeProduct._id
-              );
-
-              console.log(`Found ${filteredRelated.length} related products`);
-              setRelatedProducts(filteredRelated);
-            } else {
-              console.log("No valid related products data found");
-              setRelatedProducts([]);
-            }
-          } catch (relatedError) {
-            // Don't fail the whole product page if related products fail to load
-            console.error("Error fetching related products:", relatedError);
-            setRelatedProducts([]);
-          }
-        } else {
-          console.log("No category ID found for related products");
-          setRelatedProducts([]);
-        }
-      } catch (error) {
-        console.error("Error fetching product details:", error);
-
-        // Provide more detailed error message based on the error type
-        if (error.message && error.message.includes("timeout")) {
-          setError(
-            "Database connection timeout. Our servers are experiencing high traffic. " +
-              "Please try again in a few moments or refresh the page."
-          );
-        } else if (error.message && error.message.includes("Network Error")) {
-          setError(
-            "Network connection error. Please check your internet connection and try again."
-          );
-        } else {
-          setError("Failed to load product details. Please try again later.");
-        }
-      } finally {
-        setLoading(false);
-      }
+    // Cleanup function to reset the ref when the component unmounts
+    return () => {
+      productLoadedRef.current = false;
     };
-
-    fetchProductDetails();
   }, [id]);
+
+  // Handle product loaded callback
+  const handleProductLoaded = (loadedProduct, source) => {
+    // Prevent multiple calls for the same product
+    if (productLoadedRef.current) {
+      console.log("Product already loaded, skipping callback");
+      return;
+    }
+
+    productLoadedRef.current = true;
+    console.log(`Product loaded from source: ${source}`, loadedProduct);
+
+    // Store the product data
+    setCurrentProduct(loadedProduct);
+
+    // Fetch related products if category exists
+    const categoryId =
+      loadedProduct.category && typeof loadedProduct.category === "object"
+        ? loadedProduct.category._id
+        : typeof loadedProduct.category === "string"
+        ? loadedProduct.category
+        : null;
+
+    if (categoryId) {
+      // Use setTimeout to delay the fetch of related products
+      // This prevents the UI from blinking due to immediate state updates
+      setTimeout(() => {
+        // Fetch related products using the API
+        fetch(`/api/products?category=${categoryId}&limit=3`)
+          .then((response) => response.json())
+          .then((data) => {
+            if (data && data.data && Array.isArray(data.data)) {
+              // Filter out the current product
+              const filtered = data.data.filter(
+                (item) => item._id !== loadedProduct._id
+              );
+              setRelatedProducts(filtered);
+            }
+          })
+          .catch((error) => {
+            console.error("Error fetching related products:", error);
+            setRelatedProducts([]);
+          });
+      }, 500); // 500ms delay to ensure the main product is rendered first
+    }
+  };
 
   // Handle quantity change
   const handleQuantityChange = (value) => {
@@ -561,360 +96,208 @@ const ProductDetail = () => {
   };
 
   // Handle add to cart
-  const handleAddToCart = () => {
+  const handleAddToCart = (product) => {
     if (product) {
       addToCart(product, quantity);
-      // Show success message or redirect to cart
+      // Show success message
+      alert(`${product.name} added to cart!`);
     }
   };
 
-  // Handle review form change
-  const handleReviewFormChange = (e) => {
-    const { name, value } = e.target;
-    setReviewForm({
-      ...reviewForm,
-      [name]: value,
-    });
+  // Handle buy now
+  const handleBuyNow = (product) => {
+    if (product) {
+      addToCart(product, quantity);
+      // Redirect to checkout
+      window.location.href = "/cart";
+    }
   };
 
-  // Handle review submission
-  const handleReviewSubmit = async (e) => {
-    e.preventDefault();
+  // Handle image zoom
+  const handleImageMouseMove = (e) => {
+    if (!imageRef.current) return;
 
-    if (!isAuthenticated) {
-      setReviewError("Please login to submit a review");
-      return;
-    }
+    const { left, top, width, height } =
+      imageRef.current.getBoundingClientRect();
+    const x = ((e.clientX - left) / width) * 100;
+    const y = ((e.clientY - top) / height) * 100;
 
-    if (!reviewForm.comment.trim()) {
-      setReviewError("Please enter a comment");
-      return;
-    }
+    setZoomPosition({ x, y });
+  };
+
+  const handleImageMouseEnter = () => {
+    setIsZoomed(true);
+  };
+
+  const handleImageMouseLeave = () => {
+    setIsZoomed(false);
+  };
+
+  // Load reviews from localStorage when the component mounts or product ID changes
+  useEffect(() => {
+    // Skip if no product is loaded yet
+    if (!currentProduct) return;
 
     try {
-      setReviewSubmitting(true);
-      setReviewError(null);
+      // Get stored reviews for this product
+      const storedReviews = JSON.parse(
+        localStorage.getItem(`product-reviews-${id}`) || "[]"
+      );
 
-      await productsAPI.createReview(id, reviewForm);
+      // Only proceed if there are stored reviews
+      if (storedReviews.length === 0) return;
 
-      setReviewSuccess("Review submitted successfully!");
-      setReviewForm({
-        rating: 5,
-        comment: "",
+      // Clone the current product
+      const updatedProduct = { ...currentProduct };
+
+      // Initialize reviews array if it doesn't exist
+      if (!updatedProduct.reviews) {
+        updatedProduct.reviews = [];
+      }
+
+      // Track if we need to update the product
+      let needsUpdate = false;
+
+      // Add stored reviews that aren't already in the product
+      storedReviews.forEach((storedReview) => {
+        // Check if this review is already in the product
+        const exists = updatedProduct.reviews.some(
+          (r) =>
+            r._id === storedReview._id ||
+            (r.user === storedReview.user && r.comment === storedReview.comment)
+        );
+
+        // If it doesn't exist, add it
+        if (!exists) {
+          updatedProduct.reviews.push(storedReview);
+          needsUpdate = true;
+        }
       });
 
-      // Refresh product details to show the new review
-      const response = await productsAPI.getById(id);
-      setProduct(response.data.data);
+      // Only update the product data if needed
+      if (needsUpdate) {
+        setCurrentProduct(updatedProduct);
+      }
     } catch (error) {
-      console.error("Error submitting review:", error);
-      setReviewError(
-        error.response?.data?.message ||
-          "Failed to submit review. Please try again."
+      console.error("Error loading reviews from localStorage:", error);
+    }
+  }, [id]); // Only depend on the product ID, not currentProduct
+
+  // Handle review submission callback
+  const handleReviewSubmitted = (newReview) => {
+    console.log("Review submitted callback with:", newReview);
+
+    // Refresh the product data to show the new review
+    if (currentProduct) {
+      // Clone the current product
+      const updatedProduct = { ...currentProduct };
+
+      // Add the new review to the reviews array
+      if (!updatedProduct.reviews) {
+        updatedProduct.reviews = [];
+      }
+
+      // Check if this review already exists (to avoid duplicates)
+      const reviewExists = updatedProduct.reviews.some(
+        (review) =>
+          (review._id && review._id === newReview._id) ||
+          (review.name === newReview.name &&
+            review.comment === newReview.comment &&
+            review.rating === newReview.rating)
       );
-    } finally {
-      setReviewSubmitting(false);
+
+      // Only add the review if it doesn't already exist
+      if (!reviewExists) {
+        // Add the new review
+        updatedProduct.reviews.push(newReview);
+
+        // Update ratings
+        updatedProduct.numReviews = updatedProduct.reviews.length;
+        updatedProduct.ratings =
+          updatedProduct.reviews.reduce(
+            (acc, review) => acc + review.rating,
+            0
+          ) / updatedProduct.reviews.length;
+
+        console.log("Updated product with new review:", updatedProduct);
+      }
+
+      // Update the product data
+      setCurrentProduct(updatedProduct);
+
+      // Also update localStorage to ensure persistence
+      try {
+        localStorage.setItem(`product-${id}`, JSON.stringify(updatedProduct));
+      } catch (error) {
+        console.error("Error saving updated product to localStorage:", error);
+      }
     }
   };
 
-  if (loading) {
-    return (
-      <div className="container-custom py-16 flex justify-center">
-        <Loading size="large" />
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="container-custom py-16">
-        <Alert type="error" message={error} />
-        <div className="mt-4 text-center flex flex-col gap-4 items-center">
-          {/* Test buttons - only visible in production or when there's an error */}
-          {(window.location.origin.includes("onrender.com") ||
-            error.includes("Failed to load") ||
-            error.includes("timed out")) && (
-            <div className="flex flex-col sm:flex-row gap-3 flex-wrap justify-center">
-              <Button
-                onClick={testMongoDbHealth}
-                variant="secondary"
-                size="small"
-              >
-                <svg
-                  className="w-4 h-4 mr-2"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
-                    d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
-                  ></path>
-                </svg>
-                Test MongoDB Connection
-              </Button>
-
-              <Button
-                onClick={testDatabaseCollections}
-                variant="secondary"
-                size="small"
-              >
-                <svg
-                  className="w-4 h-4 mr-2"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
-                    d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"
-                  ></path>
-                </svg>
-                Test Database Collections
-              </Button>
-
-              <Button
-                onClick={testProductDetails}
-                variant="secondary"
-                size="small"
-              >
-                <svg
-                  className="w-4 h-4 mr-2"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
-                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                  ></path>
-                </svg>
-                Test Product Details
-              </Button>
-
-              <Button
-                onClick={debugProductDetails}
-                variant="primary"
-                size="small"
-              >
-                <svg
-                  className="w-4 h-4 mr-2"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
-                    d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"
-                  ></path>
-                </svg>
-                Debug Product Details
-              </Button>
-
-              <Button
-                onClick={() => {
-                  const baseUrl = window.location.origin;
-                  const isDevelopment = !baseUrl.includes("onrender.com");
-                  const localServerUrl = "http://localhost:5000";
-                  const url = isDevelopment
-                    ? `${localServerUrl}/api/direct/products/${id}`
-                    : `${baseUrl}/api/direct/products/${id}`;
-
-                  setLoading(true);
-                  setError(`Testing direct product endpoint: ${url}`);
-
-                  axios
-                    .get(url, { timeout: 60000 })
-                    .then((response) => {
-                      console.log(
-                        "Direct product endpoint response:",
-                        response.data
-                      );
-                      setError(
-                        `Direct product endpoint success!\nSource: ${
-                          response.data.source
-                        }\nProduct: ${response.data.data?.name || "Unknown"}`
-                      );
-                      setLoading(false);
-
-                      // Refresh the page to show the product
-                      if (response.data.success && response.data.data) {
-                        setTimeout(() => {
-                          window.location.reload();
-                        }, 2000);
-                      }
-                    })
-                    .catch((error) => {
-                      console.error("Direct product endpoint error:", error);
-                      setError(
-                        `Direct product endpoint error: ${error.message}`
-                      );
-                      setLoading(false);
-                    });
-                }}
-                variant="success"
-                size="small"
-              >
-                <svg
-                  className="w-4 h-4 mr-2"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
-                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                  ></path>
-                </svg>
-                Test Direct API Endpoint
-              </Button>
-            </div>
-          )}
-          <Link to="/products" className="text-primary hover:underline">
-            Back to Products
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
-  if (!product) {
-    return (
-      <div className="container-custom py-16">
-        <Alert type="error" message="Product not found" />
-        <div className="mt-4 text-center">
-          <Link to="/products" className="text-primary hover:underline">
-            Back to Products
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
-  // Use our new ProductDetailFallback component to handle all the data fetching
   return (
-    <ProductDetailFallback
-      onProductLoaded={(loadedProduct, source) => {
-        console.log(`Product loaded from source: ${source}`, loadedProduct);
-        setProduct(loadedProduct);
-        setLoading(false);
-        setDataSource(source);
+    <ProductDetailFallback onProductLoaded={handleProductLoaded}>
+      {({ product, loading, error, source }) => {
+        // Add console log to see what's being received from ProductDetailFallback
+        console.log("ProductDetail render received:", {
+          productExists: !!product,
+          productId: product?._id,
+          productName: product?.name,
+          loading,
+          error,
+          source,
+        });
 
-        // Try to fetch related products if we have a category
-        const categoryId =
-          loadedProduct.category && typeof loadedProduct.category === "object"
-            ? loadedProduct.category._id
-            : typeof loadedProduct.category === "string"
-            ? loadedProduct.category
-            : null;
-
-        if (categoryId) {
-          productsAPI
-            .getAll({
-              category: categoryId,
-              limit: 3,
-            })
-            .then((response) => {
-              if (
-                response &&
-                response.data &&
-                Array.isArray(response.data.data)
-              ) {
-                // Filter out the current product
-                const filteredRelated = response.data.data.filter(
-                  (item) => item && item._id !== loadedProduct._id
-                );
-                setRelatedProducts(filteredRelated);
-              }
-            })
-            .catch((error) => {
-              console.error("Error fetching related products:", error);
-            });
-        }
-      }}
-      onError={(errorMessage) => {
-        console.error("Error loading product:", errorMessage);
-        setError(errorMessage);
-        setLoading(false);
-      }}
-    >
-      {({
-        product: fallbackProduct,
-        loading: fallbackLoading,
-        error: fallbackError,
-        source,
-      }) => {
-        // If we're still loading, show the loading spinner
-        if (fallbackLoading) {
+        if (loading) {
           return (
-            <div className="theme-bg-primary py-8">
-              <div className="container-custom">
-                <div className="flex flex-col items-center justify-center py-12">
-                  <Loading />
-                  <p className="mt-4 text-lg theme-text-primary">
-                    Loading product details...
-                  </p>
-                </div>
+            <div className="container-custom py-16 flex justify-center">
+              <Loading size="large" />
+            </div>
+          );
+        }
+
+        if (error && !product) {
+          return (
+            <div className="container-custom py-16">
+              <Alert type="error" message={error} />
+              <div className="mt-4 text-center">
+                <Link to="/products" className="text-primary hover:underline">
+                  Back to Products
+                </Link>
               </div>
             </div>
           );
         }
 
-        // If there's an error and no product, show the error
-        if (fallbackError && !fallbackProduct) {
+        if (!product) {
           return (
-            <div className="theme-bg-primary py-8">
-              <div className="container-custom">
-                <div className="theme-bg-secondary rounded-lg shadow-md p-6 text-center">
-                  <h2 className="text-2xl font-bold mb-4 theme-text-primary">
-                    Error Loading Product
-                  </h2>
-                  <p className="theme-text-primary mb-6">{fallbackError}</p>
-                  <Link to="/products" className="text-primary hover:underline">
-                    Back to Products
-                  </Link>
-                </div>
+            <div className="container-custom py-16">
+              <Alert type="error" message="Product not found" />
+              <div className="mt-4 text-center">
+                <Link to="/products" className="text-primary hover:underline">
+                  Back to Products
+                </Link>
               </div>
             </div>
           );
         }
 
-        // Use the fallback product if our state doesn't have one yet
-        const displayProduct = product || fallbackProduct;
-
-        // If we have a product, show the product details
         return (
           <div className="theme-bg-primary py-8">
+            {/* Data Source Indicator (for debugging) */}
+            {source && (
+              <div className="container-custom mb-2 text-xs text-gray-500">
+                Data source: {source}
+              </div>
+            )}
+
+            {/* Error Message */}
+            {error && (
+              <div className="container-custom mb-6">
+                <Alert type="info" message={error} />
+              </div>
+            )}
+
             <div className="container-custom">
-              {/* Data source indicator for debugging */}
-              {source && (
-                <div className="mb-2 text-xs theme-text-secondary">
-                  Data source: {source}
-                </div>
-              )}
-
-              {/* Error message if there is one */}
-              {(error || fallbackError) && (
-                <div className="mb-4 p-3 bg-yellow-100 text-yellow-800 rounded-md">
-                  {error || fallbackError}
-                </div>
-              )}
-
               {/* Breadcrumbs */}
               <nav className="flex mb-6 text-sm">
                 <Link
@@ -931,44 +314,37 @@ const ProductDetail = () => {
                   Products
                 </Link>
                 <span className="mx-2 theme-text-secondary">/</span>
-                {displayProduct.category ? (
-                  typeof displayProduct.category === "object" &&
-                  displayProduct.category.name ? (
-                    <Link
-                      to={`/products?category=${
-                        displayProduct.category._id ||
-                        displayProduct.category.slug ||
-                        ""
-                      }`}
-                      className="theme-text-secondary hover:text-primary"
-                    >
-                      {displayProduct.category.name}
-                    </Link>
-                  ) : typeof displayProduct.category === "string" ? (
-                    <Link
-                      to={`/products?category=${displayProduct.category}`}
-                      className="theme-text-secondary hover:text-primary"
-                    >
-                      {getCategoryNameFromId(displayProduct.category)}
-                    </Link>
-                  ) : (
-                    <span className="theme-text-secondary">Uncategorized</span>
-                  )
+                {/* Display category name with link */}
+                {product.category && product.category.name ? (
+                  <Link
+                    to={`/products?category=${
+                      product.category._id || product.category.slug || ""
+                    }`}
+                    className="theme-text-secondary hover:text-primary"
+                  >
+                    {product.category.name}
+                  </Link>
                 ) : (
                   <span className="theme-text-secondary">Uncategorized</span>
                 )}
                 <span className="mx-2 theme-text-secondary">/</span>
                 <span className="theme-text-primary font-medium">
-                  {displayProduct.name}
+                  {product.name}
                 </span>
               </nav>
 
               {/* Product Details */}
               <div className="theme-bg-primary rounded-lg shadow-md overflow-hidden">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8 p-6">
-                  {/* Product Images */}
+                  {/* Product Images with Zoom Feature */}
                   <div>
-                    <div className="relative h-80 md:h-96 rounded-lg overflow-hidden mb-4">
+                    <div
+                      className="relative h-80 md:h-96 rounded-lg overflow-hidden mb-4 cursor-zoom-in"
+                      ref={imageRef}
+                      onMouseMove={handleImageMouseMove}
+                      onMouseEnter={handleImageMouseEnter}
+                      onMouseLeave={handleImageMouseLeave}
+                    >
                       {/* Main Product Image with defensive coding */}
                       <img
                         src={
@@ -981,7 +357,7 @@ const ProductDetail = () => {
                             : "https://placehold.co/800x600/gray/white?text=Product"
                         }
                         alt={(product && product.name) || "Product"}
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-cover transition-transform duration-200"
                         onError={(e) => {
                           console.log("Image load error:", e.target.src);
                           e.target.onerror = null;
@@ -989,6 +365,46 @@ const ProductDetail = () => {
                             "https://placehold.co/800x600/gray/white?text=Image+Not+Found";
                         }}
                       />
+
+                      {/* Zoom overlay */}
+                      {isZoomed && (
+                        <div className="absolute inset-0 bg-white bg-opacity-0 pointer-events-none">
+                          <div
+                            className="absolute inset-0 bg-no-repeat bg-origin-border"
+                            style={{
+                              backgroundImage: `url(${
+                                product &&
+                                product.images &&
+                                Array.isArray(product.images) &&
+                                product.images.length > 0 &&
+                                selectedImage < product.images.length
+                                  ? getImageUrl(product.images[selectedImage])
+                                  : "https://placehold.co/800x600/gray/white?text=Product"
+                              })`,
+                              backgroundPosition: `${zoomPosition.x}% ${zoomPosition.y}%`,
+                              backgroundSize: "200%",
+                            }}
+                          ></div>
+                        </div>
+                      )}
+
+                      {/* Zoom indicator */}
+                      <div className="absolute top-2 right-2 bg-white bg-opacity-70 rounded-full p-2 shadow-md">
+                        <svg
+                          className="w-5 h-5 text-gray-700"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                          xmlns="http://www.w3.org/2000/svg"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="2"
+                            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"
+                          ></path>
+                        </svg>
+                      </div>
                     </div>
 
                     {/* Thumbnail Gallery with defensive coding */}
@@ -996,9 +412,9 @@ const ProductDetail = () => {
                       product.images &&
                       Array.isArray(product.images) &&
                       product.images.length > 1 && (
-                        <div className="flex space-x-2 overflow-x-auto pb-2">
+                        <div className="flex space-x-2 overflow-x-auto pb-2 scrollbar-hide">
                           {product.images.map((image, index) => (
-                            <div
+                            <motion.div
                               key={index}
                               className={`w-20 h-20 rounded-md overflow-hidden cursor-pointer border-2 ${
                                 selectedImage === index
@@ -1006,6 +422,8 @@ const ProductDetail = () => {
                                   : "border-transparent"
                               }`}
                               onClick={() => setSelectedImage(index)}
+                              whileHover={{ scale: 1.05 }}
+                              whileTap={{ scale: 0.95 }}
                             >
                               <img
                                 src={getImageUrl(image)}
@@ -1023,7 +441,7 @@ const ProductDetail = () => {
                                     "https://placehold.co/100x100/gray/white?text=Image+Not+Found";
                                 }}
                               />
-                            </div>
+                            </motion.div>
                           ))}
                         </div>
                       )}
@@ -1179,14 +597,21 @@ const ProductDetail = () => {
                       </div>
                     )}
 
-                    {/* Add to Cart Button with defensive coding */}
+                    {/* Purchase Actions with defensive coding */}
                     <div className="flex flex-wrap gap-4 mb-6">
-                      <Button
-                        onClick={handleAddToCart}
+                      {/* Add to Cart Button */}
+                      <motion.button
+                        onClick={() => handleAddToCart(product)}
                         disabled={
                           !product || !product.stock || product.stock === 0
                         }
-                        className="flex-grow sm:flex-grow-0"
+                        className={`flex items-center justify-center px-4 py-2 rounded-md text-white font-medium ${
+                          !product || !product.stock || product.stock === 0
+                            ? "bg-gray-400 cursor-not-allowed"
+                            : "bg-primary hover:bg-primary-dark"
+                        } transition-colors duration-200 flex-grow sm:flex-grow-0`}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
                       >
                         <svg
                           className="w-5 h-5 mr-2"
@@ -1203,11 +628,21 @@ const ProductDetail = () => {
                           ></path>
                         </svg>
                         Add to Cart
-                      </Button>
+                      </motion.button>
 
-                      <Button
-                        variant="outline"
-                        className="flex-grow sm:flex-grow-0"
+                      {/* Buy Now Button */}
+                      <motion.button
+                        onClick={() => handleBuyNow(product)}
+                        disabled={
+                          !product || !product.stock || product.stock === 0
+                        }
+                        className={`flex items-center justify-center px-4 py-2 rounded-md font-medium ${
+                          !product || !product.stock || product.stock === 0
+                            ? "bg-gray-400 text-white cursor-not-allowed"
+                            : "bg-secondary text-white hover:bg-secondary-dark"
+                        } transition-colors duration-200 flex-grow sm:flex-grow-0`}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
                       >
                         <svg
                           className="w-5 h-5 mr-2"
@@ -1220,107 +655,250 @@ const ProductDetail = () => {
                             strokeLinecap="round"
                             strokeLinejoin="round"
                             strokeWidth="2"
+                            d="M5 13l4 4L19 7"
+                          ></path>
+                        </svg>
+                        Buy Now
+                      </motion.button>
+
+                      {/* Wishlist Button */}
+                      <motion.button
+                        className="flex items-center justify-center p-2 rounded-full bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 transition-colors duration-200"
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
+                        title="Add to Wishlist"
+                      >
+                        <svg
+                          className="w-6 h-6 text-red-500"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                          xmlns="http://www.w3.org/2000/svg"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="2"
                             d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
                           ></path>
                         </svg>
-                        Add to Wishlist
-                      </Button>
+                      </motion.button>
                     </div>
 
                     {/* Product Specifications with defensive coding */}
                     <div className="border-t border-gray-200 pt-4">
-                      <h3 className="text-lg font-medium mb-2">
-                        Specifications
+                      <h3 className="text-lg font-medium mb-4">
+                        Key Specifications
                       </h3>
-                      <ul className="space-y-2 text-sm">
-                        {/* Check for specifications array first */}
-                        {product &&
-                        product.specifications &&
-                        Array.isArray(product.specifications) &&
-                        product.specifications.length > 0 ? (
-                          // Render from specifications array
-                          product.specifications.map((spec, index) => (
-                            <li key={`spec-${index}`} className="flex">
-                              <span className="font-medium w-24">
-                                {spec.name || "Spec"}:
-                              </span>
-                              <span className="theme-text-primary">
-                                {spec.value || ""}
-                              </span>
-                            </li>
-                          ))
-                        ) : (
-                          // Fallback to individual properties
-                          <>
-                            {product && product.material && (
-                              <li className="flex">
-                                <span className="font-medium w-24">
-                                  Material:
-                                </span>
-                                <span className="theme-text-primary">
-                                  {product.material}
-                                </span>
-                              </li>
-                            )}
-                            {product && product.color && (
-                              <li className="flex">
-                                <span className="font-medium w-24">Color:</span>
-                                <span className="theme-text-primary">
-                                  {product.color}
-                                </span>
-                              </li>
-                            )}
-                            {product &&
-                              product.dimensions &&
-                              typeof product.dimensions === "object" && (
-                                <li className="flex">
-                                  <span className="font-medium w-24">
-                                    Dimensions:
+                      <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 mb-4">
+                        <ul className="space-y-3 text-sm">
+                          {/* Check for specifications array first */}
+                          {product &&
+                          product.specifications &&
+                          Array.isArray(product.specifications) &&
+                          product.specifications.length > 0 ? (
+                            // Render from specifications array
+                            product.specifications.map((spec, index) => (
+                              <li
+                                key={`spec-${index}`}
+                                className="flex items-center"
+                              >
+                                <div className="flex-shrink-0 w-8 h-8 flex items-center justify-center bg-primary bg-opacity-10 rounded-full mr-3">
+                                  <svg
+                                    className="w-4 h-4 text-primary"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth="2"
+                                      d="M5 13l4 4L19 7"
+                                    ></path>
+                                  </svg>
+                                </div>
+                                <div className="flex-1 flex flex-wrap">
+                                  <span className="font-medium w-28 mr-2">
+                                    {spec.name || "Spec"}:
                                   </span>
-                                  <span className="theme-text-primary">
-                                    {product.dimensions.length || 0} x{" "}
-                                    {product.dimensions.width || 0} x{" "}
-                                    {product.dimensions.height || 0} cm
+                                  <span className="theme-text-primary flex-1">
+                                    {spec.value || ""}
                                   </span>
+                                </div>
+                              </li>
+                            ))
+                          ) : (
+                            // Fallback to individual properties
+                            <>
+                              {product && product.material && (
+                                <li className="flex items-center">
+                                  <div className="flex-shrink-0 w-8 h-8 flex items-center justify-center bg-primary bg-opacity-10 rounded-full mr-3">
+                                    <svg
+                                      className="w-4 h-4 text-primary"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      viewBox="0 0 24 24"
+                                      xmlns="http://www.w3.org/2000/svg"
+                                    >
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth="2"
+                                        d="M5 13l4 4L19 7"
+                                      ></path>
+                                    </svg>
+                                  </div>
+                                  <div className="flex-1 flex flex-wrap">
+                                    <span className="font-medium w-28 mr-2">
+                                      Material:
+                                    </span>
+                                    <span className="theme-text-primary flex-1">
+                                      {product.material}
+                                    </span>
+                                  </div>
                                 </li>
                               )}
-                          </>
-                        )}
-                        {/* Always show category */}
-                        <li className="flex">
-                          <span className="font-medium w-24">Category:</span>
-                          {product && product.category ? (
-                            typeof product.category === "object" &&
-                            product.category.name ? (
-                              <Link
-                                to={`/products?category=${
-                                  product.category._id ||
-                                  product.category.slug ||
-                                  ""
-                                }`}
-                                className="text-primary hover:underline"
-                              >
-                                {product.category.name}
-                              </Link>
-                            ) : typeof product.category === "string" ? (
-                              <Link
-                                to={`/products?category=${product.category}`}
-                                className="text-primary hover:underline"
-                              >
-                                {getCategoryNameFromId(product.category)}
-                              </Link>
-                            ) : (
-                              <span className="theme-text-primary">
-                                Uncategorized
-                              </span>
-                            )
-                          ) : (
-                            <span className="theme-text-primary">
-                              Uncategorized
-                            </span>
+                              {product && product.color && (
+                                <li className="flex items-center">
+                                  <div className="flex-shrink-0 w-8 h-8 flex items-center justify-center bg-primary bg-opacity-10 rounded-full mr-3">
+                                    <svg
+                                      className="w-4 h-4 text-primary"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      viewBox="0 0 24 24"
+                                      xmlns="http://www.w3.org/2000/svg"
+                                    >
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth="2"
+                                        d="M5 13l4 4L19 7"
+                                      ></path>
+                                    </svg>
+                                  </div>
+                                  <div className="flex-1 flex flex-wrap">
+                                    <span className="font-medium w-28 mr-2">
+                                      Color:
+                                    </span>
+                                    <span className="theme-text-primary flex-1">
+                                      {product.color}
+                                    </span>
+                                  </div>
+                                </li>
+                              )}
+                              {product &&
+                                product.dimensions &&
+                                typeof product.dimensions === "object" && (
+                                  <li className="flex items-center">
+                                    <div className="flex-shrink-0 w-8 h-8 flex items-center justify-center bg-primary bg-opacity-10 rounded-full mr-3">
+                                      <svg
+                                        className="w-4 h-4 text-primary"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        viewBox="0 0 24 24"
+                                        xmlns="http://www.w3.org/2000/svg"
+                                      >
+                                        <path
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
+                                          strokeWidth="2"
+                                          d="M5 13l4 4L19 7"
+                                        ></path>
+                                      </svg>
+                                    </div>
+                                    <div className="flex-1 flex flex-wrap">
+                                      <span className="font-medium w-28 mr-2">
+                                        Dimensions:
+                                      </span>
+                                      <span className="theme-text-primary flex-1">
+                                        {product.dimensions.length || 0} x{" "}
+                                        {product.dimensions.width || 0} x{" "}
+                                        {product.dimensions.height || 0} cm
+                                      </span>
+                                    </div>
+                                  </li>
+                                )}
+                            </>
                           )}
-                        </li>
-                      </ul>
+                          {/* Always show category */}
+                          <li className="flex items-center">
+                            <div className="flex-shrink-0 w-8 h-8 flex items-center justify-center bg-primary bg-opacity-10 rounded-full mr-3">
+                              <svg
+                                className="w-4 h-4 text-primary"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                                xmlns="http://www.w3.org/2000/svg"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth="2"
+                                  d="M5 13l4 4L19 7"
+                                ></path>
+                              </svg>
+                            </div>
+                            <div className="flex-1 flex flex-wrap">
+                              <span className="font-medium w-28 mr-2">
+                                Category:
+                              </span>
+                              {/* Display category name with link */}
+                              {product.category && product.category.name ? (
+                                <Link
+                                  to={`/products?category=${
+                                    product.category._id ||
+                                    product.category.slug ||
+                                    ""
+                                  }`}
+                                  className="text-primary hover:underline flex-1"
+                                >
+                                  {product.category.name}
+                                </Link>
+                              ) : (
+                                <span className="theme-text-primary flex-1">
+                                  Uncategorized
+                                </span>
+                              )}
+                            </div>
+                          </li>
+
+                          {/* Stock Status */}
+                          <li className="flex items-center">
+                            <div className="flex-shrink-0 w-8 h-8 flex items-center justify-center bg-primary bg-opacity-10 rounded-full mr-3">
+                              <svg
+                                className="w-4 h-4 text-primary"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                                xmlns="http://www.w3.org/2000/svg"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth="2"
+                                  d="M5 13l4 4L19 7"
+                                ></path>
+                              </svg>
+                            </div>
+                            <div className="flex-1 flex flex-wrap">
+                              <span className="font-medium w-28 mr-2">
+                                Availability:
+                              </span>
+                              {product && product.stock && product.stock > 0 ? (
+                                <span className="text-green-600 font-medium flex-1">
+                                  In Stock ({product.stock} available)
+                                </span>
+                              ) : (
+                                <span className="text-red-600 font-medium flex-1">
+                                  Out of Stock
+                                </span>
+                              )}
+                            </div>
+                          </li>
+                        </ul>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1350,184 +928,53 @@ const ProductDetail = () => {
                       </h2>
 
                       {/* Review Form */}
-                      <div className="theme-bg-secondary rounded-lg p-4 mb-6">
-                        <h3 className="text-lg font-medium mb-2">
-                          Write a Review
-                        </h3>
-
-                        {reviewSuccess && (
-                          <Alert
-                            type="success"
-                            message={reviewSuccess}
-                            onClose={() => setReviewSuccess(null)}
-                          />
-                        )}
-
-                        {reviewError && (
-                          <Alert
-                            type="error"
-                            message={reviewError}
-                            onClose={() => setReviewError(null)}
-                          />
-                        )}
-
-                        {!isAuthenticated ? (
-                          <div className="text-center py-4">
-                            <p className="theme-text-primary mb-2">
-                              Please login to write a review
-                            </p>
-                            <Link
-                              to="/login"
-                              className="text-primary hover:underline font-medium"
-                            >
-                              Login here
-                            </Link>
-                          </div>
-                        ) : (
-                          <form onSubmit={handleReviewSubmit}>
-                            <div className="mb-4">
-                              <label className="block theme-text-primary font-medium mb-2">
-                                Rating
-                              </label>
-                              <div className="flex">
-                                {[5, 4, 3, 2, 1].map((rating) => (
-                                  <label
-                                    key={rating}
-                                    className="mr-4 cursor-pointer"
-                                  >
-                                    <input
-                                      type="radio"
-                                      name="rating"
-                                      value={rating}
-                                      checked={
-                                        parseInt(reviewForm.rating) === rating
-                                      }
-                                      onChange={handleReviewFormChange}
-                                      className="sr-only"
-                                    />
-                                    <div className="flex items-center">
-                                      <svg
-                                        className={`w-8 h-8 ${
-                                          parseInt(reviewForm.rating) >= rating
-                                            ? "text-yellow-400"
-                                            : "text-gray-300"
-                                        }`}
-                                        fill="currentColor"
-                                        viewBox="0 0 20 20"
-                                        xmlns="http://www.w3.org/2000/svg"
-                                      >
-                                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path>
-                                      </svg>
-                                      <span className="ml-1">{rating}</span>
-                                    </div>
-                                  </label>
-                                ))}
-                              </div>
-                            </div>
-
-                            <div className="mb-4">
-                              <label
-                                htmlFor="comment"
-                                className="block theme-text-primary font-medium mb-2"
-                              >
-                                Your Review
-                              </label>
-                              <textarea
-                                id="comment"
-                                name="comment"
-                                rows="4"
-                                value={reviewForm.comment}
-                                onChange={handleReviewFormChange}
-                                className="w-full border theme-border theme-bg-primary theme-text-primary rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-primary"
-                                placeholder="Share your experience with this product..."
-                                required
-                              ></textarea>
-                            </div>
-
-                            <Button
-                              type="submit"
-                              disabled={reviewSubmitting}
-                              className="w-full md:w-auto"
-                            >
-                              {reviewSubmitting
-                                ? "Submitting..."
-                                : "Submit Review"}
-                            </Button>
-                          </form>
-                        )}
-                      </div>
+                      <ReviewForm
+                        productId={id}
+                        isAuthenticated={isAuthenticated}
+                        onReviewSubmitted={handleReviewSubmitted}
+                      />
 
                       {/* Reviews List */}
-                      {!displayProduct.reviews ||
-                      !Array.isArray(displayProduct.reviews) ||
-                      displayProduct.reviews.length === 0 ? (
-                        <div className="text-center py-8 theme-text-secondary">
-                          No reviews yet. Be the first to review this product!
-                        </div>
-                      ) : (
-                        <div className="space-y-6">
-                          {displayProduct.reviews.map((review, index) => (
-                            <div
-                              key={review._id || `review-${index}`}
-                              className="border-b border-gray-200 pb-6 last:border-b-0"
-                            >
-                              <div className="flex items-center mb-2">
-                                <div className="font-medium">
-                                  {review.name || "Anonymous"}
-                                </div>
-                                <span className="mx-2 text-gray-300">•</span>
-                                <div className="text-sm theme-text-secondary">
-                                  {review.createdAt
-                                    ? new Date(
-                                        review.createdAt
-                                      ).toLocaleDateString()
-                                    : "Unknown date"}
-                                </div>
-                              </div>
-
-                              <div className="flex mb-2">
-                                {[...Array(5)].map((_, starIndex) => (
-                                  <svg
-                                    key={starIndex}
-                                    className={`w-4 h-4 ${
-                                      starIndex < (review.rating || 0)
-                                        ? "text-yellow-400"
-                                        : "text-gray-300"
-                                    }`}
-                                    fill="currentColor"
-                                    viewBox="0 0 20 20"
-                                    xmlns="http://www.w3.org/2000/svg"
-                                  >
-                                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path>
-                                  </svg>
-                                ))}
-                              </div>
-
-                              <p className="theme-text-primary">
-                                {review.comment || "No comment provided"}
-                              </p>
-                            </div>
-                          ))}
-                        </div>
-                      )}
+                      <ReviewsList reviews={product.reviews} />
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Related Products */}
-              {relatedProducts.length > 0 && (
-                <div className="mt-12">
-                  <h2 className="text-2xl font-serif font-bold mb-6">
-                    Related Products
-                  </h2>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {relatedProducts.map((product) => (
-                      <ProductCard key={product._id} product={product} />
-                    ))}
+              {/* Related Products Section */}
+              <div className="mt-12">
+                <h2 className="text-2xl font-serif font-bold mb-6 flex items-center">
+                  <span className="mr-2">Related Products</span>
+                  <div className="h-1 flex-grow bg-gray-200 dark:bg-gray-700 rounded ml-4"></div>
+                </h2>
+
+                {relatedProducts.length > 0 ? (
+                  <div className="relative">
+                    {/* Scrollable container for related products */}
+                    <div className="flex overflow-x-auto pb-4 scrollbar-hide -mx-4 px-4 space-x-6">
+                      {relatedProducts.map((relatedProduct) => (
+                        <motion.div
+                          key={relatedProduct._id}
+                          className="flex-shrink-0 w-64 md:w-72"
+                          whileHover={{ y: -5 }}
+                        >
+                          <ProductCard product={relatedProduct} />
+                        </motion.div>
+                      ))}
+                    </div>
+
+                    {/* Gradient overlays to indicate scrollable content */}
+                    <div className="absolute top-0 bottom-0 left-0 w-8 bg-gradient-to-r from-white dark:from-gray-900 to-transparent pointer-events-none"></div>
+                    <div className="absolute top-0 bottom-0 right-0 w-8 bg-gradient-to-l from-white dark:from-gray-900 to-transparent pointer-events-none"></div>
                   </div>
-                </div>
-              )}
+                ) : (
+                  <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-8 text-center">
+                    <p className="text-gray-500 dark:text-gray-400">
+                      No related products found
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         );

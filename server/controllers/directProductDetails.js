@@ -353,7 +353,7 @@ exports.getProductById = async (req, res) => {
         }
       }
 
-      // Return the product in the format expected by the frontend
+      // Return the product
       return res.status(200).json({
         success: true,
         data: product,

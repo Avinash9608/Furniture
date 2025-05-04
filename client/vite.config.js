@@ -56,7 +56,12 @@ export default defineConfig(({ command, mode }) => ({
     rollupOptions: {
       output: {
         format: "es",
-        manualChunks: undefined,
+        manualChunks: {
+          // Group vendor dependencies
+          vendor: ["react", "react-dom", "react-router-dom"],
+          // Put react-toastify in its own chunk
+          "react-toastify": ["react-toastify"],
+        },
       },
       // Explicitly mark react-toastify as external to prevent build errors
       external: ["react-toastify"],

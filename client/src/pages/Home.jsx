@@ -123,12 +123,6 @@ const Home = () => {
   ];
   // State for testimonial sliding
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [visibleTestimonials, setVisibleTestimonials] = useState([]);
-
-  // Initialize visible testimonials
-  useEffect(() => {
-    setVisibleTestimonials(testimonials.slice(0, 3));
-  }, []);
 
   // Auto-rotate testimonials
   useEffect(() => {
@@ -139,18 +133,14 @@ const Home = () => {
     return () => clearInterval(interval);
   }, [testimonials.length]);
 
-  // Update visible testimonials when currentIndex changes
-  useEffect(() => {
-    const getVisibleTestimonials = () => {
-      const indices = [];
-      for (let i = 0; i < 3; i++) {
-        indices.push((currentIndex + i) % testimonials.length);
-      }
-      return indices.map((index) => testimonials[index]);
-    };
-
-    setVisibleTestimonials(getVisibleTestimonials());
-  }, [currentIndex, testimonials]);
+  // Calculate visible testimonials using useMemo instead of useEffect + setState
+  const visibleTestimonials = React.useMemo(() => {
+    const indices = [];
+    for (let i = 0; i < 3; i++) {
+      indices.push((currentIndex + i) % testimonials.length);
+    }
+    return indices.map((index) => testimonials[index]);
+  }, [currentIndex, testimonials.length]);
 
   return (
     <div>

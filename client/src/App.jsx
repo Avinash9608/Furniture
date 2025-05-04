@@ -6,14 +6,12 @@ import Home from "./pages/Home";
 import About from "./pages/About";
 import Products from "./pages/Products";
 import ProductDetail from "./pages/ProductDetail";
-import ProductDetailSimple from "./pages/ProductDetailSimple";
 import Cart from "./pages/Cart";
 import Checkout from "./pages/Checkout";
 import Contact from "./pages/Contact";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Profile from "./pages/Profile";
-import Orders from "./pages/Orders";
 import MyOrders from "./pages/MyOrders";
 import OrderDetail from "./pages/OrderDetail";
 import MyPaymentRequests from "./pages/MyPaymentRequests";
@@ -35,7 +33,7 @@ import UserProtectedRoute from "./components/UserProtectedRoute";
 import ApiTest from "./components/ApiTest";
 import ErrorBoundary from "./components/ErrorBoundary";
 
-// Import ToastContainer and CSS
+// Import ToastContainer for notifications
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
@@ -80,11 +78,7 @@ function App() {
             path="/products/:id"
             element={
               <ErrorBoundary showDetails={false}>
-                {window.location.hostname === "localhost" ? (
-                  <ProductDetail />
-                ) : (
-                  <ProductDetailSimple />
-                )}
+                <ProductDetail />
               </ErrorBoundary>
             }
           />
