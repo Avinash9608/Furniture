@@ -282,6 +282,14 @@ const ProductDetailFallback = ({ children, onProductLoaded, onError }) => {
               : [],
           };
 
+          // Save to localStorage for future use
+          try {
+            localStorage.setItem(`product-${id}`, JSON.stringify(safeProduct));
+            console.log("Product saved to localStorage for future use");
+          } catch (saveError) {
+            console.error("Error saving to localStorage:", saveError);
+          }
+
           setProduct(safeProduct);
           setSource(endpointSource);
           setLoading(false);
@@ -294,7 +302,38 @@ const ProductDetailFallback = ({ children, onProductLoaded, onError }) => {
           return;
         }
 
-        // If server fetch failed, use hardcoded data for known products
+        // Check localStorage for cached product data before using hardcoded data
+        try {
+          const cachedProduct = localStorage.getItem(`product-${id}`);
+          if (cachedProduct) {
+            try {
+              const parsedProduct = JSON.parse(cachedProduct);
+              console.log(
+                "Using cached product data from localStorage:",
+                parsedProduct._id
+              );
+
+              setProduct(parsedProduct);
+              setSource("localStorage");
+              setLoading(false);
+
+              // Only call onProductLoaded once per product
+              if (onProductLoaded && !productLoadedRef.current) {
+                productLoadedRef.current = true;
+                onProductLoaded(parsedProduct, "localStorage");
+              }
+              return;
+            } catch (parseError) {
+              console.error("Error parsing cached product data:", parseError);
+              // Continue to hardcoded data if parsing fails
+            }
+          }
+        } catch (localStorageError) {
+          console.error("Error accessing localStorage:", localStorageError);
+          // Continue to hardcoded data if localStorage access fails
+        }
+
+        // If localStorage doesn't have the data, use hardcoded data for known products
         if (id === "680dcd6207d80949f2c7f36e") {
           const hardcodedProduct = {
             _id: "680dcd6207d80949f2c7f36e",
@@ -322,6 +361,19 @@ const ProductDetailFallback = ({ children, onProductLoaded, onError }) => {
             ],
             reviews: [],
           };
+
+          // Save to localStorage for future use
+          try {
+            localStorage.setItem(
+              `product-${id}`,
+              JSON.stringify(hardcodedProduct)
+            );
+          } catch (saveError) {
+            console.error(
+              "Error saving hardcoded product to localStorage:",
+              saveError
+            );
+          }
 
           setProduct(hardcodedProduct);
           setSource("hardcoded_data");
@@ -362,6 +414,19 @@ const ProductDetailFallback = ({ children, onProductLoaded, onError }) => {
             ],
             reviews: [],
           };
+
+          // Save to localStorage for future use
+          try {
+            localStorage.setItem(
+              `product-${id}`,
+              JSON.stringify(hardcodedProduct)
+            );
+          } catch (saveError) {
+            console.error(
+              "Error saving hardcoded product to localStorage:",
+              saveError
+            );
+          }
 
           setProduct(hardcodedProduct);
           setSource("hardcoded_data");
@@ -425,6 +490,20 @@ const ProductDetailFallback = ({ children, onProductLoaded, onError }) => {
           ],
           reviews: [],
         };
+
+        // Save fallback product to localStorage for future use
+        try {
+          localStorage.setItem(
+            `product-${id}`,
+            JSON.stringify(fallbackProduct)
+          );
+          console.log("Fallback product saved to localStorage for future use");
+        } catch (saveError) {
+          console.error(
+            "Error saving fallback product to localStorage:",
+            saveError
+          );
+        }
 
         setProduct(fallbackProduct);
         setSource("fallback");

@@ -26,10 +26,14 @@ function log(message, color = colors.reset) {
 }
 
 // Helper function to execute commands
-function execute(command, cwd = process.cwd()) {
+function execute(command, cwd = process.cwd(), env = process.env) {
   log(`Executing: ${command}`, colors.cyan);
   try {
-    execSync(command, { cwd, stdio: "inherit" });
+    execSync(command, {
+      cwd,
+      stdio: "inherit",
+      env: env,
+    });
     return true;
   } catch (error) {
     log(`Error executing command: ${command}`, colors.red);
@@ -72,37 +76,44 @@ async function build() {
   // Step 4: Build client
   log("\nStep 4: Building client...", colors.yellow);
 
-  // First, ensure react-toastify is removed from package.json if it exists
+  // Check if vite.config.js exists and update it if needed
   try {
-    const clientPackageJsonPath = path.join(
-      process.cwd(),
-      "client",
-      "package.json"
-    );
-    const packageJson = JSON.parse(
-      fs.readFileSync(clientPackageJsonPath, "utf8")
-    );
+    const viteConfigPath = path.join(process.cwd(), "client", "vite.config.js");
+    if (fs.existsSync(viteConfigPath)) {
+      log("Checking vite.config.js for potential issues...", colors.yellow);
 
-    // Check if react-toastify is in dependencies
-    if (
-      packageJson.dependencies &&
-      packageJson.dependencies["react-toastify"]
-    ) {
-      log("Removing react-toastify from dependencies...", colors.yellow);
-      delete packageJson.dependencies["react-toastify"];
-      fs.writeFileSync(
-        clientPackageJsonPath,
-        JSON.stringify(packageJson, null, 2)
-      );
-      log("Removed react-toastify from package.json", colors.green);
+      let viteConfig = fs.readFileSync(viteConfigPath, "utf8");
+
+      // Check if react-toastify is mentioned in the config
+      if (viteConfig.includes("react-toastify")) {
+        log(
+          "Found react-toastify in vite.config.js, removing references...",
+          colors.yellow
+        );
+
+        // Remove any references to react-toastify
+        viteConfig = viteConfig.replace(/["']react-toastify["']/g, "");
+
+        // Write the updated config back
+        fs.writeFileSync(viteConfigPath, viteConfig);
+        log("Updated vite.config.js", colors.green);
+      } else {
+        log("No issues found in vite.config.js", colors.green);
+      }
     }
   } catch (error) {
-    log(`Error updating package.json: ${error.message}`, colors.red);
+    log(`Error updating vite.config.js: ${error.message}`, colors.red);
     // Continue anyway
   }
 
-  // Now run the build
-  if (!execute("npm run build", path.join(process.cwd(), "client"))) {
+  // Now run the build with environment variables to skip problematic dependencies
+  const buildEnv = {
+    ...process.env,
+    VITE_SKIP_TOASTIFY: "true",
+    NODE_ENV: "production",
+  };
+
+  if (!execute("npm run build", path.join(process.cwd(), "client"), buildEnv)) {
     log("Failed to build client.", colors.red);
     return false;
   }

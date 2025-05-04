@@ -119,10 +119,10 @@ const connectDB = async (retryCount = 0, maxRetries = 5) => {
 
     // Set global mongoose options to prevent buffering timeouts
     mongoose.set("bufferCommands", false); // VERY IMPORTANT to prevent timeout errors
-    mongoose.set("bufferTimeoutMS", 60000); // 60 seconds buffer timeout
+    mongoose.set("bufferTimeoutMS", 600000); // 600 seconds (10 minutes) buffer timeout
 
     // Set global timeout for all operations
-    mongoose.set("maxTimeMS", 60000);
+    mongoose.set("maxTimeMS", 600000); // 600 seconds (10 minutes) max time for operations
 
     // Significantly increased timeouts for Render deployment
     // Create a base set of options that works with all Mongoose versions
@@ -137,6 +137,9 @@ const connectDB = async (retryCount = 0, maxRetries = 5) => {
       bufferCommands: false, // Disable command buffering - CRITICAL for preventing timeouts
       autoIndex: true, // Build indexes
       family: 4, // Use IPv4, skip trying IPv6
+      // Add these critical settings to fix the timeout issue
+      bufferTimeoutMS: 600000, // 10 minutes buffer timeout
+      maxTimeMS: 600000, // 10 minutes max time for operations
     };
 
     // Add options that might not be supported in all versions
