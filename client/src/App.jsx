@@ -33,9 +33,8 @@ import UserProtectedRoute from "./components/UserProtectedRoute";
 import ApiTest from "./components/ApiTest";
 import ErrorBoundary from "./components/ErrorBoundary";
 
-// Import ToastContainer for notifications
-import { ToastContainer } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
+// Import custom Toast component
+import { ToastManager } from "./components/Toast";
 
 function App() {
   const location = useLocation();
@@ -50,19 +49,8 @@ function App() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      {/* Toast Container for notifications */}
-      <ToastContainer
-        position="top-right"
-        autoClose={5000}
-        hideProgressBar={false}
-        newestOnTop
-        closeOnClick
-        rtl={false}
-        pauseOnFocusLoss
-        draggable
-        pauseOnHover
-        theme="light"
-      />
+      {/* Custom Toast Manager for notifications */}
+      <ToastManager position="top-right" />
 
       {/* Show Navbar only on non-admin routes */}
       {!isAdminRoute && <Navbar />}

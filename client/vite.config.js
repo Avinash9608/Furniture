@@ -98,7 +98,8 @@ export default defineConfig(({ command, mode }) => ({
           ui: ["framer-motion", "date-fns"],
         },
       },
-      // No external dependencies
+      // Explicitly mark problematic modules as external
+      external: [],
     },
   },
   resolve: {
