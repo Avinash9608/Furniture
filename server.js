@@ -119,10 +119,16 @@ const connectDB = async (retryCount = 0, maxRetries = 5) => {
 
     // Set global mongoose options to prevent buffering timeouts
     mongoose.set("bufferCommands", false); // VERY IMPORTANT to prevent timeout errors
-    mongoose.set("bufferTimeoutMS", 600000); // 600 seconds (10 minutes) buffer timeout
 
-    // Set global timeout for all operations
-    mongoose.set("maxTimeMS", 600000); // 600 seconds (10 minutes) max time for operations
+    // Set buffer timeout - this is supported in mongoose but not in the connection string
+    try {
+      mongoose.set("bufferTimeoutMS", 600000); // 600 seconds (10 minutes) buffer timeout
+    } catch (error) {
+      console.warn("Error setting bufferTimeoutMS:", error.message);
+    }
+
+    // We'll set maxTimeMS on individual queries instead of globally
+    // mongoose.set("maxTimeMS", 600000); // This can cause issues in some versions
 
     // Significantly increased timeouts for Render deployment
     // Create a base set of options that works with all Mongoose versions
@@ -137,9 +143,8 @@ const connectDB = async (retryCount = 0, maxRetries = 5) => {
       bufferCommands: false, // Disable command buffering - CRITICAL for preventing timeouts
       autoIndex: true, // Build indexes
       family: 4, // Use IPv4, skip trying IPv6
-      // Add these critical settings to fix the timeout issue
+      // Add buffer timeout but NOT maxTimeMS (which is unsupported in connection options)
       bufferTimeoutMS: 600000, // 10 minutes buffer timeout
-      maxTimeMS: 600000, // 10 minutes max time for operations
     };
 
     // Add options that might not be supported in all versions
@@ -156,6 +161,14 @@ const connectDB = async (retryCount = 0, maxRetries = 5) => {
 
       // Merge the additional options
       connectionOptions = { ...connectionOptions, ...additionalOptions };
+
+      // Make sure maxTimeMS is not in the connection options (it's not supported)
+      if (connectionOptions.maxTimeMS) {
+        console.log(
+          "Removing unsupported maxTimeMS option from connection options"
+        );
+        delete connectionOptions.maxTimeMS;
+      }
 
       console.log("Using extended connection options");
     } catch (optionsError) {
@@ -218,8 +231,17 @@ const connectDB = async (retryCount = 0, maxRetries = 5) => {
       );
     }
 
+    // Final safety check for unsupported options
+    const knownUnsupportedOptions = ["maxTimeMS", "maxtimems"];
+    for (const option of knownUnsupportedOptions) {
+      if (option in connectionOptions) {
+        console.log(`Removing known unsupported option: ${option}`);
+        delete connectionOptions[option];
+      }
+    }
+
     console.log(
-      "Connection options:",
+      "Final connection options:",
       JSON.stringify(connectionOptions, null, 2)
     );
 
