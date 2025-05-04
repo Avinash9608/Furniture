@@ -468,11 +468,47 @@ const getAllProducts = async (req, res) => {
 
       // Fetch products from the products collection
       console.log("Fetching products from database");
+      console.log("Query parameters:", req.query);
+
       const productsCollection = db.collection("products");
-      products = await productsCollection
-        .find({})
-        .sort({ createdAt: -1 })
-        .toArray();
+
+      // Build query based on request parameters
+      const query = {};
+
+      // Filter by category if provided
+      if (req.query.category) {
+        console.log(`Filtering by category: ${req.query.category}`);
+        try {
+          // Try to convert to ObjectId first
+          query.category = new ObjectId(req.query.category);
+        } catch (error) {
+          // If not a valid ObjectId, use as string
+          console.log("Category is not a valid ObjectId, using as string");
+          query.category = req.query.category;
+        }
+      }
+
+      // Add other filters as needed
+      if (req.query.featured === "true") {
+        query.featured = true;
+      }
+
+      console.log("Final query:", JSON.stringify(query));
+
+      // Execute the query
+      let findQuery = productsCollection.find(query).sort({ createdAt: -1 });
+
+      // Apply limit if provided
+      if (req.query.limit) {
+        const limit = parseInt(req.query.limit);
+        if (!isNaN(limit) && limit > 0) {
+          console.log(`Limiting results to ${limit} products`);
+          findQuery = findQuery.limit(limit);
+        }
+      }
+
+      // Execute the query
+      products = await findQuery.toArray();
 
       console.log(`Fetched ${products.length} products from database`);
 
@@ -530,8 +566,8 @@ const getAllProducts = async (req, res) => {
   } catch (error) {
     console.error("Error fetching products:", error);
 
-    // Return error response
-    return res.status(200).json({
+    // Return error response with proper status code
+    return res.status(500).json({
       success: false,
       message: error.message || "Error fetching products",
       error: error.stack,
@@ -650,8 +686,8 @@ const getProductById = async (req, res) => {
   } catch (error) {
     console.error("Error fetching product:", error);
 
-    // Return error response
-    return res.status(200).json({
+    // Return error response with proper status code
+    return res.status(500).json({
       success: false,
       message: error.message || "Error fetching product",
       error: error.stack,

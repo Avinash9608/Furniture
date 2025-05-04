@@ -106,6 +106,84 @@ const productsAPI = {
       for (const endpoint of endpoints) {
         try {
           console.log(`Trying to fetch products from: ${endpoint}`);
+
+          // Special handling for category filtering
+          if (params && params.category) {
+            console.log(`Detected category filter: ${params.category}`);
+
+            // If we're filtering by category, try to use a more reliable approach
+            // First, try to get all products
+            const allProductsResponse = await directApi.get(endpoint);
+            console.log(
+              "All products fetched successfully:",
+              allProductsResponse.data
+            );
+
+            // Extract products data
+            let allProductsData = [];
+
+            if (
+              allProductsResponse.data &&
+              allProductsResponse.data.data &&
+              Array.isArray(allProductsResponse.data.data)
+            ) {
+              allProductsData = allProductsResponse.data.data;
+            } else if (Array.isArray(allProductsResponse.data)) {
+              allProductsData = allProductsResponse.data;
+            } else if (
+              allProductsResponse.data &&
+              allProductsResponse.data.data
+            ) {
+              allProductsData = [allProductsResponse.data.data];
+            } else if (allProductsResponse.data) {
+              allProductsData = [allProductsResponse.data];
+            }
+
+            console.log(
+              `Filtering ${allProductsData.length} products by category: ${params.category}`
+            );
+
+            // Filter products by category
+            const filteredProducts = allProductsData.filter((product) => {
+              if (!product.category) return false;
+
+              // Handle different category formats
+              if (typeof product.category === "string") {
+                return product.category === params.category;
+              } else if (
+                typeof product.category === "object" &&
+                product.category._id
+              ) {
+                return product.category._id === params.category;
+              }
+
+              return false;
+            });
+
+            console.log(
+              `Found ${filteredProducts.length} products matching category: ${params.category}`
+            );
+
+            // Apply limit if provided
+            let limitedProducts = filteredProducts;
+            if (params.limit) {
+              const limit = parseInt(params.limit);
+              if (!isNaN(limit) && limit > 0) {
+                limitedProducts = filteredProducts.slice(0, limit);
+                console.log(`Limited to ${limitedProducts.length} products`);
+              }
+            }
+
+            return {
+              data: {
+                success: true,
+                count: filteredProducts.length,
+                data: limitedProducts,
+              },
+            };
+          }
+
+          // Standard approach for non-category filtering
           const response = await directApi.get(endpoint, { params });
           console.log("Products fetched successfully:", response.data);
 
@@ -227,12 +305,6 @@ const productsAPI = {
       const isDevelopment = !baseUrl.includes("onrender.com");
 
       const endpoints = [
-        // Debug endpoint for testing different response formats
-        ...(isDevelopment
-          ? [`${localServerUrl}/api/debug-product/${id}`]
-          : [`${baseUrl}/api/debug-product/${id}`]),
-        `${deployedUrl}/api/debug-product/${id}`,
-
         // New special direct product endpoint that completely bypasses Mongoose
         // This should be the most reliable endpoint for production
         ...(isDevelopment
