@@ -145,6 +145,12 @@ const connectDB = async (retryCount = 0, maxRetries = 5) => {
       family: 4, // Use IPv4, skip trying IPv6
       // Add buffer timeout but NOT maxTimeMS (which is unsupported in connection options)
       bufferTimeoutMS: 600000, // 10 minutes buffer timeout
+      // Add these options for better connection handling
+      keepAlive: true,
+      keepAliveInitialDelay: 300000, // 5 minutes
+      poolSize: 30, // Increase pool size for more concurrent connections
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
     };
 
     // Add options that might not be supported in all versions
