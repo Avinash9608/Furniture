@@ -475,7 +475,7 @@ const AdminProducts = () => {
 
         // STEP 1: Try direct endpoint first - this is the most reliable method
         let productsData = [];
-        let directSuccess = false;
+        let directApiSuccess = false;
 
         try {
           // Determine if we're in development or production
@@ -514,7 +514,7 @@ const AdminProducts = () => {
 
             if (validProducts.length > 0) {
               productsData = validProducts;
-              directSuccess = true;
+              directApiSuccess = true;
 
               // Clear any error
               setError(null);
@@ -540,7 +540,7 @@ const AdminProducts = () => {
         }
 
         // Only try regular API if direct endpoint failed
-        if (!directSuccess) {
+        if (!directApiSuccess) {
           console.log("Now fetching products via regular API...");
           productsData = [];
 
