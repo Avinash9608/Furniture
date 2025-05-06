@@ -1,16 +1,13 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { productsAPI, categoriesAPI } from "../../utils/api";
+import { productsAPI } from "../../utils/api";
 import { adminProductsAPI, adminCategoriesAPI } from "../../utils/adminAPI";
-import { saveLocalCategories } from "../../utils/defaultData";
 import AdminLayout from "../../components/admin/AdminLayout";
 import ProductForm from "../../components/admin/ProductForm";
-import CategoryForm from "../../components/admin/CategoryForm";
 import Loading from "../../components/Loading";
 import Alert from "../../components/Alert";
 import Button from "../../components/Button";
-import Modal from "../../components/Modal";
 
 const AddProduct = () => {
   const [categories, setCategories] = useState([]);
@@ -18,11 +15,6 @@ const AddProduct = () => {
   const [error, setError] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState(null);
-
-  // State for category modal
-  const [showCategoryModal, setShowCategoryModal] = useState(false);
-  const [isSubmittingCategory, setIsSubmittingCategory] = useState(false);
-  const [categorySuccess, setCategorySuccess] = useState(null);
 
   const navigate = useNavigate();
 
@@ -33,114 +25,119 @@ const AddProduct = () => {
         setLoading(true);
         setError(null);
 
-        // Fetch categories from the API using authenticated admin API
-        const response = await adminCategoriesAPI.getAll();
-        console.log("Categories API response:", response);
+        // Define predefined categories to use as fallback
+        const predefinedCategories = [
+          {
+            _id: "predefined_sofa_beds",
+            name: "Sofa Beds",
+            displayName: "Sofa Beds",
+            description: "Comfortable sofa beds for your living room",
+          },
+          {
+            _id: "predefined_tables",
+            name: "Tables",
+            displayName: "Tables",
+            description: "Stylish tables for your home",
+          },
+          {
+            _id: "predefined_chairs",
+            name: "Chairs",
+            displayName: "Chairs",
+            description: "Ergonomic chairs for comfort",
+          },
+          {
+            _id: "predefined_wardrobes",
+            name: "Wardrobes",
+            displayName: "Wardrobes",
+            description: "Spacious wardrobes for storage",
+          },
+          {
+            _id: "predefined_beds",
+            name: "Beds",
+            displayName: "Beds",
+            description: "Comfortable beds for a good night's sleep",
+          },
+        ];
 
-        if (response && response.data) {
-          let allCategories = [];
+        try {
+          // Try to fetch categories from the API
+          const response = await adminCategoriesAPI.getAll();
+          console.log("Categories API response:", response);
 
-          // Check if response.data.data is an array (API returns {success, count, data})
-          if (response.data.data && Array.isArray(response.data.data)) {
-            allCategories = response.data.data;
-          } else if (Array.isArray(response.data)) {
-            // If response.data is directly an array
-            allCategories = response.data;
-          } else {
-            console.error("Unexpected API response format:", response.data);
-            setError("Failed to load categories. Invalid data format.");
-            setLoading(false);
-            return;
-          }
+          if (response && response.data) {
+            let allCategories = [];
 
-          // Required categories that should be displayed
-          const requiredCategoryNames = [
-            "Sofa Beds",
-            "Tables",
-            "Chairs",
-            "Wardrobes",
-            "Beds",
-          ];
-
-          // Check if we have all required categories
-          const existingCategoryNames = allCategories.map((cat) => cat.name);
-
-          console.log("Existing categories:", existingCategoryNames);
-
-          // Instead of creating missing categories, we'll use the existing ones
-          // and map any close matches (case insensitive)
-          const normalizedCategories = allCategories.map((category) => {
-            // Check if this category is a close match to any required category
-            const normalizedName = category.name.toLowerCase().trim();
-
-            if (
-              normalizedName.includes("sofa") ||
-              normalizedName.includes("bed")
-            ) {
-              category.displayName = "Sofa Beds";
-            } else if (normalizedName.includes("table")) {
-              category.displayName = "Tables";
-            } else if (normalizedName.includes("chair")) {
-              category.displayName = "Chairs";
-            } else if (normalizedName.includes("wardrobe")) {
-              category.displayName = "Wardrobes";
-            } else if (
-              normalizedName.includes("bed") &&
-              !normalizedName.includes("sofa")
-            ) {
-              category.displayName = "Beds";
+            // Check if response.data.data is an array (API returns {success, count, data})
+            if (response.data.data && Array.isArray(response.data.data)) {
+              allCategories = response.data.data;
+            } else if (Array.isArray(response.data)) {
+              // If response.data is directly an array
+              allCategories = response.data;
             } else {
-              category.displayName = category.name;
+              console.warn(
+                "Unexpected API response format, using predefined categories"
+              );
+              setCategories(predefinedCategories);
+              setLoading(false);
+              return;
             }
 
-            return category;
-          });
+            if (allCategories.length > 0) {
+              // Normalize categories
+              const normalizedCategories = allCategories.map((category) => {
+                const normalizedName = category.name.toLowerCase().trim();
 
-          // Group categories by display name to avoid duplicates
-          const categoryMap = {};
-          normalizedCategories.forEach((category) => {
-            // If we already have this display name, only replace if this one is an exact match
-            if (
-              !categoryMap[category.displayName] ||
-              requiredCategoryNames.includes(category.name)
-            ) {
-              categoryMap[category.displayName] = category;
+                if (
+                  normalizedName.includes("sofa") ||
+                  normalizedName.includes("bed")
+                ) {
+                  category.displayName = "Sofa Beds";
+                } else if (normalizedName.includes("table")) {
+                  category.displayName = "Tables";
+                } else if (normalizedName.includes("chair")) {
+                  category.displayName = "Chairs";
+                } else if (normalizedName.includes("wardrobe")) {
+                  category.displayName = "Wardrobes";
+                } else if (
+                  normalizedName.includes("bed") &&
+                  !normalizedName.includes("sofa")
+                ) {
+                  category.displayName = "Beds";
+                } else {
+                  category.displayName = category.name;
+                }
+
+                return category;
+              });
+
+              setCategories(normalizedCategories);
+            } else {
+              console.warn(
+                "No categories found in API response, using predefined categories"
+              );
+              setCategories(predefinedCategories);
             }
-          });
-
-          // Convert back to array
-          const uniqueCategories = Object.values(categoryMap);
-
-          console.log("Normalized categories:", uniqueCategories);
-
-          // If we have at least one category, use them
-          if (uniqueCategories.length > 0) {
-            setCategories(uniqueCategories);
           } else {
-            console.warn("No categories found. Using all categories.");
-            setCategories(allCategories);
+            console.warn(
+              "No data received from API, using predefined categories"
+            );
+            setCategories(predefinedCategories);
           }
-        } else {
-          console.error("No data received from API");
-          setError("Failed to load categories. No data received.");
+        } catch (apiError) {
+          console.error("Error fetching categories from API:", apiError);
+          console.log("Using predefined categories as fallback");
+          setCategories(predefinedCategories);
+          // Don't set error message since we're using fallback categories
         }
       } catch (error) {
-        console.error("Error fetching categories:", error);
-        setError("Failed to load categories. Please try again later.");
+        console.error("Unexpected error:", error);
+        setError("An unexpected error occurred. Please try again.");
       } finally {
         setLoading(false);
       }
     };
 
     fetchCategories();
-
-    // Set up global function to add a new category
-    window.addCategory = () => setShowCategoryModal(true);
-
-    // Clean up
-    return () => {
-      window.addCategory = undefined;
-    };
   }, []);
 
   // Handle form submission
@@ -275,109 +272,16 @@ const AddProduct = () => {
                 <Loading size="large" />
               </div>
             ) : (
-              <>
-                {/* Category success message */}
-                {categorySuccess && (
-                  <Alert
-                    type="success"
-                    message={categorySuccess}
-                    onClose={() => setCategorySuccess(null)}
-                    className="mb-3 sm:mb-4 text-sm sm:text-base"
-                  />
-                )}
-
-                {/* Add category button if no categories */}
-                {(!categories || categories.length === 0) && (
-                  <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-md">
-                    <div className="flex items-start sm:items-center">
-                      <svg
-                        className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-400 dark:text-yellow-300 mr-2 mt-0.5 sm:mt-0"
-                        fill="currentColor"
-                        viewBox="0 0 20 20"
-                        xmlns="http://www.w3.org/2000/svg"
-                      >
-                        <path
-                          fillRule="evenodd"
-                          d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
-                          clipRule="evenodd"
-                        ></path>
-                      </svg>
-                      <p className="text-xs sm:text-sm text-yellow-700 dark:text-yellow-200 flex-1">
-                        No categories found. You need to create at least one
-                        category before adding products.
-                      </p>
-                    </div>
-                    <div className="mt-3">
-                      <Button
-                        onClick={() => setShowCategoryModal(true)}
-                        variant="secondary"
-                        className="text-xs sm:text-sm w-full sm:w-auto"
-                      >
-                        Add New Category
-                      </Button>
-                    </div>
-                  </div>
-                )}
-
-                <ProductForm
-                  categories={categories}
-                  onSubmit={handleSubmit}
-                  isSubmitting={isSubmitting}
-                  submitError={submitError}
-                />
-              </>
+              <ProductForm
+                categories={categories}
+                onSubmit={handleSubmit}
+                isSubmitting={isSubmitting}
+                submitError={submitError}
+              />
             )}
           </div>
         </motion.div>
       </div>
-
-      {/* Category Modal */}
-      <Modal
-        isOpen={showCategoryModal}
-        onClose={() => setShowCategoryModal(false)}
-        title="Add New Category"
-        size="md"
-      >
-        <CategoryForm
-          onSubmit={async (categoryData) => {
-            try {
-              setIsSubmittingCategory(true);
-
-              // Create new category with authenticated API
-              const response = await adminCategoriesAPI.create(categoryData);
-
-              // Add the new category to the list
-              const newCategory = response.data.data || response.data;
-              const updatedCategories = [...categories, newCategory];
-              setCategories(updatedCategories);
-
-              // Save to local storage
-              saveLocalCategories(updatedCategories);
-
-              // Get the category name from FormData if it's FormData
-              const categoryName =
-                categoryData instanceof FormData
-                  ? categoryData.get("name")
-                  : categoryData.name;
-
-              // Show success message
-              setCategorySuccess(
-                `Category "${categoryName}" created successfully`
-              );
-
-              // Close modal
-              setShowCategoryModal(false);
-            } catch (error) {
-              console.error("Error creating category:", error);
-              setError("Failed to create category. Please try again.");
-            } finally {
-              setIsSubmittingCategory(false);
-            }
-          }}
-          onCancel={() => setShowCategoryModal(false)}
-          isSubmitting={isSubmittingCategory}
-        />
-      </Modal>
     </AdminLayout>
   );
 };
