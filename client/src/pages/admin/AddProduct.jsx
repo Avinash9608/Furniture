@@ -64,48 +64,60 @@ const AddProduct = () => {
 
           // Check if we have all required categories
           const existingCategoryNames = allCategories.map((cat) => cat.name);
-          const missingCategories = requiredCategoryNames.filter(
-            (name) => !existingCategoryNames.includes(name)
-          );
 
-          if (missingCategories.length > 0) {
-            console.warn("Missing required categories:", missingCategories);
+          console.log("Existing categories:", existingCategoryNames);
 
-            // Create missing categories
-            for (const categoryName of missingCategories) {
-              try {
-                console.log(`Creating missing category: ${categoryName}`);
-                const newCategory = await adminCategoriesAPI.create({
-                  name: categoryName,
-                  description: `${categoryName} furniture items`,
-                });
+          // Instead of creating missing categories, we'll use the existing ones
+          // and map any close matches (case insensitive)
+          const normalizedCategories = allCategories.map((category) => {
+            // Check if this category is a close match to any required category
+            const normalizedName = category.name.toLowerCase().trim();
 
-                if (newCategory && newCategory.data) {
-                  const categoryData =
-                    newCategory.data.data || newCategory.data;
-                  allCategories.push(categoryData);
-                  console.log(`Created category: ${categoryName}`);
-                }
-              } catch (err) {
-                console.error(
-                  `Failed to create category ${categoryName}:`,
-                  err
-                );
-              }
+            if (
+              normalizedName.includes("sofa") ||
+              normalizedName.includes("bed")
+            ) {
+              category.displayName = "Sofa Beds";
+            } else if (normalizedName.includes("table")) {
+              category.displayName = "Tables";
+            } else if (normalizedName.includes("chair")) {
+              category.displayName = "Chairs";
+            } else if (normalizedName.includes("wardrobe")) {
+              category.displayName = "Wardrobes";
+            } else if (
+              normalizedName.includes("bed") &&
+              !normalizedName.includes("sofa")
+            ) {
+              category.displayName = "Beds";
+            } else {
+              category.displayName = category.name;
             }
-          }
 
-          // Filter to only include the required categories
-          const filteredCategories = allCategories.filter((category) =>
-            requiredCategoryNames.includes(category.name)
-          );
+            return category;
+          });
 
-          console.log("Filtered categories:", filteredCategories);
+          // Group categories by display name to avoid duplicates
+          const categoryMap = {};
+          normalizedCategories.forEach((category) => {
+            // If we already have this display name, only replace if this one is an exact match
+            if (
+              !categoryMap[category.displayName] ||
+              requiredCategoryNames.includes(category.name)
+            ) {
+              categoryMap[category.displayName] = category;
+            }
+          });
 
-          if (filteredCategories.length > 0) {
-            setCategories(filteredCategories);
+          // Convert back to array
+          const uniqueCategories = Object.values(categoryMap);
+
+          console.log("Normalized categories:", uniqueCategories);
+
+          // If we have at least one category, use them
+          if (uniqueCategories.length > 0) {
+            setCategories(uniqueCategories);
           } else {
-            console.warn("No matching categories found. Using all categories.");
+            console.warn("No categories found. Using all categories.");
             setCategories(allCategories);
           }
         } else {
