@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { productsAPI, categoriesAPI } from "../../utils/api";
+import { adminProductsAPI, adminCategoriesAPI } from "../../utils/adminAPI";
 import { saveLocalCategories } from "../../utils/defaultData";
 import AdminLayout from "../../components/admin/AdminLayout";
 import ProductForm from "../../components/admin/ProductForm";
@@ -32,8 +33,8 @@ const AddProduct = () => {
         setLoading(true);
         setError(null);
 
-        // Fetch categories from the API
-        const response = await categoriesAPI.getAll();
+        // Fetch categories from the API using authenticated admin API
+        const response = await adminCategoriesAPI.getAll();
         console.log("Categories API response:", response);
 
         if (response && response.data) {
@@ -74,7 +75,7 @@ const AddProduct = () => {
             for (const categoryName of missingCategories) {
               try {
                 console.log(`Creating missing category: ${categoryName}`);
-                const newCategory = await categoriesAPI.create({
+                const newCategory = await adminCategoriesAPI.create({
                   name: categoryName,
                   description: `${categoryName} furniture items`,
                 });
@@ -189,8 +190,8 @@ const AddProduct = () => {
         );
       }
 
-      // Use the productsAPI client which handles headers correctly
-      const response = await productsAPI.create(formData);
+      // Use the adminProductsAPI client which ensures authentication
+      const response = await adminProductsAPI.create(formData);
       console.log("Product created successfully:", response);
 
       // Show success message with a slight delay to ensure UI updates
@@ -330,8 +331,8 @@ const AddProduct = () => {
             try {
               setIsSubmittingCategory(true);
 
-              // Create new category
-              const response = await categoriesAPI.create(categoryData);
+              // Create new category with authenticated API
+              const response = await adminCategoriesAPI.create(categoryData);
 
               // Add the new category to the list
               const newCategory = response.data.data || response.data;
