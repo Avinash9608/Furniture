@@ -65,14 +65,27 @@ const Products = () => {
               directResponse.data
             );
 
+            // Filter out any invalid products
+            const validProducts = directResponse.data.data.filter(
+              (product) => product && typeof product === "object" && product._id
+            );
+
+            if (validProducts.length !== directResponse.data.data.length) {
+              console.warn(
+                `Filtered out ${
+                  directResponse.data.data.length - validProducts.length
+                } invalid products`
+              );
+            }
+
             // Set the products
-            setProducts(directResponse.data.data);
+            setProducts(validProducts);
             setTotalPages(Math.ceil(directResponse.data.count / 12));
 
             // Find the highest price for the price range filter
-            if (directResponse.data.data.length > 0) {
+            if (validProducts.length > 0) {
               const highestPrice = Math.max(
-                ...directResponse.data.data.map((product) =>
+                ...validProducts.map((product) =>
                   typeof product.price === "number" ? product.price : 0
                 )
               );
@@ -86,6 +99,12 @@ const Products = () => {
                 directResponse.data.source || "direct"
               }`
             );
+
+            // Set loading to false to prevent fetchProducts from overriding our data
+            setLoading(false);
+
+            // Skip the regular fetchProducts call
+            return;
           }
         } catch (directError) {
           console.error("Direct products endpoint failed:", directError);
@@ -181,8 +200,16 @@ const Products = () => {
         );
         setCategories(filteredCategories);
 
-        // Fetch products with filters
-        await fetchProducts();
+        // Only fetch products if we don't already have them from the direct endpoint
+        if (products.length === 0) {
+          console.log("No products loaded yet, fetching with filters...");
+          await fetchProducts();
+        } else {
+          console.log(
+            "Products already loaded from direct endpoint, skipping fetchProducts"
+          );
+          setLoading(false);
+        }
       } catch (error) {
         console.error("Error fetching data:", error);
         setError("Failed to load products. Please try again later.");
