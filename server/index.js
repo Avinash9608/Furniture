@@ -524,9 +524,9 @@ app.get("/api/admin/direct/products", async (req, res) => {
     const options = {
       useNewUrlParser: true,
       useUnifiedTopology: true,
-      connectTimeoutMS: 10000,
-      socketTimeoutMS: 10000,
-      serverSelectionTimeoutMS: 10000,
+      connectTimeoutMS: 30000,
+      socketTimeoutMS: 30000,
+      serverSelectionTimeoutMS: 30000,
     };
 
     let client = null;

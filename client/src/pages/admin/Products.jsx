@@ -189,15 +189,26 @@ const AdminProducts = () => {
       console.log("MongoDB connection test response:", response.data);
 
       // Check if the response has the expected structure
-      if (response.data && response.data.data && response.data.data.products) {
+      if (response.data && response.data.success) {
         // Show success message
-        setError(
-          `MongoDB connection successful! Found ${response.data.data.products.count} products and ${response.data.data.categories.count} categories.`
-        );
+        let successMessage = "MongoDB connection successful!";
 
-        // Fetch data again
-        fetchData();
+        // Add product and category counts if available
+        if (response.data.data && response.data.data.products) {
+          successMessage += ` Found ${response.data.data.products.count} products`;
+
+          if (response.data.data.categories) {
+            successMessage += ` and ${response.data.data.categories.count} categories`;
+          }
+        }
+
+        setSuccessMessage(successMessage);
+        setError(null);
+
+        // Try direct endpoint again since we know MongoDB is working
+        tryDirectEndpoint();
       } else {
+        console.warn("Unexpected response format:", response.data);
         throw new Error("Invalid response format from server");
       }
     } catch (error) {
@@ -231,9 +242,15 @@ const AdminProducts = () => {
         directUrl
       );
 
-      const directResponse = await axios.get(directUrl, { timeout: 30000 });
+      // Increase timeout for production environment
+      const timeout = isDevelopment ? 30000 : 60000;
+      const directResponse = await axios.get(directUrl, { timeout });
 
-      if (directResponse.data && directResponse.data.data) {
+      if (
+        directResponse.data &&
+        directResponse.data.data &&
+        Array.isArray(directResponse.data.data)
+      ) {
         console.log(
           "Direct admin products endpoint success:",
           directResponse.data
@@ -242,20 +259,63 @@ const AdminProducts = () => {
         // Process the products data
         const productsData = directResponse.data.data;
 
-        if (productsData.length > 0) {
+        // Make sure we have valid products
+        const validProducts = productsData.filter(
+          (product) => product && typeof product === "object" && product._id
+        );
+
+        if (validProducts.length > 0) {
+          console.log(
+            `Found ${validProducts.length} valid products from direct endpoint`
+          );
+
           // Process products to ensure they have all required fields
-          const processedProducts = productsData.map((product) => {
+          const processedProducts = validProducts.map((product) => {
             // Ensure product has a category object
             if (!product.category) {
               product.category = { _id: "unknown", name: "Unknown" };
             } else if (typeof product.category === "string") {
-              // If category is a string (ID), create a placeholder with the ID
+              // Try to map known category IDs to names
+              const categoryMap = {
+                "680c9481ab11e96a288ef6d9": "Sofa Beds",
+                "680c9484ab11e96a288ef6da": "Tables",
+                "680c9486ab11e96a288ef6db": "Chairs",
+                "680c9489ab11e96a288ef6dc": "Wardrobes",
+                "680c948eab11e96a288ef6dd": "Beds",
+              };
+
+              const categoryName =
+                categoryMap[product.category] ||
+                `Category ${product.category.substring(
+                  product.category.length - 6
+                )}`;
+
               product.category = {
                 _id: product.category,
-                name: `Category ${product.category.substring(
-                  product.category.length - 6
-                )}`,
+                name: categoryName,
               };
+            } else if (
+              typeof product.category === "object" &&
+              !product.category.name
+            ) {
+              // If category is an object but missing name
+              product.category.name = "Unknown";
+            }
+
+            // Ensure product has images array
+            if (
+              !product.images ||
+              !Array.isArray(product.images) ||
+              product.images.length === 0
+            ) {
+              product.images = [
+                "https://placehold.co/300x300/gray/white?text=Product",
+              ];
+            }
+
+            // Ensure product has stock value
+            if (product.stock === undefined || product.stock === null) {
+              product.stock = 0;
             }
 
             return product;
@@ -272,7 +332,16 @@ const AdminProducts = () => {
 
           // Clear any error
           setError(null);
+        } else {
+          console.warn("Direct endpoint returned no valid products");
+          throw new Error("No valid products found in response");
         }
+      } else {
+        console.warn(
+          "Unexpected response format from direct endpoint:",
+          directResponse.data
+        );
+        throw new Error("Invalid response format from direct endpoint");
       }
     } catch (directError) {
       console.error("Last resort direct endpoint failed:", directError);
