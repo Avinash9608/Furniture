@@ -72,7 +72,87 @@ const AdminProducts = () => {
       const isDevelopment = !baseUrl.includes("onrender.com");
       const localServerUrl = "http://localhost:5000";
 
-      // Use the appropriate URL based on environment
+      // Try direct admin products endpoint first
+      try {
+        // Use the appropriate URL based on environment
+        const directUrl = isDevelopment
+          ? `${localServerUrl}/api/admin/direct/products`
+          : `${baseUrl}/api/admin/direct/products`;
+
+        console.log("Testing direct admin products endpoint:", directUrl);
+
+        const directResponse = await axios.get(directUrl, { timeout: 30000 });
+
+        if (directResponse.data && directResponse.data.data) {
+          console.log(
+            "Direct admin products endpoint success:",
+            directResponse.data
+          );
+
+          // Process the products data
+          const productsData = directResponse.data.data;
+
+          // Process products to ensure they have all required fields
+          const processedProducts = productsData.map((product) => {
+            // Ensure product has a category object
+            if (!product.category) {
+              product.category = { _id: "unknown", name: "Unknown" };
+            } else if (typeof product.category === "string") {
+              // If category is a string (ID), create a placeholder with the ID
+              product.category = {
+                _id: product.category,
+                name: `Category ${product.category.substring(
+                  product.category.length - 6
+                )}`,
+              };
+            } else if (
+              typeof product.category === "object" &&
+              !product.category.name
+            ) {
+              // If category is an object but missing name
+              product.category.name = "Unknown";
+            }
+
+            // Ensure product has images array
+            if (
+              !product.images ||
+              !Array.isArray(product.images) ||
+              product.images.length === 0
+            ) {
+              product.images = [
+                "https://placehold.co/300x300/gray/white?text=Product",
+              ];
+            }
+
+            // Ensure product has stock value
+            if (product.stock === undefined || product.stock === null) {
+              product.stock = 0;
+            }
+
+            return product;
+          });
+
+          // Set the products
+          setProducts(processedProducts);
+          setFilteredProducts(processedProducts);
+
+          // Show success message
+          setSuccessMessage(
+            `Successfully loaded ${processedProducts.length} products from direct database connection`
+          );
+
+          // Clear any error
+          setError(null);
+
+          setLoading(false);
+          return;
+        }
+      } catch (directError) {
+        console.error("Direct admin products endpoint failed:", directError);
+        // Continue with regular test
+      }
+
+      // Use the appropriate URL based on environment for regular test
       const testUrl = isDevelopment
         ? `${localServerUrl}/api/test-mongodb`
         : `${baseUrl}/api/test-mongodb`;
@@ -84,16 +164,95 @@ const AdminProducts = () => {
 
       console.log("MongoDB connection test response:", response.data);
 
-      // Show success message
-      setError(
-        `MongoDB connection successful! Found ${response.data.data.products.count} products and ${response.data.data.categories.count} categories.`
-      );
+      // Check if the response has the expected structure
+      if (response.data && response.data.data && response.data.data.products) {
+        // Show success message
+        setError(
+          `MongoDB connection successful! Found ${response.data.data.products.count} products and ${response.data.data.categories.count} categories.`
+        );
 
-      // Fetch data again
-      fetchData();
+        // Fetch data again
+        fetchData();
+      } else {
+        throw new Error("Invalid response format from server");
+      }
     } catch (error) {
       console.error("MongoDB connection test failed:", error);
       setError(`MongoDB connection test failed: ${error.message}`);
+
+      // Try direct endpoint as a last resort
+      tryDirectEndpoint();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Function to try direct endpoint as a last resort
+  const tryDirectEndpoint = async () => {
+    try {
+      setLoading(true);
+
+      // Determine if we're in development or production
+      const baseUrl = window.location.origin;
+      const isDevelopment = !baseUrl.includes("onrender.com");
+      const localServerUrl = "http://localhost:5000";
+
+      // Use the appropriate URL based on environment
+      const directUrl = isDevelopment
+        ? `${localServerUrl}/api/admin/direct/products`
+        : `${baseUrl}/api/admin/direct/products`;
+
+      console.log(
+        "Last resort: trying direct admin products endpoint:",
+        directUrl
+      );
+
+      const directResponse = await axios.get(directUrl, { timeout: 30000 });
+
+      if (directResponse.data && directResponse.data.data) {
+        console.log(
+          "Direct admin products endpoint success:",
+          directResponse.data
+        );
+
+        // Process the products data
+        const productsData = directResponse.data.data;
+
+        if (productsData.length > 0) {
+          // Process products to ensure they have all required fields
+          const processedProducts = productsData.map((product) => {
+            // Ensure product has a category object
+            if (!product.category) {
+              product.category = { _id: "unknown", name: "Unknown" };
+            } else if (typeof product.category === "string") {
+              // If category is a string (ID), create a placeholder with the ID
+              product.category = {
+                _id: product.category,
+                name: `Category ${product.category.substring(
+                  product.category.length - 6
+                )}`,
+              };
+            }
+
+            return product;
+          });
+
+          // Set the products
+          setProducts(processedProducts);
+          setFilteredProducts(processedProducts);
+
+          // Show success message
+          setSuccessMessage(
+            `Successfully loaded ${processedProducts.length} products from direct database connection`
+          );
+
+          // Clear any error
+          setError(null);
+        }
+      }
+    } catch (directError) {
+      console.error("Last resort direct endpoint failed:", directError);
+      // We've tried everything, just show the error
     } finally {
       setLoading(false);
     }
@@ -105,6 +264,9 @@ const AdminProducts = () => {
       try {
         setLoading(true);
         setError(null);
+        setSuccessMessage("");
+
+        console.log("Admin Products component mounted - fetching initial data");
 
         // Fetch categories first
         console.log("Fetching categories first...");
@@ -169,13 +331,46 @@ const AdminProducts = () => {
         // Set categories immediately so they're available for product processing
         setCategories(fetchedCategories);
 
-        // Now fetch products after categories are loaded
-        console.log("Now fetching products...");
+        // Try direct endpoint first on initial load
         let productsData = [];
+        let directSuccess = false;
 
         try {
-          // Try direct admin endpoint first
+          // Determine if we're in development or production
+          const baseUrl = window.location.origin;
+          const isDevelopment = !baseUrl.includes("onrender.com");
+          const localServerUrl = "http://localhost:5000";
+
+          // Use the appropriate URL based on environment
+          const directUrl = isDevelopment
+            ? `${localServerUrl}/api/admin/direct/products`
+            : `${baseUrl}/api/admin/direct/products`;
+
+          console.log("Initial load: trying direct admin products endpoint:", directUrl);
+
+          const directResponse = await axios.get(directUrl, { timeout: 30000 });
+
+          if (directResponse.data && directResponse.data.data && directResponse.data.data.length > 0) {
+            console.log("Direct admin products endpoint success on initial load:", directResponse.data);
+            productsData = directResponse.data.data;
+            directSuccess = true;
+
+            // Set success message
+            setSuccessMessage(`Successfully loaded ${productsData.length} products from direct database connection`);
+          }
+        } catch (directError) {
+          console.error("Direct admin products endpoint failed on initial load:", directError);
+          // Continue with normal flow
+        }
+
+        // Only try regular API if direct endpoint failed
+        if (!directSuccess) {
+          console.log("Now fetching products via regular API...");
+          productsData = [];
+
           try {
+            // Try direct admin endpoint first
+            try {
             // Determine if we're in development or production
             const baseUrl = window.location.origin;
             const isDevelopment = !baseUrl.includes("onrender.com");
@@ -247,6 +442,7 @@ const AdminProducts = () => {
               console.warn("API returned empty products array");
             }
           }
+        }
         } catch (productError) {
           console.error("Error fetching products:", productError);
           productsData = [];
