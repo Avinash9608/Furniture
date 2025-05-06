@@ -4,13 +4,39 @@ import { motion } from "framer-motion";
 import { formatPrice, calculateDiscountPercentage } from "../utils/format";
 import { getProductImage, handleImageError } from "../utils/defaultImages";
 
+// Helper function to safely get product data
+const safeProduct = (product) => {
+  if (!product) {
+    return {
+      _id: "unknown",
+      name: "Unknown Product",
+      price: 0,
+      category: { name: "Uncategorized" },
+      images: [],
+    };
+  }
+
+  return {
+    _id: product._id || "unknown",
+    name: product.name || "Unknown Product",
+    price: typeof product.price === "number" ? product.price : 0,
+    discountPrice:
+      typeof product.discountPrice === "number" ? product.discountPrice : null,
+    category: product.category || { name: "Uncategorized" },
+    images: Array.isArray(product.images) ? product.images : [],
+  };
+};
+
 const ProductCard = ({ product }) => {
+  // Use the safe product helper to ensure we have valid data
+  const safe = safeProduct(product);
+
   return (
     <motion.div whileHover={{ y: -5 }} className="card group">
       <div className="relative overflow-hidden h-64">
         <img
-          src={getProductImage(product)}
-          alt={product.name}
+          src={getProductImage(safe)}
+          alt={safe.name}
           className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
           onError={handleImageError}
         />
@@ -35,21 +61,21 @@ const ProductCard = ({ product }) => {
         <span className="text-sm theme-text-secondary">
           {(() => {
             // Handle different category formats
-            if (!product || !product.category) {
+            if (!safe.category) {
               return "Uncategorized";
             }
 
             // If category is an object with a name property
-            if (typeof product.category === "object" && product.category.name) {
-              return product.category.name;
+            if (typeof safe.category === "object" && safe.category.name) {
+              return safe.category.name;
             }
 
             // If category is a string (MongoDB ID)
-            if (typeof product.category === "string") {
+            if (typeof safe.category === "string") {
               // Check if it's a MongoDB ObjectId (24 hex chars)
               if (
-                product.category.length === 24 &&
-                /^[0-9a-f]+$/.test(product.category)
+                safe.category.length === 24 &&
+                /^[0-9a-f]+$/.test(safe.category)
               ) {
                 // Direct mapping of known category IDs to their names
                 const categoryMap = {
@@ -61,10 +87,10 @@ const ProductCard = ({ product }) => {
                 };
 
                 // Return the mapped category name or a default
-                return categoryMap[product.category] || "Furniture";
+                return categoryMap[safe.category] || "Furniture";
               }
               // If it's a regular string, use it directly
-              return product.category;
+              return safe.category;
             }
 
             // Fallback
@@ -72,23 +98,23 @@ const ProductCard = ({ product }) => {
           })()}
         </span>
         <h3 className="text-lg font-medium mb-2 theme-text-primary">
-          {product.name}
+          {safe.name}
         </h3>
         <div className="flex justify-between items-center">
           <div>
-            {product.discountPrice && product.discountPrice < product.price ? (
+            {safe.discountPrice && safe.discountPrice < safe.price ? (
               <div className="flex flex-col">
                 <span className="text-lg font-bold text-primary">
-                  {formatPrice(product.discountPrice)}
+                  {formatPrice(safe.discountPrice)}
                 </span>
                 <div className="flex items-center">
                   <span className="text-sm theme-text-secondary line-through mr-1">
-                    {formatPrice(product.price, false)}
+                    {formatPrice(safe.price, false)}
                   </span>
                   <span className="text-xs text-red-600">
                     {calculateDiscountPercentage(
-                      product.price,
-                      product.discountPrice
+                      safe.price,
+                      safe.discountPrice
                     )}
                     % OFF
                   </span>
@@ -96,12 +122,12 @@ const ProductCard = ({ product }) => {
               </div>
             ) : (
               <span className="text-lg font-bold text-primary">
-                {formatPrice(product.price)}
+                {formatPrice(safe.price)}
               </span>
             )}
           </div>
           <Link
-            to={`/products/${product._id || "not-found"}`}
+            to={`/products/${safe._id}`}
             className="text-sm font-medium theme-text-secondary hover:text-primary transition-colors duration-300"
           >
             View Details

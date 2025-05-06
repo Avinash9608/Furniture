@@ -182,30 +182,45 @@ const Products = () => {
 
       console.log("Products connection test response:", response.data);
 
-      if (
-        response.data &&
-        response.data.data &&
-        response.data.data.length > 0
-      ) {
-        // Show success message
-        setError(
-          `Products connection successful! Found ${response.data.count} products from source: ${response.data.source}`
-        );
+      if (response.data) {
+        // Extract the products data based on the response structure
+        let productsData = [];
+        let productsCount = 0;
+        let dataSource = "unknown";
 
-        // Set the products
-        setProducts(response.data.data);
-        setTotalPages(Math.ceil(response.data.count / 12));
+        if (response.data.data && Array.isArray(response.data.data)) {
+          productsData = response.data.data;
+          productsCount = response.data.count || productsData.length;
+          dataSource = response.data.source || "api";
+        } else if (Array.isArray(response.data)) {
+          productsData = response.data;
+          productsCount = productsData.length;
+          dataSource = "direct_array";
+        }
 
-        // Find the highest price for the price range filter
-        if (response.data.data.length > 0) {
+        if (productsData.length > 0) {
+          // Show success message
+          setError(
+            `Products connection successful! Found ${productsCount} products from source: ${dataSource}`
+          );
+
+          // Set the products
+          setProducts(productsData);
+          setTotalPages(Math.ceil(productsCount / 12));
+
+          // Find the highest price for the price range filter
           const highestPrice = Math.max(
-            ...response.data.data.map((product) => product.price)
+            ...productsData.map((product) =>
+              typeof product.price === "number" ? product.price : 0
+            )
           );
           setMaxPrice(highestPrice);
           setPriceRange([0, highestPrice]);
+        } else {
+          setError("No products found in the database");
         }
       } else {
-        setError("No products found in the database");
+        setError("Invalid response format from server");
       }
     } catch (error) {
       console.error("Products connection test failed:", error);
@@ -281,26 +296,93 @@ const Products = () => {
       const response = await productsAPI.getAll(params);
       console.log("Products API response:", response.data);
 
-      // Handle different API response formats
-      const productsData = response.data.data || response.data;
-      const totalCount = response.data.count || productsData.length;
+      // Extract the products data based on the response structure
+      let productsData = [];
+      let totalCount = 0;
+      let dataSource = "unknown";
 
-      if (Array.isArray(productsData)) {
-        console.log(`Successfully fetched ${productsData.length} products`);
-        setProducts(productsData);
+      console.log("API response structure:", {
+        hasData: !!response.data,
+        isArray: Array.isArray(response.data),
+        hasNestedData: response.data && response.data.data,
+        nestedIsArray:
+          response.data &&
+          response.data.data &&
+          Array.isArray(response.data.data),
+        source: response.data && response.data.source,
+      });
+
+      if (
+        response.data &&
+        response.data.data &&
+        Array.isArray(response.data.data)
+      ) {
+        productsData = response.data.data;
+        totalCount = response.data.count || productsData.length;
+        dataSource = response.data.source || "api";
+        console.log(
+          `Using nested data array with ${productsData.length} products from ${dataSource}`
+        );
+      } else if (Array.isArray(response.data)) {
+        productsData = response.data;
+        totalCount = productsData.length;
+        dataSource = "direct_array";
+        console.log(`Using direct array with ${productsData.length} products`);
+      } else if (response.data && response.data.data) {
+        // If data.data is not an array but exists, convert to array
+        productsData = [response.data.data];
+        totalCount = 1;
+        dataSource = response.data.source || "single_item";
+        console.log(
+          `Converting nested non-array data to array from ${dataSource}`
+        );
+      } else if (response.data) {
+        // If data exists but not in expected format, try to use it
+        productsData = [response.data];
+        totalCount = 1;
+        dataSource = "unknown_format";
+        console.log("Converting direct non-array data to array");
+      }
+
+      if (Array.isArray(productsData) && productsData.length > 0) {
+        console.log(
+          `Successfully fetched ${productsData.length} products from ${dataSource}`
+        );
+
+        // Filter out any invalid products
+        const validProducts = productsData.filter(
+          (product) => product && typeof product === "object" && product._id
+        );
+
+        if (validProducts.length !== productsData.length) {
+          console.warn(
+            `Filtered out ${
+              productsData.length - validProducts.length
+            } invalid products`
+          );
+        }
+
+        setProducts(validProducts);
         setTotalPages(Math.ceil(totalCount / 12));
 
         // Find the highest price for the price range filter
-        if (productsData.length > 0) {
+        if (validProducts.length > 0) {
           const highestPrice = Math.max(
-            ...productsData.map((product) => product.price)
+            ...validProducts.map((product) =>
+              typeof product.price === "number" ? product.price : 0
+            )
           );
           setMaxPrice(highestPrice);
           setPriceRange([0, highestPrice]);
         }
       } else {
-        console.error("Unexpected API response format:", response.data);
-        setError("Received invalid data format from server");
+        console.error(
+          "Unexpected API response format or empty data:",
+          response.data
+        );
+        setError(
+          "No products found or received invalid data format from server"
+        );
         setProducts([]);
       }
     } catch (error) {
