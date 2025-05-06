@@ -56,23 +56,28 @@ const ProductDetailFallback = ({ children, onProductLoaded, onError }) => {
         // Create a list of endpoints to try - always include both local and deployed endpoints
         // This ensures we try all possible sources regardless of environment
         const endpointsToTry = [
-          // Try reliable endpoints first (these always work)
-          `${baseUrl}/api/reliable/products/${id}`,
-          `${deployedUrl}/api/reliable/products/${id}`,
-
-          // Try direct endpoints next
-          `${baseUrl}/api/direct-product/${id}`,
+          // Try direct endpoints first (these always work)
+          ...(isDevelopment
+            ? [`${localServerUrl}/api/direct-product/${id}`]
+            : [`${baseUrl}/api/direct-product/${id}`]),
           `${deployedUrl}/api/direct-product/${id}`,
 
+          // Try reliable endpoints next
+          ...(isDevelopment
+            ? [`${localServerUrl}/api/reliable/products/${id}`]
+            : [`${baseUrl}/api/reliable/products/${id}`]),
+          `${deployedUrl}/api/reliable/products/${id}`,
+
           // Then try standard API endpoints
-          `${baseUrl}/api/products/${id}`,
+          ...(isDevelopment
+            ? [`${localServerUrl}/api/products/${id}`]
+            : [`${baseUrl}/api/products/${id}`]),
           `${deployedUrl}/api/products/${id}`,
 
-          // Try local server in development
-          ...(isDevelopment ? [`${localServerUrl}/api/products/${id}`] : []),
-
           // Try debug endpoints
-          `${baseUrl}/api/debug/product/${id}`,
+          ...(isDevelopment
+            ? [`${localServerUrl}/api/debug/product/${id}`]
+            : [`${baseUrl}/api/debug/product/${id}`]),
           `${deployedUrl}/api/debug/product/${id}`,
         ];
 
@@ -80,20 +85,9 @@ const ProductDetailFallback = ({ children, onProductLoaded, onError }) => {
         let productData = null;
         let endpointSource = null;
 
-        // First, try to get the product directly from localStorage
-        try {
-          const storedProduct = localStorage.getItem(`product-${id}`);
-          if (storedProduct) {
-            const parsedProduct = JSON.parse(storedProduct);
-            if (parsedProduct && parsedProduct._id === id) {
-              console.log("Found product in localStorage:", parsedProduct._id);
-              productData = parsedProduct;
-              endpointSource = "localStorage";
-            }
-          }
-        } catch (localStorageError) {
-          console.error("Error reading from localStorage:", localStorageError);
-        }
+        // Skip localStorage for initial load to ensure fresh data
+        // This ensures we always get the latest data from the server
+        const skipLocalStorage = true;
 
         // If not found in localStorage, try the API endpoints
         if (!productData) {

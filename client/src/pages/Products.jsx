@@ -37,6 +37,60 @@ const Products = () => {
     const fetchData = async () => {
       try {
         setLoading(true);
+        setError(null);
+        setSuccessMessage("");
+
+        console.log("Products component mounted - fetching initial data");
+
+        // Try to fetch products directly first
+        try {
+          // Determine if we're in development or production
+          const baseUrl = window.location.origin;
+          const isDevelopment = !baseUrl.includes("onrender.com");
+          const localServerUrl = "http://localhost:5000";
+          const deployedUrl = "https://furniture-q3nb.onrender.com";
+
+          // Use the appropriate URL based on environment
+          const directUrl = isDevelopment
+            ? `${localServerUrl}/api/direct/products`
+            : `${baseUrl}/api/direct/products`;
+
+          console.log("Trying direct products endpoint:", directUrl);
+
+          const directResponse = await axios.get(directUrl, { timeout: 30000 });
+
+          if (directResponse.data && directResponse.data.data) {
+            console.log(
+              "Direct products endpoint success:",
+              directResponse.data
+            );
+
+            // Set the products
+            setProducts(directResponse.data.data);
+            setTotalPages(Math.ceil(directResponse.data.count / 12));
+
+            // Find the highest price for the price range filter
+            if (directResponse.data.data.length > 0) {
+              const highestPrice = Math.max(
+                ...directResponse.data.data.map((product) =>
+                  typeof product.price === "number" ? product.price : 0
+                )
+              );
+              setMaxPrice(highestPrice);
+              setPriceRange([0, highestPrice]);
+            }
+
+            // Set success message
+            setSuccessMessage(
+              `Found ${directResponse.data.count} products from source: ${
+                directResponse.data.source || "direct"
+              }`
+            );
+          }
+        } catch (directError) {
+          console.error("Direct products endpoint failed:", directError);
+          // Continue with normal flow
+        }
 
         // Fetch categories
         const categoriesResponse = await categoriesAPI.getAll();

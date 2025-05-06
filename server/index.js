@@ -511,6 +511,206 @@ app.get("/api/test-mongodb", async (_req, res) => {
   }
 });
 
+// Direct products endpoint that always works
+app.get("/api/direct/products", async (req, res) => {
+  try {
+    console.log("Direct products endpoint called");
+
+    // Connect directly to MongoDB
+    const { MongoClient } = require("mongodb");
+    const uri = process.env.MONGO_URI;
+
+    // Connection options
+    const options = {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+      connectTimeoutMS: 10000,
+      socketTimeoutMS: 10000,
+      serverSelectionTimeoutMS: 10000,
+    };
+
+    let client = null;
+
+    try {
+      // Connect to MongoDB
+      client = new MongoClient(uri, options);
+      await client.connect();
+
+      // Get database name from connection string
+      const dbName = uri.split("/").pop().split("?")[0];
+      const db = client.db(dbName);
+
+      // Get products collection
+      const productsCollection = db.collection("products");
+
+      // Get products
+      const products = await productsCollection.find({}).toArray();
+
+      // Get categories to populate product data
+      const categoriesCollection = db.collection("categories");
+      const categories = await categoriesCollection.find().toArray();
+
+      // Create a map of category IDs to category objects
+      const categoryMap = {};
+      categories.forEach((category) => {
+        categoryMap[category._id.toString()] = category;
+      });
+
+      // Populate category data in products
+      const populatedProducts = products.map((product) => {
+        if (product.category) {
+          const categoryId = product.category.toString();
+          if (categoryMap[categoryId]) {
+            product.category = categoryMap[categoryId];
+          }
+        }
+        return product;
+      });
+
+      console.log(
+        `Found ${populatedProducts.length} products from direct MongoDB connection`
+      );
+
+      return res.status(200).json({
+        success: true,
+        count: populatedProducts.length,
+        data: populatedProducts,
+        source: "direct_mongodb",
+      });
+    } catch (directError) {
+      console.error("Direct MongoDB connection error:", directError);
+
+      // Return error
+      return res.status(500).json({
+        success: false,
+        message: "Error fetching products",
+        error: directError.message,
+      });
+    } finally {
+      // Close MongoDB connection
+      if (client) {
+        await client.close();
+      }
+    }
+  } catch (error) {
+    console.error("Error in direct products endpoint:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Error fetching products",
+      error: error.message,
+    });
+  }
+});
+
+// Direct product endpoint that always works
+app.get("/api/direct-product/:id", async (req, res) => {
+  try {
+    console.log("Direct product endpoint called for ID:", req.params.id);
+
+    // Get the product ID from the request
+    const productId = req.params.id;
+
+    if (!productId) {
+      return res.status(400).json({
+        success: false,
+        message: "Product ID is required",
+      });
+    }
+
+    // Connect directly to MongoDB
+    const { MongoClient, ObjectId } = require("mongodb");
+    const uri = process.env.MONGO_URI;
+
+    // Connection options
+    const options = {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+      connectTimeoutMS: 10000,
+      socketTimeoutMS: 10000,
+      serverSelectionTimeoutMS: 10000,
+    };
+
+    let client = null;
+
+    try {
+      // Connect to MongoDB
+      client = new MongoClient(uri, options);
+      await client.connect();
+
+      // Get database name from connection string
+      const dbName = uri.split("/").pop().split("?")[0];
+      const db = client.db(dbName);
+
+      // Get products collection
+      const productsCollection = db.collection("products");
+
+      // Try to convert the ID to ObjectId
+      let query = {};
+      try {
+        query = { _id: new ObjectId(productId) };
+      } catch (err) {
+        // If not a valid ObjectId, try string match
+        query = { _id: productId };
+      }
+
+      // Get the product
+      const product = await productsCollection.findOne(query);
+
+      if (!product) {
+        return res.status(404).json({
+          success: false,
+          message: "Product not found",
+        });
+      }
+
+      // Get categories to populate product data
+      const categoriesCollection = db.collection("categories");
+      const categories = await categoriesCollection.find().toArray();
+
+      // Create a map of category IDs to category objects
+      const categoryMap = {};
+      categories.forEach((category) => {
+        categoryMap[category._id.toString()] = category;
+      });
+
+      // Populate category data in product
+      if (product.category) {
+        const categoryId = product.category.toString();
+        if (categoryMap[categoryId]) {
+          product.category = categoryMap[categoryId];
+        }
+      }
+
+      return res.status(200).json({
+        success: true,
+        data: product,
+        source: "direct_mongodb",
+      });
+    } catch (directError) {
+      console.error("Direct MongoDB connection error:", directError);
+
+      // Return error
+      return res.status(500).json({
+        success: false,
+        message: "Error fetching product",
+        error: directError.message,
+      });
+    } finally {
+      // Close MongoDB connection
+      if (client) {
+        await client.close();
+      }
+    }
+  } catch (error) {
+    console.error("Error in direct product endpoint:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Error fetching product",
+      error: error.message,
+    });
+  }
+});
+
 // Test endpoint for products page
 app.get("/api/test/products-page", async (req, res) => {
   try {
