@@ -75,10 +75,10 @@ const AdminProducts = () => {
       const isDevelopment = !baseUrl.includes("onrender.com");
       const localServerUrl = "http://localhost:5000";
 
-      // Use the appropriate URL based on environment - try the simplified endpoint first
+      // Use the appropriate URL based on environment - try ultra-reliable endpoint in production
       const directUrl = isDevelopment
         ? `${localServerUrl}/api/admin/simple/products`
-        : `${baseUrl}/api/admin/simple/products`;
+        : `${baseUrl}/api/ultra/products`; // Use ultra-reliable endpoint in production
 
       console.log("Direct products URL:", directUrl);
 
@@ -90,14 +90,57 @@ const AdminProducts = () => {
 
       console.log("Direct products response:", directResponse.data);
 
+      console.log("Direct response received:", directResponse.data);
+
+      // Extract products data from response, handling different response formats
+      let productsData = [];
+
+      // Case 1: Standard format with data array inside data property
       if (
         directResponse.data &&
         directResponse.data.data &&
         Array.isArray(directResponse.data.data)
       ) {
-        // Process the products data
-        const productsData = directResponse.data.data;
+        console.log("Using standard response format (data.data)");
+        productsData = directResponse.data.data;
+      }
+      // Case 2: Data array directly in data property
+      else if (directResponse.data && Array.isArray(directResponse.data)) {
+        console.log("Using direct array response format (data)");
+        productsData = directResponse.data;
+      }
+      // Case 3: Products array in products property
+      else if (
+        directResponse.data &&
+        directResponse.data.products &&
+        Array.isArray(directResponse.data.products)
+      ) {
+        console.log("Using products property format (data.products)");
+        productsData = directResponse.data.products;
+      }
+      // Case 4: Response is itself an array
+      else if (Array.isArray(directResponse.data)) {
+        console.log("Response is directly an array");
+        productsData = directResponse.data;
+      }
+      // Case 5: Check for nested properties that might contain products
+      else if (directResponse.data && typeof directResponse.data === "object") {
+        // Look for any array property that might contain products
+        for (const key in directResponse.data) {
+          if (
+            Array.isArray(directResponse.data[key]) &&
+            directResponse.data[key].length > 0 &&
+            directResponse.data[key][0] &&
+            typeof directResponse.data[key][0] === "object"
+          ) {
+            console.log(`Found potential products array in property: ${key}`);
+            productsData = directResponse.data[key];
+            break;
+          }
+        }
+      }
 
+      if (productsData.length > 0) {
         // Make sure we have valid products
         const validProducts = productsData.filter(
           (product) => product && typeof product === "object" && product._id
@@ -176,12 +219,109 @@ const AdminProducts = () => {
           throw new Error("No valid products found in response");
         }
       } else {
-        console.warn("Unexpected response format:", directResponse.data);
-        throw new Error("Invalid response format from direct endpoint");
+        console.warn("No products found in response:", directResponse.data);
+
+        // Try to extract any useful information from the response
+        let responseInfo = "";
+        if (directResponse.data) {
+          if (typeof directResponse.data === "object") {
+            responseInfo = JSON.stringify(directResponse.data);
+          } else {
+            responseInfo = String(directResponse.data);
+          }
+        }
+
+        throw new Error(
+          `No products found in response: ${responseInfo.substring(0, 100)}...`
+        );
       }
     } catch (error) {
       console.error("Failed to load products directly:", error);
-      setError(`Failed to load products: ${error.message}`);
+
+      // Provide more detailed error information
+      let errorMessage = "Failed to load products";
+
+      if (error.response) {
+        // The request was made and the server responded with a status code
+        // that falls out of the range of 2xx
+        console.error("Response data:", error.response.data);
+        console.error("Response status:", error.response.status);
+
+        errorMessage += `: Server returned ${error.response.status}`;
+        if (error.response.data && error.response.data.message) {
+          errorMessage += ` - ${error.response.data.message}`;
+        }
+      } else if (error.request) {
+        // The request was made but no response was received
+        console.error("No response received:", error.request);
+        errorMessage += ": No response from server";
+      } else {
+        // Something happened in setting up the request
+        errorMessage += `: ${error.message}`;
+      }
+
+      setError(errorMessage);
+
+      // Try fallback endpoint
+      console.log("Trying fallback endpoint...");
+      try {
+        const fallbackUrl = isDevelopment
+          ? `${localServerUrl}/api/direct/products`
+          : `${baseUrl}/api/ultra/products`; // Use ultra-reliable endpoint as fallback
+
+        console.log("Fallback URL:", fallbackUrl);
+
+        const fallbackResponse = await axios.get(fallbackUrl, { timeout });
+
+        if (
+          fallbackResponse.data &&
+          ((fallbackResponse.data.data &&
+            Array.isArray(fallbackResponse.data.data)) ||
+            Array.isArray(fallbackResponse.data))
+        ) {
+          const fallbackProducts = Array.isArray(fallbackResponse.data)
+            ? fallbackResponse.data
+            : fallbackResponse.data.data;
+
+          if (fallbackProducts && fallbackProducts.length > 0) {
+            console.log(
+              `Found ${fallbackProducts.length} products from fallback endpoint`
+            );
+
+            // Process and set products
+            const processedProducts = fallbackProducts.map((product) => ({
+              ...product,
+              category:
+                typeof product.category === "string"
+                  ? {
+                      _id: product.category,
+                      name: `Category ${product.category.substring(
+                        product.category.length - 6
+                      )}`,
+                    }
+                  : product.category || { _id: "unknown", name: "Unknown" },
+              images:
+                product.images &&
+                Array.isArray(product.images) &&
+                product.images.length > 0
+                  ? product.images
+                  : ["https://placehold.co/300x300/gray/white?text=Product"],
+              stock: product.stock ?? 0,
+            }));
+
+            setProducts(processedProducts);
+            setFilteredProducts(processedProducts);
+            setSuccessMessage(
+              `Loaded ${processedProducts.length} products from fallback endpoint`
+            );
+            setError(null);
+            return true;
+          }
+        }
+      } catch (fallbackError) {
+        console.error("Fallback endpoint also failed:", fallbackError);
+      }
+
       return false;
     } finally {
       setLoading(false);
@@ -202,10 +342,10 @@ const AdminProducts = () => {
         const isDevelopment = !baseUrl.includes("onrender.com");
         const localServerUrl = "http://localhost:5000";
 
-        // Use the direct products endpoint as fallback
+        // Use the ultra-reliable products endpoint as fallback
         const fallbackUrl = isDevelopment
           ? `${localServerUrl}/api/direct/products`
-          : `${baseUrl}/api/direct/products`;
+          : `${baseUrl}/api/ultra/products`; // Use ultra-reliable endpoint as fallback
 
         console.log("Trying fallback products endpoint:", fallbackUrl);
 
