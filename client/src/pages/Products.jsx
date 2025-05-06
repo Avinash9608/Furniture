@@ -159,11 +159,15 @@ const Products = () => {
     fetchData();
   }, [location.search]);
 
+  // State for success message
+  const [successMessage, setSuccessMessage] = useState("");
+
   // Function to test MongoDB connection and products
   const testProductsConnection = async () => {
     try {
       setLoading(true);
       setError(null);
+      setSuccessMessage("");
 
       // Determine if we're in development or production
       const baseUrl = window.location.origin;
@@ -199,13 +203,26 @@ const Products = () => {
         }
 
         if (productsData.length > 0) {
-          // Show success message
-          setError(
+          // Filter out any invalid products
+          const validProducts = productsData.filter(
+            (product) => product && typeof product === "object" && product._id
+          );
+
+          if (validProducts.length !== productsData.length) {
+            console.warn(
+              `Filtered out ${
+                productsData.length - validProducts.length
+              } invalid products`
+            );
+          }
+
+          // Set success message
+          setSuccessMessage(
             `Products connection successful! Found ${productsCount} products from source: ${dataSource}`
           );
 
           // Set the products
-          setProducts(productsData);
+          setProducts(validProducts);
           setTotalPages(Math.ceil(productsCount / 12));
 
           // Find the highest price for the price range filter
@@ -726,6 +743,55 @@ const Products = () => {
               </div>
             ) : error ? (
               <Alert type="error" message={error} />
+            ) : successMessage ? (
+              <div className="mb-4">
+                <Alert type="success" message={successMessage} />
+                {products.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {products.map((product) => (
+                      <ProductCard key={product._id} product={product} />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="theme-bg-primary rounded-lg shadow-md p-8 text-center">
+                    <svg
+                      className="w-16 h-16 text-gray-400 mx-auto mb-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                      ></path>
+                    </svg>
+                    <h3 className="text-xl font-bold mb-2">
+                      No Products Found
+                    </h3>
+                    <p className="theme-text-secondary mb-4">
+                      We couldn't find any products matching your criteria.
+                    </p>
+                    <button
+                      onClick={() => {
+                        setFilters({
+                          category: "",
+                          priceRange: [0, maxPrice],
+                          sort: "newest",
+                          search: "",
+                        });
+                        setPriceRange([0, maxPrice]);
+                        fetchProducts();
+                      }}
+                      className="btn-primary"
+                    >
+                      Clear Filters
+                    </button>
+                  </div>
+                )}
+              </div>
             ) : products.length === 0 ? (
               <div className="theme-bg-primary rounded-lg shadow-md p-8 text-center">
                 <svg
@@ -765,8 +831,11 @@ const Products = () => {
             ) : (
               <>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {products.map((product) => (
-                    <ProductCard key={product._id} product={product} />
+                  {products.map((product, index) => (
+                    <ProductCard
+                      key={product._id || `product-${index}`}
+                      product={product}
+                    />
                   ))}
                 </div>
 
