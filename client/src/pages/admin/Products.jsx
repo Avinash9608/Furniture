@@ -81,9 +81,15 @@ const AdminProducts = () => {
 
         console.log("Testing direct admin products endpoint:", directUrl);
 
-        const directResponse = await axios.get(directUrl, { timeout: 30000 });
+        // Increase timeout for production environment
+        const timeout = isDevelopment ? 30000 : 60000;
+        const directResponse = await axios.get(directUrl, { timeout });
 
-        if (directResponse.data && directResponse.data.data) {
+        if (
+          directResponse.data &&
+          directResponse.data.data &&
+          Array.isArray(directResponse.data.data)
+        ) {
           console.log(
             "Direct admin products endpoint success:",
             directResponse.data
@@ -92,8 +98,26 @@ const AdminProducts = () => {
           // Process the products data
           const productsData = directResponse.data.data;
 
+          // Make sure we have valid products
+          const validProducts = productsData.filter(
+            (product) => product && typeof product === "object" && product._id
+          );
+
+          if (validProducts.length === 0) {
+            console.warn("Direct endpoint returned no valid products");
+            throw new Error("No valid products found in response");
+          }
+
+          // Clear any error
+          setError(null);
+
+          // Set success message
+          setSuccessMessage(
+            `Successfully loaded ${validProducts.length} products from direct database connection`
+          );
+
           // Process products to ensure they have all required fields
-          const processedProducts = productsData.map((product) => {
+          const processedProducts = validProducts.map((product) => {
             // Ensure product has a category object
             if (!product.category) {
               product.category = { _id: "unknown", name: "Unknown" };
@@ -331,7 +355,7 @@ const AdminProducts = () => {
         // Set categories immediately so they're available for product processing
         setCategories(fetchedCategories);
 
-        // Try direct endpoint first on initial load
+        // STEP 1: Try direct endpoint first - this is the most reliable method
         let productsData = [];
         let directSuccess = false;
 
@@ -347,28 +371,47 @@ const AdminProducts = () => {
             : `${baseUrl}/api/admin/direct/products`;
 
           console.log(
-            "Initial load: trying direct admin products endpoint:",
+            "STEP 1: Trying direct admin products endpoint:",
             directUrl
           );
 
-          const directResponse = await axios.get(directUrl, { timeout: 30000 });
+          // Increase timeout for production environment
+          const timeout = isDevelopment ? 30000 : 60000;
+          const directResponse = await axios.get(directUrl, { timeout });
 
           if (
             directResponse.data &&
             directResponse.data.data &&
-            directResponse.data.data.length > 0
+            Array.isArray(directResponse.data.data)
           ) {
             console.log(
-              "Direct admin products endpoint success on initial load:",
+              "Direct admin products endpoint success:",
               directResponse.data
             );
-            productsData = directResponse.data.data;
-            directSuccess = true;
 
-            // Set success message
-            setSuccessMessage(
-              `Successfully loaded ${productsData.length} products from direct database connection`
+            // Make sure we have valid products
+            const validProducts = directResponse.data.data.filter(
+              (product) => product && typeof product === "object" && product._id
             );
+
+            if (validProducts.length > 0) {
+              productsData = validProducts;
+              directSuccess = true;
+
+              // Clear any error
+              setError(null);
+
+              // Set success message
+              setSuccessMessage(
+                `Successfully loaded ${validProducts.length} products from direct database connection`
+              );
+
+              console.log(
+                `Found ${validProducts.length} valid products from direct endpoint`
+              );
+            } else {
+              console.warn("Direct endpoint returned no valid products");
+            }
           }
         } catch (directError) {
           console.error(
@@ -427,7 +470,11 @@ const AdminProducts = () => {
         // Always clear any previous error
         setError(null);
 
+        // Clear any error if we have products
         if (productsData && productsData.length > 0) {
+          // Clear any error message
+          setError(null);
+
           // Process products to ensure they have all required fields
           const processedProducts = productsData.map((product) => {
             // Ensure product has a category object
@@ -436,8 +483,11 @@ const AdminProducts = () => {
             } else if (typeof product.category === "string") {
               // If category is a string (ID), try to find the corresponding category object
               const categoryObj = fetchedCategories.find(
-                (c) => c._id === product.category
+                (c) =>
+                  c._id === product.category ||
+                  c._id.toString() === product.category
               );
+
               if (categoryObj) {
                 product.category = categoryObj;
               } else {
@@ -447,11 +497,24 @@ const AdminProducts = () => {
                   product.category.length === 24 &&
                   /^[0-9a-f]+$/.test(product.category)
                 ) {
+                  // Try to map known category IDs to names
+                  const categoryMap = {
+                    "680c9481ab11e96a288ef6d9": "Sofa Beds",
+                    "680c9484ab11e96a288ef6da": "Tables",
+                    "680c9486ab11e96a288ef6db": "Chairs",
+                    "680c9489ab11e96a288ef6dc": "Wardrobes",
+                    "680c948eab11e96a288ef6dd": "Beds",
+                  };
+
+                  const categoryName =
+                    categoryMap[product.category] ||
+                    `Category ${product.category.substring(
+                      product.category.length - 6
+                    )}`;
+
                   product.category = {
                     _id: product.category,
-                    name: `Category ${product.category.substring(
-                      product.category.length - 6
-                    )}`,
+                    name: categoryName,
                   };
                 } else {
                   // Otherwise try to make a readable name from the ID
