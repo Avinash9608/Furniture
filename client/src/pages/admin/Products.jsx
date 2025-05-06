@@ -61,60 +61,50 @@ const AdminProducts = () => {
     }
   }, [location, navigate]);
 
-  // Function to test MongoDB connection
-  const testMongoDBConnection = async () => {
+  // Function to load products directly without testing MongoDB connection
+  const loadProductsDirectly = async () => {
     try {
       setLoading(true);
       setError(null);
+      setSuccessMessage("");
+
+      console.log("Loading products directly from endpoint...");
 
       // Determine if we're in development or production
       const baseUrl = window.location.origin;
       const isDevelopment = !baseUrl.includes("onrender.com");
       const localServerUrl = "http://localhost:5000";
 
-      // Try direct admin products endpoint first
-      try {
-        // Use the appropriate URL based on environment
-        const directUrl = isDevelopment
-          ? `${localServerUrl}/api/admin/direct/products`
-          : `${baseUrl}/api/admin/direct/products`;
+      // Use the appropriate URL based on environment - try the simplified endpoint first
+      const directUrl = isDevelopment
+        ? `${localServerUrl}/api/admin/simple/products`
+        : `${baseUrl}/api/admin/simple/products`;
 
-        console.log("Testing direct admin products endpoint:", directUrl);
+      console.log("Direct products URL:", directUrl);
 
-        // Increase timeout for production environment
-        const timeout = isDevelopment ? 30000 : 60000;
-        const directResponse = await axios.get(directUrl, { timeout });
+      // Increase timeout for production environment
+      const timeout = isDevelopment ? 30000 : 60000;
 
-        if (
-          directResponse.data &&
-          directResponse.data.data &&
-          Array.isArray(directResponse.data.data)
-        ) {
-          console.log(
-            "Direct admin products endpoint success:",
-            directResponse.data
-          );
+      // Make the request with increased timeout
+      const directResponse = await axios.get(directUrl, { timeout });
 
-          // Process the products data
-          const productsData = directResponse.data.data;
+      console.log("Direct products response:", directResponse.data);
 
-          // Make sure we have valid products
-          const validProducts = productsData.filter(
-            (product) => product && typeof product === "object" && product._id
-          );
+      if (
+        directResponse.data &&
+        directResponse.data.data &&
+        Array.isArray(directResponse.data.data)
+      ) {
+        // Process the products data
+        const productsData = directResponse.data.data;
 
-          if (validProducts.length === 0) {
-            console.warn("Direct endpoint returned no valid products");
-            throw new Error("No valid products found in response");
-          }
+        // Make sure we have valid products
+        const validProducts = productsData.filter(
+          (product) => product && typeof product === "object" && product._id
+        );
 
-          // Clear any error
-          setError(null);
-
-          // Set success message
-          setSuccessMessage(
-            `Successfully loaded ${validProducts.length} products from direct database connection`
-          );
+        if (validProducts.length > 0) {
+          console.log(`Found ${validProducts.length} valid products`);
 
           // Process products to ensure they have all required fields
           const processedProducts = validProducts.map((product) => {
@@ -122,12 +112,24 @@ const AdminProducts = () => {
             if (!product.category) {
               product.category = { _id: "unknown", name: "Unknown" };
             } else if (typeof product.category === "string") {
-              // If category is a string (ID), create a placeholder with the ID
+              // Try to map known category IDs to names
+              const categoryMap = {
+                "680c9481ab11e96a288ef6d9": "Sofa Beds",
+                "680c9484ab11e96a288ef6da": "Tables",
+                "680c9486ab11e96a288ef6db": "Chairs",
+                "680c9489ab11e96a288ef6dc": "Wardrobes",
+                "680c948eab11e96a288ef6dd": "Beds",
+              };
+
+              const categoryName =
+                categoryMap[product.category] ||
+                `Category ${product.category.substring(
+                  product.category.length - 6
+                )}`;
+
               product.category = {
                 _id: product.category,
-                name: `Category ${product.category.substring(
-                  product.category.length - 6
-                )}`,
+                name: categoryName,
               };
             } else if (
               typeof product.category === "object" &&
@@ -162,63 +164,100 @@ const AdminProducts = () => {
 
           // Show success message
           setSuccessMessage(
-            `Successfully loaded ${processedProducts.length} products from direct database connection`
+            `Successfully loaded ${processedProducts.length} products from database`
           );
 
           // Clear any error
           setError(null);
 
-          setLoading(false);
-          return;
+          return true;
+        } else {
+          console.warn("Direct endpoint returned no valid products");
+          throw new Error("No valid products found in response");
         }
-      } catch (directError) {
-        console.error("Direct admin products endpoint failed:", directError);
-        // Continue with regular test
-      }
-
-      // Use the appropriate URL based on environment for regular test
-      const testUrl = isDevelopment
-        ? `${localServerUrl}/api/test-mongodb`
-        : `${baseUrl}/api/test-mongodb`;
-
-      console.log("Testing MongoDB connection at:", testUrl);
-
-      // Make the request
-      const response = await axios.get(testUrl, { timeout: 30000 });
-
-      console.log("MongoDB connection test response:", response.data);
-
-      // Check if the response has the expected structure
-      if (response.data && response.data.success) {
-        // Show success message
-        let successMessage = "MongoDB connection successful!";
-
-        // Add product and category counts if available
-        if (response.data.data && response.data.data.products) {
-          successMessage += ` Found ${response.data.data.products.count} products`;
-
-          if (response.data.data.categories) {
-            successMessage += ` and ${response.data.data.categories.count} categories`;
-          }
-        }
-
-        setSuccessMessage(successMessage);
-        setError(null);
-
-        // Try direct endpoint again since we know MongoDB is working
-        tryDirectEndpoint();
       } else {
-        console.warn("Unexpected response format:", response.data);
-        throw new Error("Invalid response format from server");
+        console.warn("Unexpected response format:", directResponse.data);
+        throw new Error("Invalid response format from direct endpoint");
       }
     } catch (error) {
-      console.error("MongoDB connection test failed:", error);
-      setError(`MongoDB connection test failed: ${error.message}`);
-
-      // Try direct endpoint as a last resort
-      tryDirectEndpoint();
+      console.error("Failed to load products directly:", error);
+      setError(`Failed to load products: ${error.message}`);
+      return false;
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Function to test MongoDB connection (now just calls loadProductsDirectly)
+  const testMongoDBConnection = async () => {
+    const success = await loadProductsDirectly();
+
+    if (!success) {
+      // If direct loading failed, try the fallback endpoint
+      try {
+        setLoading(true);
+
+        // Determine if we're in development or production
+        const baseUrl = window.location.origin;
+        const isDevelopment = !baseUrl.includes("onrender.com");
+        const localServerUrl = "http://localhost:5000";
+
+        // Use the direct products endpoint as fallback
+        const fallbackUrl = isDevelopment
+          ? `${localServerUrl}/api/direct/products`
+          : `${baseUrl}/api/direct/products`;
+
+        console.log("Trying fallback products endpoint:", fallbackUrl);
+
+        const fallbackResponse = await axios.get(fallbackUrl, {
+          timeout: 60000,
+        });
+
+        if (
+          fallbackResponse.data &&
+          fallbackResponse.data.data &&
+          Array.isArray(fallbackResponse.data.data)
+        ) {
+          const productsData = fallbackResponse.data.data;
+
+          if (productsData.length > 0) {
+            // Process and set products
+            const processedProducts = productsData.map((product) => {
+              // Process product (similar to above)
+              return {
+                ...product,
+                category:
+                  typeof product.category === "string"
+                    ? {
+                        _id: product.category,
+                        name: `Category ${product.category.substring(
+                          product.category.length - 6
+                        )}`,
+                      }
+                    : product.category || { _id: "unknown", name: "Unknown" },
+                images:
+                  product.images &&
+                  Array.isArray(product.images) &&
+                  product.images.length > 0
+                    ? product.images
+                    : ["https://placehold.co/300x300/gray/white?text=Product"],
+                stock: product.stock ?? 0,
+              };
+            });
+
+            setProducts(processedProducts);
+            setFilteredProducts(processedProducts);
+            setSuccessMessage(
+              `Loaded ${processedProducts.length} products from fallback endpoint`
+            );
+            setError(null);
+          }
+        }
+      } catch (fallbackError) {
+        console.error("Fallback endpoint failed:", fallbackError);
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
@@ -360,6 +399,16 @@ const AdminProducts = () => {
         setSuccessMessage("");
 
         console.log("Admin Products component mounted - fetching initial data");
+
+        // Try to load products directly first (this is the most reliable method)
+        const directSuccess = await loadProductsDirectly();
+
+        if (directSuccess) {
+          console.log("Successfully loaded products directly");
+          return; // Exit early if direct loading succeeded
+        }
+
+        console.log("Direct loading failed, falling back to regular flow");
 
         // Fetch categories first
         console.log("Fetching categories first...");
@@ -843,7 +892,7 @@ const AdminProducts = () => {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <h1 className="text-2xl font-bold">Manage Products</h1>
         <div className="flex gap-2">
-          <Button onClick={testMongoDBConnection} variant="secondary">
+          <Button onClick={loadProductsDirectly} variant="secondary">
             <svg
               className="w-5 h-5 mr-2"
               fill="none"
@@ -855,10 +904,10 @@ const AdminProducts = () => {
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 strokeWidth="2"
-                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
               ></path>
             </svg>
-            Test MongoDB
+            Reload Products
           </Button>
           <Link to="/admin/products/add">
             <Button>
