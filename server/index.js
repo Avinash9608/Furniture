@@ -511,6 +511,100 @@ app.get("/api/test-mongodb", async (_req, res) => {
   }
 });
 
+// Direct admin products endpoint that always works
+app.get("/api/admin/direct/products", async (req, res) => {
+  try {
+    console.log("Direct admin products endpoint called");
+
+    // Connect directly to MongoDB
+    const { MongoClient } = require("mongodb");
+    const uri = process.env.MONGO_URI;
+
+    // Connection options
+    const options = {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+      connectTimeoutMS: 10000,
+      socketTimeoutMS: 10000,
+      serverSelectionTimeoutMS: 10000,
+    };
+
+    let client = null;
+
+    try {
+      // Connect to MongoDB
+      client = new MongoClient(uri, options);
+      await client.connect();
+
+      // Get database name from connection string
+      const dbName = uri.split("/").pop().split("?")[0];
+      const db = client.db(dbName);
+
+      // Get products collection
+      const productsCollection = db.collection("products");
+
+      // Get products
+      const products = await productsCollection.find({}).toArray();
+
+      // Get categories to populate product data
+      const categoriesCollection = db.collection("categories");
+      const categories = await categoriesCollection.find().toArray();
+
+      // Create a map of category IDs to category objects
+      const categoryMap = {};
+      categories.forEach((category) => {
+        categoryMap[category._id.toString()] = category;
+      });
+
+      // Populate category data in products
+      const populatedProducts = products.map((product) => {
+        if (product.category) {
+          const categoryId = product.category.toString();
+          if (categoryMap[categoryId]) {
+            product.category = categoryMap[categoryId];
+          }
+        }
+        return product;
+      });
+
+      console.log(
+        `Found ${populatedProducts.length} products from direct MongoDB connection for admin`
+      );
+
+      return res.status(200).json({
+        success: true,
+        count: populatedProducts.length,
+        data: populatedProducts,
+        source: "direct_mongodb_admin",
+      });
+    } catch (directError) {
+      console.error(
+        "Direct MongoDB connection error for admin products:",
+        directError
+      );
+
+      // Return error
+      return res.status(500).json({
+        success: false,
+        message: "Error fetching admin products",
+        error: directError.message,
+      });
+    } finally {
+      // Close MongoDB connection
+      if (client) {
+        await client.close();
+      }
+    }
+  } catch (error) {
+    console.error("Error in direct admin products endpoint:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Error fetching admin products",
+      error: error.message,
+    });
+  }
+});
+
 // Direct products endpoint that always works
 app.get("/api/direct/products", async (req, res) => {
   try {

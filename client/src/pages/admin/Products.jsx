@@ -174,33 +174,78 @@ const AdminProducts = () => {
         let productsData = [];
 
         try {
-          const productsResponse = await productsAPI.getAll();
-          console.log("Products API response:", productsResponse);
+          // Try direct admin endpoint first
+          try {
+            // Determine if we're in development or production
+            const baseUrl = window.location.origin;
+            const isDevelopment = !baseUrl.includes("onrender.com");
+            const localServerUrl = "http://localhost:5000";
 
-          // Handle different response structures
-          if (
-            productsResponse &&
-            productsResponse.data &&
-            productsResponse.data.data &&
-            Array.isArray(productsResponse.data.data)
-          ) {
-            productsData = productsResponse.data.data;
-          } else if (
-            productsResponse &&
-            productsResponse.data &&
-            Array.isArray(productsResponse.data)
-          ) {
-            productsData = productsResponse.data;
-          } else if (productsResponse && Array.isArray(productsResponse)) {
-            productsData = productsResponse;
+            // Use the appropriate URL based on environment
+            const directUrl = isDevelopment
+              ? `${localServerUrl}/api/admin/direct/products`
+              : `${baseUrl}/api/admin/direct/products`;
+
+            console.log("Trying direct admin products endpoint:", directUrl);
+
+            const directResponse = await axios.get(directUrl, {
+              timeout: 30000,
+            });
+
+            if (directResponse.data && directResponse.data.data) {
+              console.log(
+                "Direct admin products endpoint success:",
+                directResponse.data
+              );
+              productsData = directResponse.data.data;
+              console.log(
+                `Found ${productsData.length} products from direct admin endpoint`
+              );
+            }
+          } catch (directError) {
+            console.error(
+              "Direct admin products endpoint failed:",
+              directError
+            );
+            // Continue with normal flow
           }
 
-          // Log the processed data
-          console.log("Processed products data after API call:", productsData);
+          // If direct endpoint failed, try regular API
+          if (productsData.length === 0) {
+            console.log(
+              "Direct endpoint failed or returned no data, trying regular API..."
+            );
+            const productsResponse = await productsAPI.getAll();
+            console.log("Products API response:", productsResponse);
 
-          // If we have data but it's empty, log a warning
-          if (productsData && productsData.length === 0) {
-            console.warn("API returned empty products array");
+            // Handle different response structures
+            if (
+              productsResponse &&
+              productsResponse.data &&
+              productsResponse.data.data &&
+              Array.isArray(productsResponse.data.data)
+            ) {
+              productsData = productsResponse.data.data;
+            } else if (
+              productsResponse &&
+              productsResponse.data &&
+              Array.isArray(productsResponse.data)
+            ) {
+              productsData = productsResponse.data;
+            } else if (productsResponse && Array.isArray(productsResponse)) {
+              productsData = productsResponse;
+            }
+
+            // Log the processed data
+            console.log(
+              "Processed products data after API call:",
+              productsData
+            );
+
+            // If we have data but it's empty, log a warning
+            if (productsData && productsData.length === 0) {
+              console.warn("API returned empty products array");
+            }
           }
         } catch (productError) {
           console.error("Error fetching products:", productError);
