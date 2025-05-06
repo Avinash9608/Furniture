@@ -41,6 +41,11 @@ const ProductDetailFallback = ({ children, onProductLoaded, onError }) => {
         name: "Wardrobes",
         slug: "wardrobes",
       },
+      "680c948eab11e96a288ef6dd": {
+        _id: "680c948eab11e96a288ef6dd",
+        name: "Beds",
+        slug: "beds",
+      },
     };
 
     const fetchProductData = async () => {
@@ -311,12 +316,73 @@ const ProductDetailFallback = ({ children, onProductLoaded, onError }) => {
             } else if (typeof productData.category === "object") {
               // It's already a category object
               if (productData.category.name) {
-                // Use the existing category object
-                processedCategory = productData.category;
-                console.log(
-                  "Using existing category object:",
-                  processedCategory
-                );
+                // Check if the name is a default category name (like "Category 680c948e")
+                if (productData.category.name.startsWith("Category ")) {
+                  // Extract the ID from the name
+                  const idPart = productData.category.name.split(" ")[1];
+
+                  // Check if we have a mapping for this ID
+                  if (categoryMap[productData.category._id]) {
+                    // Use our mapped category name
+                    processedCategory = {
+                      ...productData.category,
+                      name: categoryMap[productData.category._id].name,
+                      slug: categoryMap[productData.category._id].slug,
+                    };
+                    console.log(
+                      "Fixed default category name:",
+                      processedCategory
+                    );
+                  } else {
+                    // Try to create a better name based on product
+                    let betterName = "Furniture";
+
+                    // Check product name for category hints
+                    const productName = productData.name
+                      ? productData.name.toLowerCase()
+                      : "";
+                    if (
+                      productName.includes("sofa") ||
+                      productName.includes("couch")
+                    ) {
+                      betterName = "Sofa Beds";
+                    } else if (productName.includes("bed")) {
+                      betterName = "Beds";
+                    } else if (
+                      productName.includes("table") ||
+                      productName.includes("desk")
+                    ) {
+                      betterName = "Tables";
+                    } else if (
+                      productName.includes("chair") ||
+                      productName.includes("stool")
+                    ) {
+                      betterName = "Chairs";
+                    } else if (
+                      productName.includes("wardrobe") ||
+                      productName.includes("cabinet")
+                    ) {
+                      betterName = "Wardrobes";
+                    }
+
+                    processedCategory = {
+                      ...productData.category,
+                      name: betterName,
+                      slug: betterName.toLowerCase().replace(/\s+/g, "-"),
+                    };
+                    console.log(
+                      "Created better category name:",
+                      processedCategory
+                    );
+                  }
+                } else {
+                  // Use the existing category object as is
+                  processedCategory = productData.category;
+                  console.log(
+                    "Using existing category object:",
+                    processedCategory
+                  );
+                }
               } else if (productData.category._id) {
                 // It has an ID but no name, try to map it
                 const categoryId = productData.category._id;

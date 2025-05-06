@@ -30,10 +30,31 @@ const ProductDetail = () => {
   const [relatedProducts, setRelatedProducts] = useState([]);
   const { id } = useParams();
 
-  // Reset productLoadedRef when the component unmounts or when the product ID changes
+  // Reset productLoadedRef and auto-refresh when the component mounts or when the product ID changes
   useEffect(() => {
     // Reset the ref when the product ID changes
     productLoadedRef.current = false;
+
+    // Auto-refresh the page once to ensure we get fresh data
+    const shouldRefresh =
+      sessionStorage.getItem(`product-${id}-refreshed`) !== "true";
+
+    if (shouldRefresh) {
+      console.log(`Auto-refreshing product page for ID: ${id}`);
+      // Mark this product as refreshed in this session
+      sessionStorage.setItem(`product-${id}-refreshed`, "true");
+
+      // Use a short timeout to allow the component to mount first
+      const refreshTimer = setTimeout(() => {
+        window.location.reload();
+      }, 100);
+
+      // Clear the timer if the component unmounts
+      return () => {
+        clearTimeout(refreshTimer);
+        productLoadedRef.current = false;
+      };
+    }
 
     // Cleanup function to reset the ref when the component unmounts
     return () => {
@@ -283,8 +304,8 @@ const ProductDetail = () => {
 
         return (
           <div className="theme-bg-primary py-8">
-            {/* Data Source Indicator (for debugging) */}
-            {source && (
+            {/* Data Source Indicator - hidden in production */}
+            {false && source && (
               <div className="container-custom mb-2 text-xs text-gray-500">
                 Data source: {source}
               </div>
