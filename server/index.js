@@ -743,6 +743,58 @@ app.get("/api/admin/direct/products", async (req, res) => {
   }
 });
 
+// Mock products endpoint that always works
+app.get("/api/mock/products", (req, res) => {
+  console.log("Mock products endpoint called");
+
+  // Return mock data
+  const mockProducts = [
+    {
+      _id: "mock1",
+      name: "Sample Sofa",
+      price: 50000,
+      stock: 5,
+      category: { _id: "cat1", name: "Sofa Beds" },
+      images: ["https://placehold.co/300x300/gray/white?text=Sofa"],
+    },
+    {
+      _id: "mock2",
+      name: "Sample Table",
+      price: 25000,
+      stock: 10,
+      category: { _id: "cat2", name: "Tables" },
+      images: ["https://placehold.co/300x300/gray/white?text=Table"],
+    },
+    {
+      _id: "mock3",
+      name: "Sample Chair",
+      price: 15000,
+      stock: 15,
+      category: { _id: "cat3", name: "Chairs" },
+      images: ["https://placehold.co/300x300/gray/white?text=Chair"],
+    },
+    {
+      _id: "mock4",
+      name: "Sample Wardrobe",
+      price: 35000,
+      stock: 8,
+      category: { _id: "cat4", name: "Wardrobes" },
+      images: ["https://placehold.co/300x300/gray/white?text=Wardrobe"],
+    },
+    {
+      _id: "mock5",
+      name: "Sample Bed",
+      price: 45000,
+      stock: 12,
+      category: { _id: "cat5", name: "Beds" },
+      images: ["https://placehold.co/300x300/gray/white?text=Bed"],
+    },
+  ];
+
+  // Return as simple array
+  return res.status(200).json(mockProducts);
+});
+
 // Ultra-reliable products endpoint for admin panel
 app.get("/api/ultra/products", async (req, res) => {
   try {

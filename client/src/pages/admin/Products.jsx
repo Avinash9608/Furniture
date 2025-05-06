@@ -75,10 +75,10 @@ const AdminProducts = () => {
       const isDevelopment = !baseUrl.includes("onrender.com");
       const localServerUrl = "http://localhost:5000";
 
-      // Use the appropriate URL based on environment - try ultra-reliable endpoint in production
+      // Use the appropriate URL based on environment - use different approaches for development vs production
       const directUrl = isDevelopment
-        ? `${localServerUrl}/api/admin/simple/products`
-        : `${baseUrl}/api/ultra/products`; // Use ultra-reliable endpoint in production
+        ? `${localServerUrl}/api/admin/simple/products` // Use simple endpoint in development
+        : `${baseUrl}/api/direct/products`; // Use direct products endpoint in production
 
       console.log("Direct products URL:", directUrl);
 
@@ -91,6 +91,26 @@ const AdminProducts = () => {
       console.log("Direct products response:", directResponse.data);
 
       console.log("Direct response received:", directResponse.data);
+
+      // Check if response is HTML instead of JSON
+      const isHtmlResponse = (data) => {
+        if (
+          typeof data === "string" &&
+          data.trim().startsWith("<!DOCTYPE html>")
+        ) {
+          return true;
+        }
+        if (typeof data === "string" && data.trim().startsWith("<html")) {
+          return true;
+        }
+        return false;
+      };
+
+      // If response is HTML, throw an error to trigger fallback
+      if (isHtmlResponse(directResponse.data)) {
+        console.error("Received HTML response instead of JSON");
+        throw new Error("Received HTML response instead of JSON data");
+      }
 
       // Extract products data from response, handling different response formats
       let productsData = [];
@@ -267,11 +287,19 @@ const AdminProducts = () => {
       try {
         const fallbackUrl = isDevelopment
           ? `${localServerUrl}/api/direct/products`
-          : `${baseUrl}/api/ultra/products`; // Use ultra-reliable endpoint as fallback
+          : `${baseUrl}/api/products`; // Use regular products endpoint as fallback
 
         console.log("Fallback URL:", fallbackUrl);
 
         const fallbackResponse = await axios.get(fallbackUrl, { timeout });
+
+        console.log("Fallback response received:", fallbackResponse.data);
+
+        // Check if response is HTML instead of JSON
+        if (isHtmlResponse && isHtmlResponse(fallbackResponse.data)) {
+          console.error("Received HTML response from fallback endpoint");
+          throw new Error("Received HTML response from fallback endpoint");
+        }
 
         if (
           fallbackResponse.data &&
@@ -320,6 +348,44 @@ const AdminProducts = () => {
         }
       } catch (fallbackError) {
         console.error("Fallback endpoint also failed:", fallbackError);
+
+        // Last resort: Try mock endpoint
+        console.log("Trying mock endpoint as last resort");
+        try {
+          const mockUrl = isDevelopment
+            ? `${localServerUrl}/api/mock/products`
+            : `${baseUrl}/api/mock/products`;
+
+          console.log("Mock URL:", mockUrl);
+
+          const mockResponse = await axios.get(mockUrl, { timeout });
+
+          if (
+            mockResponse.data &&
+            Array.isArray(mockResponse.data) &&
+            mockResponse.data.length > 0
+          ) {
+            console.log("Mock endpoint success:", mockResponse.data);
+
+            setProducts(mockResponse.data);
+            setFilteredProducts(mockResponse.data);
+            setSuccessMessage("Using sample data from server");
+            setError("Could not load real data. Using sample data instead.");
+            return true;
+          }
+        } catch (mockError) {
+          console.error("Mock endpoint failed:", mockError);
+
+          // If all else fails, use hardcoded mock data
+          console.log("Using hardcoded mock data as absolute last resort");
+          const mockProducts = getMockProducts();
+          setProducts(mockProducts);
+          setFilteredProducts(mockProducts);
+          setSuccessMessage("Using sample data as fallback");
+          setError("Could not connect to server. Using sample data instead.");
+        }
+
+        return true; // Return true to prevent further fallbacks
       }
 
       return false;
@@ -342,10 +408,10 @@ const AdminProducts = () => {
         const isDevelopment = !baseUrl.includes("onrender.com");
         const localServerUrl = "http://localhost:5000";
 
-        // Use the ultra-reliable products endpoint as fallback
+        // Use the regular products endpoint as fallback
         const fallbackUrl = isDevelopment
           ? `${localServerUrl}/api/direct/products`
-          : `${baseUrl}/api/ultra/products`; // Use ultra-reliable endpoint as fallback
+          : `${baseUrl}/api/products`; // Use regular products endpoint as fallback
 
         console.log("Trying fallback products endpoint:", fallbackUrl);
 
@@ -395,6 +461,42 @@ const AdminProducts = () => {
         }
       } catch (fallbackError) {
         console.error("Fallback endpoint failed:", fallbackError);
+
+        // Last resort: Try mock endpoint
+        console.log("Trying mock endpoint as last resort");
+        try {
+          const mockUrl = isDevelopment
+            ? `${localServerUrl}/api/mock/products`
+            : `${baseUrl}/api/mock/products`;
+
+          console.log("Mock URL:", mockUrl);
+
+          const mockResponse = await axios.get(mockUrl, { timeout: 30000 });
+
+          if (
+            mockResponse.data &&
+            Array.isArray(mockResponse.data) &&
+            mockResponse.data.length > 0
+          ) {
+            console.log("Mock endpoint success:", mockResponse.data);
+
+            setProducts(mockResponse.data);
+            setFilteredProducts(mockResponse.data);
+            setSuccessMessage("Using sample data from server");
+            setError("Could not load real data. Using sample data instead.");
+            return;
+          }
+        } catch (mockError) {
+          console.error("Mock endpoint failed:", mockError);
+
+          // If all else fails, use hardcoded mock data
+          console.log("Using hardcoded mock data as absolute last resort");
+          const mockProducts = getMockProducts();
+          setProducts(mockProducts);
+          setFilteredProducts(mockProducts);
+          setSuccessMessage("Using sample data as fallback");
+          setError("Could not connect to server. Using sample data instead.");
+        }
       } finally {
         setLoading(false);
       }
