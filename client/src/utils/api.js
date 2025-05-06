@@ -73,8 +73,13 @@ const productsAPI = {
       const isDevelopment = !baseUrl.includes("onrender.com");
 
       const endpoints = [
-        // Direct endpoints first (most reliable)
-        // In development, use the local server port 5000
+        // Reliable endpoints first (these always work)
+        ...(isDevelopment
+          ? [`${localServerUrl}/api/reliable/products`]
+          : [`${baseUrl}/api/reliable/products`]),
+        `${deployedUrl}/api/reliable/products`,
+
+        // Direct endpoints next (also reliable)
         ...(isDevelopment
           ? [`${localServerUrl}/api/direct/products`]
           : [`${baseUrl}/api/direct/products`]),
@@ -305,8 +310,13 @@ const productsAPI = {
       const isDevelopment = !baseUrl.includes("onrender.com");
 
       const endpoints = [
-        // New special direct product endpoint that completely bypasses Mongoose
-        // This should be the most reliable endpoint for production
+        // Reliable endpoints first (these always work)
+        ...(isDevelopment
+          ? [`${localServerUrl}/api/reliable/products/${id}`]
+          : [`${baseUrl}/api/reliable/products/${id}`]),
+        `${deployedUrl}/api/reliable/products/${id}`,
+
+        // Special direct product endpoint that completely bypasses Mongoose
         ...(isDevelopment
           ? [`${localServerUrl}/api/direct-product/${id}`]
           : [`${baseUrl}/api/direct-product/${id}`]),

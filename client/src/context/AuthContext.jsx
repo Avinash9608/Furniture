@@ -6,7 +6,8 @@ import {
   useCallback,
 } from "react";
 import axios from "axios";
-import { authAPI } from "../utils/api";
+// Import the robust authAPI implementation
+import authAPI from "../utils/authAPI";
 
 // Create context
 const AuthContext = createContext();
@@ -137,13 +138,46 @@ export const AuthProvider = ({ children }) => {
     // No cleanup needed - we're not using any refs or timeouts
   }, []);
 
-  // Register user
+  // Register user with robust error handling
   const register = async (userData) => {
     try {
       setLoading(true);
       setError(null);
 
-      const response = await authAPI.register(userData);
+      console.log("Starting user registration process for:", userData.email);
+
+      // Try multiple times with increasing timeouts
+      let response = null;
+      let attempts = 0;
+      const maxAttempts = 3;
+
+      while (!response && attempts < maxAttempts) {
+        attempts++;
+        try {
+          console.log(`Registration attempt ${attempts}/${maxAttempts}`);
+          response = await authAPI.register(userData);
+          console.log("Registration successful:", response.data);
+          break;
+        } catch (attemptError) {
+          console.warn(
+            `Registration attempt ${attempts} failed:`,
+            attemptError.message
+          );
+
+          if (attempts >= maxAttempts) {
+            throw attemptError; // Re-throw the last error if we've exhausted all attempts
+          }
+
+          // Wait before trying again (exponential backoff)
+          const waitTime = Math.min(1000 * Math.pow(2, attempts), 8000);
+          console.log(`Waiting ${waitTime}ms before next attempt...`);
+          await new Promise((resolve) => setTimeout(resolve, waitTime));
+        }
+      }
+
+      if (!response) {
+        throw new Error("Registration failed after multiple attempts");
+      }
 
       // Save token and user to localStorage
       localStorage.setItem("token", response.data.token);
@@ -160,20 +194,80 @@ export const AuthProvider = ({ children }) => {
       return response.data;
     } catch (err) {
       console.error("Registration error:", err);
-      setError(err.response?.data?.message || "Registration failed");
+
+      // Provide a more helpful error message
+      let errorMessage = "Registration failed";
+
+      if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      } else if (err.message && err.message.includes("timeout")) {
+        errorMessage = "Registration timed out. Please try again later.";
+      } else if (err.message && err.message.includes("Network Error")) {
+        errorMessage =
+          "Network error. Please check your internet connection and try again.";
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+
+      setError(errorMessage);
       throw err;
     } finally {
       setLoading(false);
     }
   };
 
-  // Login user
+  // Login user with robust error handling
   const login = async (email, password) => {
     try {
       setLoading(true);
       setError(null);
 
-      const response = await authAPI.login({ email, password });
+      console.log("Starting user login process for:", email);
+
+      // Try multiple times with increasing timeouts
+      let response = null;
+      let attempts = 0;
+      const maxAttempts = 3;
+
+      while (!response && attempts < maxAttempts) {
+        attempts++;
+        try {
+          console.log(`Login attempt ${attempts}/${maxAttempts}`);
+          response = await authAPI.login({ email, password });
+          console.log("Login successful:", response.data);
+          break;
+        } catch (attemptError) {
+          console.warn(
+            `Login attempt ${attempts} failed:`,
+            attemptError.message
+          );
+
+          // If it's an invalid credentials error, don't retry
+          if (
+            attemptError.response?.status === 401 ||
+            (attemptError.response?.data?.message &&
+              attemptError.response.data.message.includes(
+                "Invalid credentials"
+              ))
+          ) {
+            console.log("Invalid credentials, not retrying");
+            throw attemptError;
+          }
+
+          if (attempts >= maxAttempts) {
+            throw attemptError; // Re-throw the last error if we've exhausted all attempts
+          }
+
+          // Wait before trying again (exponential backoff)
+          const waitTime = Math.min(1000 * Math.pow(2, attempts), 8000);
+          console.log(`Waiting ${waitTime}ms before next attempt...`);
+          await new Promise((resolve) => setTimeout(resolve, waitTime));
+        }
+      }
+
+      if (!response) {
+        throw new Error("Login failed after multiple attempts");
+      }
 
       // Save token and user to localStorage
       localStorage.setItem("token", response.data.token);
@@ -190,7 +284,22 @@ export const AuthProvider = ({ children }) => {
       return response.data;
     } catch (err) {
       console.error("Login error:", err);
-      setError(err.response?.data?.message || "Login failed");
+
+      // Provide a more helpful error message
+      let errorMessage = "Login failed";
+
+      if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      } else if (err.message && err.message.includes("timeout")) {
+        errorMessage = "Login timed out. Please try again later.";
+      } else if (err.message && err.message.includes("Network Error")) {
+        errorMessage =
+          "Network error. Please check your internet connection and try again.";
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+
+      setError(errorMessage);
       throw err;
     } finally {
       setLoading(false);

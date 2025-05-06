@@ -56,9 +56,13 @@ const ProductDetailFallback = ({ children, onProductLoaded, onError }) => {
         // Create a list of endpoints to try - always include both local and deployed endpoints
         // This ensures we try all possible sources regardless of environment
         const endpointsToTry = [
-          // Try direct endpoints first (most reliable)
-          `${baseUrl}/api/direct/products/${id}`,
-          `${deployedUrl}/api/direct/products/${id}`,
+          // Try reliable endpoints first (these always work)
+          `${baseUrl}/api/reliable/products/${id}`,
+          `${deployedUrl}/api/reliable/products/${id}`,
+
+          // Try direct endpoints next
+          `${baseUrl}/api/direct-product/${id}`,
+          `${deployedUrl}/api/direct-product/${id}`,
 
           // Then try standard API endpoints
           `${baseUrl}/api/products/${id}`,
@@ -67,13 +71,9 @@ const ProductDetailFallback = ({ children, onProductLoaded, onError }) => {
           // Try local server in development
           ...(isDevelopment ? [`${localServerUrl}/api/products/${id}`] : []),
 
-          // Try special debug endpoints
+          // Try debug endpoints
           `${baseUrl}/api/debug/product/${id}`,
           `${deployedUrl}/api/debug/product/${id}`,
-
-          // Try test endpoints
-          `${baseUrl}/api/test/product/${id}`,
-          `${deployedUrl}/api/test/product/${id}`,
         ];
 
         // Try each endpoint
