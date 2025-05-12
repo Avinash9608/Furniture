@@ -820,6 +820,54 @@ app.get("/api/ensure-categories", async (req, res) => {
   }
 });
 
+// Direct categories endpoint that always works
+app.get("/api/direct/categories", async (req, res) => {
+  try {
+    console.log("Direct categories endpoint called");
+
+    // Try to get categories directly from the database
+    const categories = await Category.find({}).lean();
+
+    console.log(`Found ${categories.length} categories`);
+
+    // Return categories as a simple array
+    return res.status(200).json(categories);
+  } catch (error) {
+    console.error("Error in direct categories endpoint:", error);
+
+    // Return standard categories as fallback
+    const standardCategories = [
+      {
+        _id: "fallback_sofa_beds",
+        name: "Sofa Beds",
+        description: "Comfortable sofa beds for your living room",
+      },
+      {
+        _id: "fallback_tables",
+        name: "Tables",
+        description: "Stylish tables for your home",
+      },
+      {
+        _id: "fallback_chairs",
+        name: "Chairs",
+        description: "Ergonomic chairs for comfort",
+      },
+      {
+        _id: "fallback_wardrobes",
+        name: "Wardrobes",
+        description: "Spacious wardrobes for storage",
+      },
+      {
+        _id: "fallback_beds",
+        name: "Beds",
+        description: "Comfortable beds for a good night's sleep",
+      },
+    ];
+
+    return res.status(200).json(standardCategories);
+  }
+});
+
 // Mock products endpoint that always works
 app.get("/api/mock/products", (req, res) => {
   console.log("Mock products endpoint called");

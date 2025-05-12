@@ -101,19 +101,39 @@ const AddProduct = () => {
         console.log(`Base URL: ${baseUrl}`);
 
         // Try to fetch categories with a timeout
-        const fetchWithTimeout = async (url, options = {}, timeout = 5000) => {
+        const fetchWithTimeout = async (url, options = {}, timeout = 15000) => {
           const controller = new AbortController();
           const id = setTimeout(() => controller.abort(), timeout);
 
           try {
+            console.log(`Fetching from ${url} with ${timeout}ms timeout...`);
+
+            // Add auth token to request if available
+            const token =
+              localStorage.getItem("adminToken") ||
+              localStorage.getItem("token");
+            const headers = {
+              ...options.headers,
+            };
+
+            if (token) {
+              headers["Authorization"] = `Bearer ${token}`;
+              console.log("Added auth token to request");
+            }
+
             const response = await fetch(url, {
               ...options,
+              headers,
               signal: controller.signal,
+              credentials: "include", // Include cookies
             });
+
             clearTimeout(id);
+            console.log(`Response from ${url}: status ${response.status}`);
             return response;
           } catch (error) {
             clearTimeout(id);
+            console.error(`Error fetching from ${url}:`, error);
             throw error;
           }
         };
@@ -121,12 +141,86 @@ const AddProduct = () => {
         try {
           console.log("Fetching categories from API...");
 
-          // Try the regular categories endpoint first
-          const response = await fetchWithTimeout(
-            `${baseUrl}/api/categories`,
-            {},
-            5000
-          );
+          // Try multiple endpoints with increasing timeouts
+          let response;
+          let success = false;
+
+          // First try the categories endpoint with a longer timeout
+          try {
+            response = await fetchWithTimeout(
+              `${baseUrl}/api/categories`,
+              {},
+              15000 // 15 seconds timeout
+            );
+
+            if (response.ok) {
+              success = true;
+              console.log(
+                "Successfully fetched categories from primary endpoint"
+              );
+            } else {
+              console.warn(
+                `Primary endpoint returned status ${response.status}`
+              );
+            }
+          } catch (primaryError) {
+            console.error("Error with primary endpoint:", primaryError);
+          }
+
+          // If first attempt failed, try the admin categories endpoint
+          if (!success) {
+            try {
+              console.log("Trying admin categories endpoint...");
+              response = await fetchWithTimeout(
+                `${baseUrl}/api/admin/categories`,
+                {},
+                20000 // 20 seconds timeout
+              );
+
+              if (response.ok) {
+                success = true;
+                console.log(
+                  "Successfully fetched categories from admin endpoint"
+                );
+              } else {
+                console.warn(
+                  `Admin endpoint returned status ${response.status}`
+                );
+              }
+            } catch (adminError) {
+              console.error("Error with admin endpoint:", adminError);
+            }
+          }
+
+          // If both attempts failed, try a direct endpoint
+          if (!success) {
+            try {
+              console.log("Trying direct categories endpoint...");
+              response = await fetchWithTimeout(
+                `${baseUrl}/api/direct/categories`,
+                {},
+                25000 // 25 seconds timeout
+              );
+
+              if (response.ok) {
+                success = true;
+                console.log(
+                  "Successfully fetched categories from direct endpoint"
+                );
+              } else {
+                console.warn(
+                  `Direct endpoint returned status ${response.status}`
+                );
+              }
+            } catch (directError) {
+              console.error("Error with direct endpoint:", directError);
+            }
+          }
+
+          // If all attempts failed, throw an error
+          if (!success && !response) {
+            throw new Error("All category endpoints failed");
+          }
 
           if (response.ok) {
             const data = await response.json();
@@ -372,17 +466,79 @@ const AddProduct = () => {
       // Use the API client instead of direct axios
       console.log("Using API client to create product");
 
-      // Try to create the product with a timeout
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error("Request timed out")), 10000)
+      // Try to create the product with a longer timeout
+      const timeoutPromise = new Promise(
+        (_, reject) =>
+          setTimeout(() => reject(new Error("Request timed out")), 30000) // 30 seconds timeout
       );
 
+      console.log("Creating product with adminProductsAPI...");
+
+      // Log the auth token being used
+      const token =
+        localStorage.getItem("adminToken") || localStorage.getItem("token");
+      console.log(
+        "Using auth token:",
+        token ? `${token.substring(0, 10)}...` : "No token found"
+      );
+
+      // Try to create the product
       const fetchPromise = adminProductsAPI.create(formData);
 
-      const response = await Promise.race([fetchPromise, timeoutPromise]);
-      console.log("Product created successfully:", response);
+      try {
+        const response = await Promise.race([fetchPromise, timeoutPromise]);
+        console.log("Product created successfully:", response);
 
-      // Show success message with a slight delay to ensure UI updates
+        // Check if the response indicates success
+        if (
+          response &&
+          (response.data || response.status === 200 || response.status === 201)
+        ) {
+          console.log("Server confirmed product creation");
+          return response;
+        } else {
+          console.warn("Unexpected response format:", response);
+          throw new Error("Server returned an unexpected response");
+        }
+      } catch (apiError) {
+        console.error("Error with adminProductsAPI:", apiError);
+
+        // Try a direct fetch as fallback
+        console.log("Trying direct fetch as fallback...");
+
+        const directFormData = new FormData();
+        for (let pair of formData.entries()) {
+          directFormData.append(pair[0], pair[1]);
+        }
+
+        const directUrl = `${baseUrl}/api/products`;
+        console.log(`Sending direct POST to ${directUrl}`);
+
+        const directResponse = await fetch(directUrl, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          body: directFormData,
+          credentials: "include",
+        });
+
+        if (directResponse.ok) {
+          const data = await directResponse.json();
+          console.log("Product created successfully with direct fetch:", data);
+          return { data };
+        } else {
+          console.error(
+            `Direct fetch failed with status ${directResponse.status}`
+          );
+          throw new Error(
+            `Failed to create product: ${directResponse.statusText}`
+          );
+        }
+      }
+
+      // Success! Show success message with a slight delay to ensure UI updates
+      console.log("Product creation successful, navigating to products page");
       setTimeout(() => {
         navigate("/admin/products", {
           state: {
