@@ -743,6 +743,83 @@ app.get("/api/admin/direct/products", async (req, res) => {
   }
 });
 
+// Ensure standard categories exist
+app.get("/api/ensure-categories", async (req, res) => {
+  try {
+    console.log("Ensuring standard categories exist");
+
+    // Define standard categories
+    const standardCategories = [
+      {
+        name: "Sofa Beds",
+        description: "Comfortable sofa beds for your living room",
+      },
+      {
+        name: "Tables",
+        description: "Stylish tables for your home",
+      },
+      {
+        name: "Chairs",
+        description: "Ergonomic chairs for comfort",
+      },
+      {
+        name: "Wardrobes",
+        description: "Spacious wardrobes for storage",
+      },
+      {
+        name: "Beds",
+        description: "Comfortable beds for a good night's sleep",
+      },
+    ];
+
+    // Check which categories already exist
+    const existingCategories = await Category.find({
+      name: { $in: standardCategories.map((cat) => cat.name) },
+    });
+
+    console.log(
+      `Found ${existingCategories.length} existing standard categories`
+    );
+
+    // Create missing categories
+    const existingNames = existingCategories.map((cat) => cat.name);
+    const categoriesToCreate = standardCategories.filter(
+      (cat) => !existingNames.includes(cat.name)
+    );
+
+    console.log(`Creating ${categoriesToCreate.length} missing categories`);
+
+    const createdCategories = [];
+
+    for (const category of categoriesToCreate) {
+      try {
+        const newCategory = new Category(category);
+        const savedCategory = await newCategory.save();
+        createdCategories.push(savedCategory);
+        console.log(`Created category: ${category.name}`);
+      } catch (err) {
+        console.error(`Error creating category ${category.name}:`, err);
+      }
+    }
+
+    // Return all standard categories (existing + newly created)
+    const allStandardCategories = [...existingCategories, ...createdCategories];
+
+    return res.status(200).json({
+      success: true,
+      message: `Ensured ${allStandardCategories.length} standard categories exist`,
+      data: allStandardCategories,
+    });
+  } catch (error) {
+    console.error("Error ensuring categories:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to ensure categories",
+      error: error.message,
+    });
+  }
+});
+
 // Mock products endpoint that always works
 app.get("/api/mock/products", (req, res) => {
   console.log("Mock products endpoint called");

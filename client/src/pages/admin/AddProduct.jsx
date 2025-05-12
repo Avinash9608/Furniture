@@ -25,109 +25,89 @@ const AddProduct = () => {
         setLoading(true);
         setError(null);
 
-        // Define predefined categories to use as fallback
-        const predefinedCategories = [
-          {
-            _id: "predefined_sofa_beds",
-            name: "Sofa Beds",
-            displayName: "Sofa Beds",
-            description: "Comfortable sofa beds for your living room",
-          },
-          {
-            _id: "predefined_tables",
-            name: "Tables",
-            displayName: "Tables",
-            description: "Stylish tables for your home",
-          },
-          {
-            _id: "predefined_chairs",
-            name: "Chairs",
-            displayName: "Chairs",
-            description: "Ergonomic chairs for comfort",
-          },
-          {
-            _id: "predefined_wardrobes",
-            name: "Wardrobes",
-            displayName: "Wardrobes",
-            description: "Spacious wardrobes for storage",
-          },
-          {
-            _id: "predefined_beds",
-            name: "Beds",
-            displayName: "Beds",
-            description: "Comfortable beds for a good night's sleep",
-          },
-        ];
+        // First, ensure standard categories exist in the database
+        const baseUrl = import.meta.env.PROD
+          ? window.location.origin
+          : "http://localhost:5000";
+
+        console.log("Ensuring standard categories exist...");
 
         try {
-          // Try to fetch categories from the API
+          // Call the ensure-categories endpoint to create standard categories if they don't exist
+          const ensureResponse = await fetch(
+            `${baseUrl}/api/ensure-categories`
+          );
+          const ensureData = await ensureResponse.json();
+
+          if (ensureResponse.ok && ensureData.success) {
+            console.log("Categories ensured successfully:", ensureData.message);
+
+            // Use the categories returned by the ensure endpoint
+            if (
+              ensureData.data &&
+              Array.isArray(ensureData.data) &&
+              ensureData.data.length > 0
+            ) {
+              console.log(
+                `Using ${ensureData.data.length} categories from ensure endpoint`
+              );
+
+              // Add displayName property for UI
+              const categoriesWithDisplay = ensureData.data.map((category) => ({
+                ...category,
+                displayName: category.name,
+              }));
+
+              setCategories(categoriesWithDisplay);
+              setLoading(false);
+              return;
+            }
+          } else {
+            console.warn("Failed to ensure categories:", ensureData.message);
+          }
+        } catch (ensureError) {
+          console.error("Error ensuring categories:", ensureError);
+        }
+
+        // If ensure endpoint fails, try regular categories endpoint
+        try {
+          console.log("Fetching categories from regular endpoint...");
           const response = await adminCategoriesAPI.getAll();
-          console.log("Categories API response:", response);
 
           if (response && response.data) {
             let allCategories = [];
 
-            // Check if response.data.data is an array (API returns {success, count, data})
+            // Extract categories from response
             if (response.data.data && Array.isArray(response.data.data)) {
               allCategories = response.data.data;
             } else if (Array.isArray(response.data)) {
-              // If response.data is directly an array
               allCategories = response.data;
             } else {
-              console.warn(
-                "Unexpected API response format, using predefined categories"
-              );
-              setCategories(predefinedCategories);
+              console.warn("Unexpected API response format");
+              setError("Failed to load categories. Please try again later.");
               setLoading(false);
               return;
             }
 
             if (allCategories.length > 0) {
-              // Normalize categories
-              const normalizedCategories = allCategories.map((category) => {
-                const normalizedName = category.name.toLowerCase().trim();
+              // Add displayName property
+              const categoriesWithDisplay = allCategories.map((category) => ({
+                ...category,
+                displayName: category.name,
+              }));
 
-                if (
-                  normalizedName.includes("sofa") ||
-                  normalizedName.includes("bed")
-                ) {
-                  category.displayName = "Sofa Beds";
-                } else if (normalizedName.includes("table")) {
-                  category.displayName = "Tables";
-                } else if (normalizedName.includes("chair")) {
-                  category.displayName = "Chairs";
-                } else if (normalizedName.includes("wardrobe")) {
-                  category.displayName = "Wardrobes";
-                } else if (
-                  normalizedName.includes("bed") &&
-                  !normalizedName.includes("sofa")
-                ) {
-                  category.displayName = "Beds";
-                } else {
-                  category.displayName = category.name;
-                }
-
-                return category;
-              });
-
-              setCategories(normalizedCategories);
+              setCategories(categoriesWithDisplay);
             } else {
-              console.warn(
-                "No categories found in API response, using predefined categories"
-              );
-              setCategories(predefinedCategories);
+              console.warn("No categories found");
+              setError("No categories found. Please contact an administrator.");
             }
           } else {
-            console.warn(
-              "No data received from API, using predefined categories"
-            );
-            setCategories(predefinedCategories);
+            console.warn("No data received from API");
+            setError("Failed to load categories. No data received.");
           }
         } catch (apiError) {
           console.error("Error fetching categories from API:", apiError);
-          console.log("Using predefined categories as fallback");
-          setCategories(predefinedCategories);
-          // Don't set error message since we're using fallback categories
+          setError("Failed to load categories. Please try again later.");
         }
       } catch (error) {
         console.error("Unexpected error:", error);
