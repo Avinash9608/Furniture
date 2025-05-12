@@ -18,6 +18,45 @@ const AddProduct = () => {
 
   const navigate = useNavigate();
 
+  // Hardcoded standard categories to use when server is unavailable
+  const standardCategories = [
+    {
+      _id: "offline_sofa_beds",
+      name: "Sofa Beds",
+      displayName: "Sofa Beds",
+      description: "Comfortable sofa beds for your living room",
+      isOffline: true,
+    },
+    {
+      _id: "offline_tables",
+      name: "Tables",
+      displayName: "Tables",
+      description: "Stylish tables for your home",
+      isOffline: true,
+    },
+    {
+      _id: "offline_chairs",
+      name: "Chairs",
+      displayName: "Chairs",
+      description: "Ergonomic chairs for comfort",
+      isOffline: true,
+    },
+    {
+      _id: "offline_wardrobes",
+      name: "Wardrobes",
+      displayName: "Wardrobes",
+      description: "Spacious wardrobes for storage",
+      isOffline: true,
+    },
+    {
+      _id: "offline_beds",
+      name: "Beds",
+      displayName: "Beds",
+      description: "Comfortable beds for a good night's sleep",
+      isOffline: true,
+    },
+  ];
+
   // Fetch categories
   useEffect(() => {
     const fetchCategories = async () => {
@@ -25,68 +64,83 @@ const AddProduct = () => {
         setLoading(true);
         setError(null);
 
-        // First, ensure standard categories exist in the database
-        const baseUrl = import.meta.env.PROD
-          ? window.location.origin
-          : "http://localhost:5000";
-
-        console.log("Ensuring standard categories exist...");
-
-        try {
-          // Call the ensure-categories endpoint to create standard categories if they don't exist
-          const ensureResponse = await fetch(
-            `${baseUrl}/api/ensure-categories`
-          );
-          const ensureData = await ensureResponse.json();
-
-          if (ensureResponse.ok && ensureData.success) {
-            console.log("Categories ensured successfully:", ensureData.message);
-
-            // Use the categories returned by the ensure endpoint
+        // Try to get categories from localStorage first (if they exist)
+        const cachedCategories = localStorage.getItem("furniture_categories");
+        if (cachedCategories) {
+          try {
+            const parsedCategories = JSON.parse(cachedCategories);
             if (
-              ensureData.data &&
-              Array.isArray(ensureData.data) &&
-              ensureData.data.length > 0
+              Array.isArray(parsedCategories) &&
+              parsedCategories.length > 0
             ) {
-              console.log(
-                `Using ${ensureData.data.length} categories from ensure endpoint`
-              );
-
-              // Add displayName property for UI
-              const categoriesWithDisplay = ensureData.data.map((category) => ({
-                ...category,
-                displayName: category.name,
-              }));
-
-              setCategories(categoriesWithDisplay);
+              console.log("Using cached categories from localStorage");
+              setCategories(parsedCategories);
               setLoading(false);
+
+              // Try to refresh categories in the background
+              refreshCategoriesInBackground();
               return;
             }
-          } else {
-            console.warn("Failed to ensure categories:", ensureData.message);
+          } catch (cacheError) {
+            console.error("Error parsing cached categories:", cacheError);
           }
-        } catch (ensureError) {
-          console.error("Error ensuring categories:", ensureError);
         }
 
-        // If ensure endpoint fails, try regular categories endpoint
-        try {
-          console.log("Fetching categories from regular endpoint...");
-          const response = await adminCategoriesAPI.getAll();
+        // Determine if we're in development or production
+        const isDevelopment =
+          window.location.hostname === "localhost" ||
+          window.location.hostname === "127.0.0.1";
 
-          if (response && response.data) {
+        const baseUrl = isDevelopment
+          ? "http://localhost:5000"
+          : window.location.origin;
+
+        console.log(
+          `Environment: ${isDevelopment ? "Development" : "Production"}`
+        );
+        console.log(`Base URL: ${baseUrl}`);
+
+        // Try to fetch categories with a timeout
+        const fetchWithTimeout = async (url, options = {}, timeout = 5000) => {
+          const controller = new AbortController();
+          const id = setTimeout(() => controller.abort(), timeout);
+
+          try {
+            const response = await fetch(url, {
+              ...options,
+              signal: controller.signal,
+            });
+            clearTimeout(id);
+            return response;
+          } catch (error) {
+            clearTimeout(id);
+            throw error;
+          }
+        };
+
+        try {
+          console.log("Fetching categories from API...");
+
+          // Try the regular categories endpoint first
+          const response = await fetchWithTimeout(
+            `${baseUrl}/api/categories`,
+            {},
+            5000
+          );
+
+          if (response.ok) {
+            const data = await response.json();
+            console.log("Categories API response:", data);
+
             let allCategories = [];
 
             // Extract categories from response
-            if (response.data.data && Array.isArray(response.data.data)) {
-              allCategories = response.data.data;
-            } else if (Array.isArray(response.data)) {
-              allCategories = response.data;
+            if (data.data && Array.isArray(data.data)) {
+              allCategories = data.data;
+            } else if (Array.isArray(data)) {
+              allCategories = data;
             } else {
-              console.warn("Unexpected API response format");
-              setError("Failed to load categories. Please try again later.");
-              setLoading(false);
-              return;
+              throw new Error("Unexpected API response format");
             }
 
             if (allCategories.length > 0) {
@@ -96,24 +150,87 @@ const AddProduct = () => {
                 displayName: category.name,
               }));
 
+              // Cache categories in localStorage
+              localStorage.setItem(
+                "furniture_categories",
+                JSON.stringify(categoriesWithDisplay)
+              );
+
               setCategories(categoriesWithDisplay);
+              setLoading(false);
+              return;
             } else {
-              console.warn("No categories found");
-              setError("No categories found. Please contact an administrator.");
+              throw new Error("No categories found in API response");
             }
           } else {
-            console.warn("No data received from API");
-            setError("Failed to load categories. No data received.");
+            throw new Error(`API returned status ${response.status}`);
           }
         } catch (apiError) {
           console.error("Error fetching categories from API:", apiError);
-          setError("Failed to load categories. Please try again later.");
+
+          // Use hardcoded categories as fallback
+          console.log("Using hardcoded categories as fallback");
+          setCategories(standardCategories);
+
+          // Show a warning message instead of an error
+          setError(
+            "Using offline categories. Products created now will need to be updated later."
+          );
         }
       } catch (error) {
         console.error("Unexpected error:", error);
-        setError("An unexpected error occurred. Please try again.");
+
+        // Use hardcoded categories as fallback
+        console.log("Using hardcoded categories due to unexpected error");
+        setCategories(standardCategories);
+
+        // Show a warning message
+        setError(
+          "Using offline categories. Products created now will need to be updated later."
+        );
       } finally {
         setLoading(false);
+      }
+    };
+
+    // Function to refresh categories in the background
+    const refreshCategoriesInBackground = async () => {
+      try {
+        const isDevelopment =
+          window.location.hostname === "localhost" ||
+          window.location.hostname === "127.0.0.1";
+
+        const baseUrl = isDevelopment
+          ? "http://localhost:5000"
+          : window.location.origin;
+
+        const response = await fetch(`${baseUrl}/api/categories`);
+
+        if (response.ok) {
+          const data = await response.json();
+          let allCategories = [];
+
+          if (data.data && Array.isArray(data.data)) {
+            allCategories = data.data;
+          } else if (Array.isArray(data)) {
+            allCategories = data;
+          }
+
+          if (allCategories.length > 0) {
+            const categoriesWithDisplay = allCategories.map((category) => ({
+              ...category,
+              displayName: category.name,
+            }));
+
+            localStorage.setItem(
+              "furniture_categories",
+              JSON.stringify(categoriesWithDisplay)
+            );
+            console.log("Categories refreshed in background");
+          }
+        }
+      } catch (error) {
+        console.error("Error refreshing categories in background:", error);
       }
     };
 
@@ -125,6 +242,46 @@ const AddProduct = () => {
     try {
       setIsSubmitting(true);
       setSubmitError(null);
+
+      // Check if we're using offline categories
+      const isUsingOfflineCategories = categories.some((cat) => cat.isOffline);
+
+      if (isUsingOfflineCategories) {
+        // Store product in localStorage for later sync
+        const offlineProducts = JSON.parse(
+          localStorage.getItem("furniture_offline_products") || "[]"
+        );
+
+        // Generate a temporary ID
+        const tempId = `temp_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+
+        // Create a product object with all the data
+        const offlineProduct = {
+          _id: tempId,
+          ...productData,
+          createdAt: new Date().toISOString(),
+          isOffline: true,
+        };
+
+        // Add to offline products
+        offlineProducts.push(offlineProduct);
+        localStorage.setItem(
+          "furniture_offline_products",
+          JSON.stringify(offlineProducts)
+        );
+
+        // Show success message
+        setTimeout(() => {
+          navigate("/admin/products", {
+            state: {
+              successMessage:
+                "Product saved offline. It will be synced when connection is restored.",
+            },
+          });
+        }, 500);
+
+        return;
+      }
 
       // Create FormData object for file upload
       const formData = new FormData();
@@ -160,27 +317,69 @@ const AddProduct = () => {
         );
       }
 
+      // Try to determine if we're online
+      const isOnline = navigator.onLine;
+      console.log(`Browser reports online status: ${isOnline}`);
+
+      if (!isOnline) {
+        // Store product in localStorage for later sync
+        const offlineProducts = JSON.parse(
+          localStorage.getItem("furniture_offline_products") || "[]"
+        );
+
+        // Convert FormData to object
+        const offlineProductData = {};
+        for (let pair of formData.entries()) {
+          if (pair[0] !== "images") {
+            offlineProductData[pair[0]] = pair[1];
+          }
+        }
+
+        // Generate a temporary ID
+        const tempId = `temp_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+
+        // Create a product object with all the data
+        const offlineProduct = {
+          _id: tempId,
+          ...offlineProductData,
+          createdAt: new Date().toISOString(),
+          isOffline: true,
+        };
+
+        // Add to offline products
+        offlineProducts.push(offlineProduct);
+        localStorage.setItem(
+          "furniture_offline_products",
+          JSON.stringify(offlineProducts)
+        );
+
+        // Show success message
+        setTimeout(() => {
+          navigate("/admin/products", {
+            state: {
+              successMessage:
+                "Product saved offline. It will be synced when connection is restored.",
+            },
+          });
+        }, 500);
+
+        return;
+      }
+
       console.log("Submitting product data to API...");
       console.log("Auth token in localStorage:", localStorage.getItem("token"));
-      console.log("User in localStorage:", localStorage.getItem("user"));
 
       // Use the API client instead of direct axios
       console.log("Using API client to create product");
 
-      // Log the FormData contents for debugging
-      console.log("Final FormData entries before submission:");
-      for (let pair of formData.entries()) {
-        console.log(
-          pair[0] +
-            ": " +
-            (pair[1] instanceof File
-              ? pair[1].name + " (" + pair[1].type + ")"
-              : pair[1])
-        );
-      }
+      // Try to create the product with a timeout
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("Request timed out")), 10000)
+      );
 
-      // Use the adminProductsAPI client which ensures authentication
-      const response = await adminProductsAPI.create(formData);
+      const fetchPromise = adminProductsAPI.create(formData);
+
+      const response = await Promise.race([fetchPromise, timeoutPromise]);
       console.log("Product created successfully:", response);
 
       // Show success message with a slight delay to ensure UI updates
@@ -193,10 +392,64 @@ const AddProduct = () => {
       }, 500);
     } catch (error) {
       console.error("Error creating product:", error);
-      setSubmitError(
-        error.response?.data?.message ||
-          "An error occurred while creating the product. Please try again."
-      );
+
+      // Check if it's a timeout or network error
+      if (
+        error.message === "Request timed out" ||
+        error.message === "Network Error" ||
+        !navigator.onLine
+      ) {
+        setSubmitError(
+          "Could not connect to server. Product will be saved offline and synced later."
+        );
+
+        // Store product in localStorage for later sync
+        try {
+          const offlineProducts = JSON.parse(
+            localStorage.getItem("furniture_offline_products") || "[]"
+          );
+
+          // Generate a temporary ID
+          const tempId = `temp_${Date.now()}_${Math.floor(
+            Math.random() * 1000
+          )}`;
+
+          // Create a product object with all the data
+          const offlineProduct = {
+            _id: tempId,
+            ...productData,
+            createdAt: new Date().toISOString(),
+            isOffline: true,
+          };
+
+          // Add to offline products
+          offlineProducts.push(offlineProduct);
+          localStorage.setItem(
+            "furniture_offline_products",
+            JSON.stringify(offlineProducts)
+          );
+
+          // Show success message after a delay
+          setTimeout(() => {
+            navigate("/admin/products", {
+              state: {
+                successMessage:
+                  "Product saved offline. It will be synced when connection is restored.",
+              },
+            });
+          }, 2000);
+        } catch (offlineError) {
+          console.error("Error saving product offline:", offlineError);
+          setSubmitError(
+            "Failed to save product offline. Please try again or check your browser storage."
+          );
+        }
+      } else {
+        setSubmitError(
+          error.response?.data?.message ||
+            "An error occurred while creating the product. Please try again."
+        );
+      }
 
       // Scroll to top to show error
       window.scrollTo({ top: 0, behavior: "smooth" });
