@@ -820,6 +820,43 @@ app.get("/api/ensure-categories", async (req, res) => {
   }
 });
 
+// Mock categories endpoint that always works (no database query)
+app.get("/api/mock/categories", (req, res) => {
+  console.log("Mock categories endpoint called");
+
+  // Return hardcoded categories without querying the database
+  const mockCategories = [
+    {
+      _id: "mock_sofa_beds",
+      name: "Sofa Beds",
+      description: "Comfortable sofa beds for your living room",
+    },
+    {
+      _id: "mock_tables",
+      name: "Tables",
+      description: "Stylish tables for your home",
+    },
+    {
+      _id: "mock_chairs",
+      name: "Chairs",
+      description: "Ergonomic chairs for comfort",
+    },
+    {
+      _id: "mock_wardrobes",
+      name: "Wardrobes",
+      description: "Spacious wardrobes for storage",
+    },
+    {
+      _id: "mock_beds",
+      name: "Beds",
+      description: "Comfortable beds for a good night's sleep",
+    },
+  ];
+
+  // Return as simple array
+  return res.status(200).json(mockCategories);
+});
+
 // Direct categories endpoint that always works
 app.get("/api/direct/categories", async (req, res) => {
   try {
@@ -867,6 +904,72 @@ app.get("/api/direct/categories", async (req, res) => {
     return res.status(200).json(standardCategories);
   }
 });
+
+// Direct product creation endpoint (no auth required)
+app.post(
+  "/api/direct/products",
+  upload.array("images", 10),
+  async (req, res) => {
+    try {
+      console.log("Direct product creation endpoint called");
+      console.log("Request body:", req.body);
+
+      // Create a new product from the request body
+      const productData = {
+        name: req.body.name,
+        description: req.body.description,
+        price: req.body.price,
+        stock: req.body.stock || 0,
+        category: req.body.category,
+        // Handle other fields as needed
+      };
+
+      console.log("Creating product with data:", productData);
+
+      // Create a slug from the name
+      const baseSlug = slugify(productData.name, { lower: true });
+
+      // Check if slug already exists
+      const slugExists = await Product.exists({ slug: baseSlug });
+
+      // If slug exists, add a random suffix
+      const slug = slugExists
+        ? `${baseSlug}-${Math.floor(Math.random() * 1000)}`
+        : baseSlug;
+
+      productData.slug = slug;
+
+      // Handle images
+      if (req.files && req.files.length > 0) {
+        productData.images = req.files.map((file) => file.path);
+      } else {
+        // Use default image
+        productData.images = [
+          "https://placehold.co/300x300/gray/white?text=Product",
+        ];
+      }
+
+      // Create and save the product
+      const product = new Product(productData);
+      const savedProduct = await product.save();
+
+      console.log("Product created successfully:", savedProduct);
+
+      return res.status(201).json({
+        success: true,
+        message: "Product created successfully",
+        data: savedProduct,
+      });
+    } catch (error) {
+      console.error("Error in direct product creation:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to create product",
+        error: error.message,
+      });
+    }
+  }
+);
 
 // Mock products endpoint that always works
 app.get("/api/mock/products", (req, res) => {
