@@ -13,9 +13,19 @@ const {
   updateDocument,
   deleteDocument,
 } = require("../utils/directDbConnection");
+const path = require('path');
 
 // Collection name
 const COLLECTION = "products";
+
+// Category mapping
+const categoryMap = {
+  "680c9481ab11e96a288ef6d9": "Sofa Beds",
+  "680c9484ab11e96a288ef6da": "Tables",
+  "680c9486ab11e96a288ef6db": "Chairs",
+  "680c9489ab11e96a288ef6dc": "Wardrobes",
+  "680c948eab11e96a288ef6dd": "Beds"
+};
 
 // @desc    Get all products with direct MongoDB access
 // @route   GET /api/direct/products
@@ -45,7 +55,6 @@ exports.getAllProducts = async (req, res) => {
         // If it looks like a MongoDB ObjectId
         try {
           query.category = category;
-          // Also try to match by category ID stored as string
           console.log(`Filtering by category ID: ${category}`);
         } catch (error) {
           console.error("Invalid category ID format:", error);
@@ -63,14 +72,8 @@ exports.getAllProducts = async (req, res) => {
 
     if (minPrice || maxPrice) {
       query.price = {};
-
-      if (minPrice) {
-        query.price.$gte = Number(minPrice);
-      }
-
-      if (maxPrice) {
-        query.price.$lte = Number(maxPrice);
-      }
+      if (minPrice) query.price.$gte = Number(minPrice);
+      if (maxPrice) query.price.$lte = Number(maxPrice);
     }
 
     // Build options
@@ -81,7 +84,43 @@ exports.getAllProducts = async (req, res) => {
     };
 
     // Get products
-    const products = await findDocuments(COLLECTION, query, options);
+    let products = await findDocuments(COLLECTION, query, options);
+
+    // Populate category information for each product
+    products = products.map(product => {
+      if (product.category) {
+        const categoryId = typeof product.category === 'object' ? 
+          product.category._id.toString() : product.category.toString();
+        
+        // Try to get category name from the map
+        const categoryName = categoryMap[categoryId];
+        
+        if (categoryName) {
+          product.category = {
+            _id: categoryId,
+            name: categoryName,
+            slug: categoryName.toLowerCase().replace(/\s+/g, '-')
+          };
+        } else {
+          // If category ID is not in the map, try to extract from existing category object
+          if (typeof product.category === 'object' && product.category.name) {
+            product.category = {
+              _id: categoryId,
+              name: product.category.name,
+              slug: product.category.name.toLowerCase().replace(/\s+/g, '-')
+            };
+          } else {
+            // Fallback to a generic name if nothing else works
+            product.category = {
+              _id: categoryId,
+              name: "Other",
+              slug: "other"
+            };
+          }
+        }
+      }
+      return product;
+    });
 
     // Return products
     return res.status(200).json({
@@ -223,14 +262,6 @@ exports.getProductById = async (req, res) => {
       try {
         console.log(`Fetching category details for ID: ${product.category}`);
         const { findOneDocument } = require("../utils/directDbConnection");
-
-        // Define category mapping for fallback
-        const categoryMap = {
-          "680c9481ab11e96a288ef6d9": "Sofa Beds",
-          "680c9484ab11e96a288ef6da": "Tables",
-          "680c9486ab11e96a288ef6db": "Chairs",
-          "680c9489ab11e96a288ef6dc": "Wardrobes",
-        };
 
         // Try to fetch the category
         const category = await findOneDocument("categories", {
@@ -376,24 +407,196 @@ exports.getProductById = async (req, res) => {
 // @access  Private/Admin
 exports.createProduct = async (req, res) => {
   try {
-    console.log("Creating product with direct MongoDB access");
+    console.log("\n=== Creating Product ===");
+    console.log("Request body:", JSON.stringify(req.body, null, 2));
+    console.log("Files received:", req.files ? req.files.length : 0);
 
-    // Create product
-    const product = await insertDocument(COLLECTION, req.body);
-
-    // Return product
-    return res.status(201).json({
-      success: true,
-      data: product,
-      source: "direct_database",
+    // Validate required fields
+    const requiredFields = ['name', 'description', 'price', 'category', 'stock'];
+    const missingFields = requiredFields.filter(field => {
+      const value = req.body[field];
+      return value === undefined || value === null || value === '';
     });
-  } catch (error) {
-    console.error("Error creating product with direct MongoDB access:", error);
+    
+    if (missingFields.length > 0) {
+      console.error("Missing required fields:", missingFields);
+      return res.status(400).json({
+        success: false,
+        message: `Missing required fields: ${missingFields.join(', ')}`
+      });
+    }
 
-    // Return error
+    // Validate numeric fields
+    const numericFields = ['price', 'stock', 'discountPrice'];
+    for (const field of numericFields) {
+      if (req.body[field]) {
+        const value = Number(req.body[field]);
+        if (isNaN(value)) {
+          return res.status(400).json({
+            success: false,
+            message: `Invalid ${field}: must be a number`
+          });
+        }
+      }
+    }
+
+    // Process the form data into a proper product object
+    const productData = {
+      name: req.body.name.trim(),
+      description: req.body.description.trim(),
+      price: Number(req.body.price),
+      stock: Number(req.body.stock),
+      featured: req.body.featured === "true" || req.body.featured === true,
+      slug: req.body.name.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-'),
+      category: req.body.category,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+
+    // Add optional fields if they exist and are valid
+    if (req.body.discountPrice && !isNaN(Number(req.body.discountPrice))) {
+      productData.discountPrice = Number(req.body.discountPrice);
+    }
+    if (req.body.material && req.body.material.trim()) {
+      productData.material = req.body.material.trim();
+    }
+    if (req.body.color && req.body.color.trim()) {
+      productData.color = req.body.color.trim();
+    }
+
+    // Handle dimensions
+    if (req.body.dimensions) {
+      try {
+        let dimensions;
+        if (typeof req.body.dimensions === 'string') {
+          dimensions = JSON.parse(req.body.dimensions);
+        } else {
+          dimensions = req.body.dimensions;
+        }
+        
+        // Validate and convert dimension values to numbers
+        const validDimensions = {};
+        for (const [key, value] of Object.entries(dimensions)) {
+          if (value && !isNaN(Number(value))) {
+            validDimensions[key] = Number(value);
+          }
+        }
+        
+        if (Object.keys(validDimensions).length > 0) {
+          productData.dimensions = validDimensions;
+        }
+      } catch (error) {
+        console.error('Error parsing dimensions:', error);
+      }
+    }
+
+    // Handle image files
+    const images = [];
+    if (req.files && req.files.length > 0) {
+      console.log("Processing uploaded files...");
+      req.files.forEach(file => {
+        if (!file.path) {
+          console.warn("File missing path:", file);
+          return;
+        }
+        // Extract just the filename and create the correct path
+        const filename = path.basename(file.path);
+        const imagePath = `/uploads/${filename}`;
+        images.push(imagePath);
+        console.log("Added image path:", imagePath);
+      });
+    }
+
+    // Handle image URLs
+    if (req.body.imageUrls) {
+      const imageUrls = Array.isArray(req.body.imageUrls) 
+        ? req.body.imageUrls 
+        : typeof req.body.imageUrls === 'string'
+          ? [req.body.imageUrls]
+          : [];
+      
+      // Filter out empty or invalid URLs and ensure proper format
+      const validUrls = imageUrls
+        .filter(url => url && typeof url === 'string' && url.trim())
+        .map(url => {
+          // If the URL is already in the correct format, use it as is
+          if (url.startsWith('/uploads/')) {
+            return url;
+          }
+          // Otherwise, extract the filename and format properly
+          const filename = path.basename(url);
+          return `/uploads/${filename}`;
+        });
+      
+      images.push(...validUrls);
+      console.log("Added image URLs:", validUrls);
+    }
+
+    // Set default image if no images provided
+    if (images.length === 0) {
+      images.push("https://placehold.co/300x300/gray/white?text=No+Image");
+      console.log("Using default image");
+    }
+
+    productData.images = images;
+
+    console.log("\nFinal product data to insert:", JSON.stringify(productData, null, 2));
+
+    try {
+      // Insert the product
+      const result = await insertDocument(COLLECTION, productData);
+      console.log("Insert result:", result);
+
+      if (!result || !result._id) {
+        throw new Error("Failed to get _id from database operation");
+      }
+
+      // Fetch the inserted product
+      const insertedProduct = await findOneDocument(COLLECTION, { _id: result._id });
+      
+      if (!insertedProduct) {
+        throw new Error("Failed to fetch the inserted product");
+      }
+
+      // Map category name
+      const categoryMap = {
+        "680c9481ab11e96a288ef6d9": "Sofa Beds",
+        "680c9484ab11e96a288ef6da": "Tables",
+        "680c9486ab11e96a288ef6db": "Chairs",
+        "680c9489ab11e96a288ef6dc": "Wardrobes",
+        "680c948eab11e96a288ef6dd": "Beds"
+      };
+
+      if (insertedProduct.category) {
+        const categoryId = insertedProduct.category;
+        insertedProduct.category = {
+          _id: categoryId,
+          name: categoryMap[categoryId] || "Other",
+          slug: (categoryMap[categoryId] || "Other").toLowerCase().replace(/\s+/g, '-')
+        };
+      }
+
+      console.log("\nProduct created successfully:", insertedProduct);
+
+      return res.status(201).json({
+        success: true,
+        data: insertedProduct
+      });
+    } catch (dbError) {
+      console.error("\nDatabase operation failed:", dbError);
+      throw new Error(`Database operation failed: ${dbError.message}`);
+    }
+  } catch (error) {
+    console.error("\nError in product creation:", error);
     return res.status(500).json({
       success: false,
-      message: "Server error",
+      message: "Error creating product",
+      error: error.message,
+      details: {
+        requestBody: req.body,
+        filesReceived: req.files ? req.files.length : 0
+      },
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 };

@@ -5,27 +5,40 @@ const dotenv = require("dotenv");
 const path = require("path");
 const fs = require("fs");
 const multer = require("multer");
-const slugify = require("slugify");
+// Load environment variables
+dotenv.config();
 
-// Configure multer for file uploads
+// Configure multer storage
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, path.join(__dirname, "../uploads/images"));
+    cb(null, path.join(__dirname, "uploads"));
   },
   filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now();
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
     cb(
       null,
-      file.fieldname + "-" + uniqueSuffix + path.extname(file.originalname)
+      "images-" + uniqueSuffix + path.extname(file.originalname)
     );
   },
 });
 
-// Initialize multer with the storage configuration
-const upload = multer({ storage: storage });
+// Create upload middleware with file filter
+const upload = multer({ 
+  storage: storage,
+  fileFilter: (req, file, cb) => {
+    // Accept images only
+    if (!file.originalname.match(/\.(jpg|jpeg|png|gif)$/)) {
+      return cb(new Error('Only image files are allowed!'), false);
+    }
+    cb(null, true);
+  }
+});
 
-// Load environment variables
-dotenv.config();
+// Ensure uploads directory exists
+const uploadsDir = path.join(__dirname, "uploads");
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
 
 // Ensure uploads directory exists
 require("./utils/ensureUploads");
@@ -101,7 +114,15 @@ const apiPrefixFix = require("./middleware/apiPrefixFix");
 app.use(apiPrefixFix);
 
 // Static Files
+// Serve uploaded files
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
+// Add CORS headers for image files
+app.use("/uploads", (req, res, next) => {
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+  next();
+});
 
 // Production static files
 if (process.env.NODE_ENV === "production") {
@@ -228,8 +249,8 @@ app.post("/api/api/contact", contactController.createContact);
 // Direct API routes for products
 app.get("/api/direct/products", getAllProducts);
 app.get("/api/direct/products/:id", getProductById);
-app.post("/api/direct/products", createProduct);
-app.put("/api/direct/products/:id", updateProduct);
+app.post("/api/direct/products", upload.array('images'), createProduct);
+app.put("/api/direct/products/:id", upload.array('images'), updateProduct);
 app.delete("/api/direct/products/:id", deleteProduct);
 
 // Special route for products page - handle both /products and /api/products
@@ -468,29 +489,6 @@ console.log("Contact form routes:");
 console.log("- POST /contact");
 console.log("- POST /api/contact");
 console.log("- POST /api/api/contact");
-
-// Import our new V2 product controller
-const v2ProductController = require("./controllers/v2ProductController");
-
-// New guaranteed product creation route that ensures all fields are saved
-app.post(
-  "/api/v2/products",
-  upload.array("images", 10),
-  v2ProductController.createProduct
-);
-app.get("/api/v2/products", v2ProductController.getAllProducts);
-app.get("/api/v2/products/:id", v2ProductController.getProduct);
-
-// Test route to create a product with all fields
-app.post("/api/v2/test-product", v2ProductController.createTestProduct);
-
-console.log("V2 Product routes:");
-console.log("- POST /api/v2/products (guaranteed field saving)");
-console.log("- GET /api/v2/products");
-console.log("- GET /api/v2/products/:id");
-console.log(
-  "- POST /api/v2/test-product (creates a test product with all fields)"
-);
 
 // Note: All other contact routes (GET, PUT, DELETE) are handled by contactRoutes
 

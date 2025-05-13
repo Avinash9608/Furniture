@@ -232,66 +232,12 @@ const AddProduct = () => {
         (cat) => cat.isStandard
       );
 
-      // Create FormData object for file upload
-      const formData = new FormData();
-
-      // Ensure all required fields are present
-      const requiredFields = {
-        name: productData.name || "",
-        description: productData.description || "No description provided",
-        price: productData.price || 0,
-        stock: productData.stock || 0,
-        category: productData.category || "",
-      };
-
-      // Log required fields
-      console.log("Required fields:", requiredFields);
-
-      // Add required fields first
-      Object.keys(requiredFields).forEach((key) => {
-        formData.append(key, requiredFields[key]);
-        console.log(`Adding required field: ${key} = ${requiredFields[key]}`);
-      });
-
-      // Add product data to FormData
-      Object.keys(productData).forEach((key) => {
-        // Skip required fields as they've already been added
-        if (Object.keys(requiredFields).includes(key)) {
-          return;
+      // Log the received FormData
+      console.log("Received product data:");
+      if (productData instanceof FormData) {
+        for (let pair of productData.entries()) {
+          console.log(pair[0] + ': ' + (pair[1] instanceof File ? pair[1].name : pair[1]));
         }
-
-        if (key === "images") {
-          // Handle images
-          if (productData.images && productData.images.length > 0) {
-            productData.images.forEach((image) => {
-              if (image.file) {
-                formData.append("images", image.file);
-                console.log(`Adding image: ${image.file.name}`);
-              }
-            });
-          } else {
-            // If no images, set a flag for the server
-            formData.append("defaultImage", "true");
-            console.log("Adding defaultImage flag");
-          }
-        } else if (key === "dimensions") {
-          // Handle dimensions object
-          const dimensionsStr = JSON.stringify(productData.dimensions);
-          formData.append("dimensions", dimensionsStr);
-          console.log(`Adding dimensions: ${dimensionsStr}`);
-        } else {
-          // Handle other fields
-          formData.append(key, productData[key]);
-          console.log(`Adding field: ${key} = ${productData[key]}`);
-        }
-      });
-
-      // Log the FormData contents for debugging
-      console.log("FormData entries:");
-      for (let pair of formData.entries()) {
-        console.log(
-          pair[0] + ": " + (pair[1] instanceof File ? pair[1].name : pair[1])
-        );
       }
 
       // Determine if we're in development or production
@@ -305,27 +251,6 @@ const AddProduct = () => {
 
       console.log("Submitting product data...");
 
-      // Check if we're using standard categories and add special handling
-      if (isUsingStandardCategories) {
-        console.log("Using standard categories, adding special handling");
-
-        // Log the selected category
-        const selectedCategoryId = formData.get("category");
-        console.log(`Selected category ID: ${selectedCategoryId}`);
-
-        // Find the selected category object
-        const selectedCategory = categories.find(
-          (cat) => cat._id === selectedCategoryId
-        );
-        console.log("Selected category:", selectedCategory);
-
-        if (selectedCategory && selectedCategory.isStandard) {
-          console.log(
-            "Selected category is a standard category, will be handled specially on the server"
-          );
-        }
-      }
-
       // Try the direct endpoint first (no auth required)
       try {
         console.log("Trying direct product creation endpoint...");
@@ -333,28 +258,19 @@ const AddProduct = () => {
         const directUrl = `${baseUrl}/api/direct/products`;
         console.log(`Sending POST to ${directUrl}`);
 
-        // Create a copy of the FormData with additional debugging info
-        const directFormData = new FormData();
-        for (let pair of formData.entries()) {
-          directFormData.append(pair[0], pair[1]);
-          console.log(
-            `Adding to directFormData: ${pair[0]} = ${
-              pair[1] instanceof File ? pair[1].name : pair[1]
-            }`
-          );
-        }
-
         // Add a flag to indicate this is coming from the client
-        directFormData.append("source", "client_direct");
+        if (productData instanceof FormData) {
+          productData.append("source", "client_direct");
+        }
 
         // Send the request with a timeout
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 seconds timeout (increased)
+        const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 seconds timeout
 
         console.log("Sending direct request now...");
         const directResponse = await fetch(directUrl, {
           method: "POST",
-          body: directFormData,
+          body: productData,
           signal: controller.signal,
         });
 
@@ -401,139 +317,11 @@ const AddProduct = () => {
         }
       } catch (directError) {
         console.error("Error with direct endpoint:", directError);
-
-        // Try the admin API as fallback
-        try {
-          console.log("Trying adminProductsAPI as fallback...");
-
-          // Get the auth token
-          const token =
-            localStorage.getItem("adminToken") || localStorage.getItem("token");
-
-          if (!token) {
-            console.warn("No auth token found for admin API");
-            throw new Error("No authentication token available");
-          }
-
-          // Create a new FormData object
-          const adminFormData = new FormData();
-          for (let pair of formData.entries()) {
-            adminFormData.append(pair[0], pair[1]);
-          }
-
-          // Use the admin API
-          const response = await adminProductsAPI.create(adminFormData);
-
-          console.log("Product created successfully with admin API:", response);
-
-          // Show success message
-          setTimeout(() => {
-            navigate("/admin/products", {
-              state: {
-                successMessage: "Product added successfully!",
-              },
-            });
-          }, 500);
-
-          return;
-        } catch (adminError) {
-          console.error("Error with admin API:", adminError);
-
-          // If using standard categories, store offline
-          if (isUsingStandardCategories) {
-            console.log("Using standard categories, storing product offline");
-
-            // Store in localStorage
-            const offlineProducts = JSON.parse(
-              localStorage.getItem("furniture_offline_products") || "[]"
-            );
-
-            // Generate a temporary ID
-            const tempId = `temp_${Date.now()}_${Math.floor(
-              Math.random() * 1000
-            )}`;
-
-            // Create an offline product object
-            const offlineProduct = {
-              _id: tempId,
-              ...productData,
-              createdAt: new Date().toISOString(),
-              isOffline: true,
-            };
-
-            // Add to offline products
-            offlineProducts.push(offlineProduct);
-            localStorage.setItem(
-              "furniture_offline_products",
-              JSON.stringify(offlineProducts)
-            );
-
-            // Show success message
-            setTimeout(() => {
-              navigate("/admin/products", {
-                state: {
-                  successMessage:
-                    "Product saved offline. It will be synced when connection is restored.",
-                },
-              });
-            }, 500);
-
-            return;
-          }
-
-          // If all attempts failed, throw the error
-          throw new Error("All product creation methods failed");
-        }
+        throw directError;
       }
     } catch (error) {
       console.error("Error creating product:", error);
-
-      // Store product in localStorage as a last resort
-      try {
-        console.log("Storing product in localStorage as last resort");
-
-        const offlineProducts = JSON.parse(
-          localStorage.getItem("furniture_offline_products") || "[]"
-        );
-
-        // Generate a temporary ID
-        const tempId = `temp_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
-
-        // Create a product object with all the data
-        const offlineProduct = {
-          _id: tempId,
-          ...productData,
-          createdAt: new Date().toISOString(),
-          isOffline: true,
-        };
-
-        // Add to offline products
-        offlineProducts.push(offlineProduct);
-        localStorage.setItem(
-          "furniture_offline_products",
-          JSON.stringify(offlineProducts)
-        );
-
-        setSubmitError(
-          "Could not save product to server. Product has been saved offline and will be synced later."
-        );
-
-        // Show success message after a delay
-        setTimeout(() => {
-          navigate("/admin/products", {
-            state: {
-              successMessage:
-                "Product saved offline. It will be synced when connection is restored.",
-            },
-          });
-        }, 2000);
-      } catch (offlineError) {
-        console.error("Error saving product offline:", offlineError);
-        setSubmitError("Failed to save product. Please try again later.");
-      }
-
-      // Scroll to top to show error
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      setSubmitError(error.message || "Failed to create product. Please try again.");
     } finally {
       setIsSubmitting(false);
     }

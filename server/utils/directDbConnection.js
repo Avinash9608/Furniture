@@ -5,7 +5,7 @@
  * completely bypassing Mongoose to avoid buffering timeout issues.
  */
 
-const { MongoClient } = require("mongodb");
+const { MongoClient, ObjectId } = require("mongodb");
 const dotenv = require("dotenv");
 
 // Load environment variables
@@ -621,4 +621,5 @@ module.exports = {
   updateDocument,
   deleteDocument,
   closeConnection,
+  ObjectId,
 };
