@@ -227,11 +227,6 @@ const AddProduct = () => {
       setIsSubmitting(true);
       setSubmitError(null);
 
-      // Check if we're using standard categories
-      const isUsingStandardCategories = categories.some(
-        (cat) => cat.isStandard
-      );
-
       // Log the received FormData
       console.log("Received product data:");
       if (productData instanceof FormData) {
@@ -241,86 +236,77 @@ const AddProduct = () => {
       }
 
       // Determine if we're in development or production
-      const isDevelopment =
-        window.location.hostname === "localhost" ||
-        window.location.hostname === "127.0.0.1";
-
-      const baseUrl = isDevelopment
-        ? "http://localhost:5000"
-        : window.location.origin;
+      const isDevelopment = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+      const baseUrl = isDevelopment ? "http://localhost:5000" : window.location.origin;
 
       console.log("Submitting product data...");
 
-      // Try the direct endpoint first (no auth required)
+      // Try the direct endpoint
       try {
         console.log("Trying direct product creation endpoint...");
-
         const directUrl = `${baseUrl}/api/direct/products`;
         console.log(`Sending POST to ${directUrl}`);
 
-        // Add a flag to indicate this is coming from the client
+        // Create a new FormData object with the correct content
+        const formDataToSend = new FormData();
+        
+        // If productData is already FormData, copy its entries
         if (productData instanceof FormData) {
-          productData.append("source", "client_direct");
+          for (let pair of productData.entries()) {
+            // For files, append them directly
+            if (pair[1] instanceof File) {
+              formDataToSend.append(pair[0], pair[1]);
+            } else {
+              // For other data, ensure it's properly formatted
+              formDataToSend.append(pair[0], pair[1]);
+            }
+          }
         }
 
-        // Send the request with a timeout
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 seconds timeout
+        // Add source flag
+        formDataToSend.append("source", "client_direct");
 
-        console.log("Sending direct request now...");
-        const directResponse = await fetch(directUrl, {
+        // Send the request with proper headers
+        const response = await fetch(directUrl, {
           method: "POST",
-          body: productData,
-          signal: controller.signal,
+          body: formDataToSend,
+          headers: {
+            'Accept': 'application/json',
+          }
         });
 
-        clearTimeout(timeoutId);
-
-        console.log(`Direct response status: ${directResponse.status}`);
-
-        // Try to parse the response body for more details
-        let responseBody;
+        // Try to parse the response
+        let responseData;
         try {
-          responseBody = await directResponse.json();
-          console.log("Response body:", responseBody);
+          const textResponse = await response.text();
+          console.log("Raw response:", textResponse);
+          responseData = JSON.parse(textResponse);
+          console.log("Parsed response:", responseData);
         } catch (parseError) {
           console.error("Error parsing response:", parseError);
-          responseBody = { message: "Could not parse response" };
+          throw new Error("Could not parse server response");
         }
 
-        if (directResponse.ok) {
-          console.log(
-            "Product created successfully with direct endpoint:",
-            responseBody
-          );
-
-          // Show success message
+        if (response.ok) {
+          console.log("Product created successfully:", responseData);
+          
+          // Show success message and redirect
           setTimeout(() => {
             navigate("/admin/products", {
-              state: {
-                successMessage: "Product added successfully!",
-              },
+              state: { successMessage: "Product added successfully!" }
             });
           }, 500);
-
+          
           return;
         } else {
-          console.warn(
-            `Direct endpoint returned status ${directResponse.status}:`,
-            responseBody.message || "Unknown error"
-          );
-          throw new Error(
-            `Direct endpoint failed: ${
-              responseBody.message || responseBody.error || "Unknown error"
-            }`
-          );
+          throw new Error(responseData.message || "Failed to create product");
         }
-      } catch (directError) {
-        console.error("Error with direct endpoint:", directError);
-        throw directError;
+      } catch (error) {
+        console.error("Error creating product:", error);
+        throw error;
       }
     } catch (error) {
-      console.error("Error creating product:", error);
+      console.error("Error in form submission:", error);
       setSubmitError(error.message || "Failed to create product. Please try again.");
     } finally {
       setIsSubmitting(false);

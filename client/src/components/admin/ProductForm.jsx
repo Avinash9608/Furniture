@@ -166,76 +166,83 @@ const ProductForm = ({
     // Log validation state before submission
     console.log('Form validation state:', { formData, errors, touched });
 
-    // Add basic fields with proper type conversion and validation
-    const stringFields = ['name', 'description', 'material', 'color'];
-    const numberFields = ['price', 'stock', 'discountPrice'];
+    try {
+      // Add basic fields with proper type conversion and validation
+      const stringFields = ['name', 'description', 'material', 'color'];
+      const numberFields = ['price', 'stock', 'discountPrice'];
 
-    // Add string fields
-    stringFields.forEach(field => {
-      if (formData[field]) {
-        console.log(`Adding ${field}:`, formData[field]);
-        formDataToSubmit.append(field, formData[field].trim());
-      }
-    });
-
-    // Add category ID directly
-    if (formData.category) {
-      console.log('Adding category:', formData.category);
-      formDataToSubmit.append('category', formData.category);
-    }
-
-    // Add number fields with validation
-    numberFields.forEach(field => {
-      if (formData[field] !== '') {
-        const value = Number(formData[field]);
-        if (!isNaN(value)) {
-          console.log(`Adding ${field}:`, value);
-          formDataToSubmit.append(field, value);
-        }
-      }
-    });
-
-    // Add boolean fields
-    formDataToSubmit.append('featured', formData.featured);
-
-    // Handle dimensions
-    const dimensions = {};
-    ['length', 'width', 'height'].forEach(dim => {
-      if (formData.dimensions[dim] !== '') {
-        const value = Number(formData.dimensions[dim]);
-        if (!isNaN(value)) {
-          dimensions[dim] = value;
-        }
-      }
-    });
-
-    if (Object.keys(dimensions).length > 0) {
-      formDataToSubmit.append('dimensions', JSON.stringify(dimensions));
-    }
-
-    // Handle images
-    if (images && images.length > 0) {
-      console.log('Processing images:', images);
-      images.forEach((image, index) => {
-        if (image instanceof File) {
-          console.log(`Adding image file ${index}:`, image.name);
-          formDataToSubmit.append('images', image);
-        } else if (image.file instanceof File) {
-          console.log(`Adding image file ${index}:`, image.file.name);
-          formDataToSubmit.append('images', image.file);
-        } else if (typeof image === 'string') {
-          // Extract just the filename from the path, whether it's a full path or already formatted
-          const filename = image.includes('uploads/') 
-            ? image.split('uploads/')[1] 
-            : image.split(/[\/\\]/).pop();
-          console.log(`Adding existing image ${index}:`, filename);
-          formDataToSubmit.append('imageUrls', filename);
+      // Add string fields
+      stringFields.forEach(field => {
+        if (formData[field]) {
+          console.log(`Adding ${field}:`, formData[field]);
+          formDataToSubmit.append(field, formData[field].trim());
         }
       });
-    }
 
-    // Submit the form
-    onSubmit(formDataToSubmit);
+      // Add number fields
+      numberFields.forEach(field => {
+        if (formData[field] !== '') {
+          const value = Number(formData[field]);
+          if (!isNaN(value)) {
+            console.log(`Adding ${field}:`, value);
+            formDataToSubmit.append(field, value);
+          }
+        }
+      });
+
+      // Add category
+      if (formData.category) {
+        console.log('Adding category:', formData.category);
+        formDataToSubmit.append('category', formData.category);
+      }
+
+      // Add boolean fields
+      formDataToSubmit.append('featured', formData.featured);
+
+      // Handle dimensions
+      if (Object.values(formData.dimensions).some(val => val !== '')) {
+        const dimensions = {};
+        Object.entries(formData.dimensions).forEach(([key, value]) => {
+          if (value !== '' && !isNaN(Number(value))) {
+            dimensions[key] = Number(value);
+          }
+        });
+        if (Object.keys(dimensions).length > 0) {
+          formDataToSubmit.append('dimensions', JSON.stringify(dimensions));
+        }
+      }
+
+      // Handle images
+      if (images && images.length > 0) {
+        console.log('Processing images:', images);
+        images.forEach((image, index) => {
+          if (image instanceof File) {
+            console.log(`Adding image file ${index}:`, image.name);
+            formDataToSubmit.append('images', image);
+          } else if (image.file instanceof File) {
+            console.log(`Adding image file ${index}:`, image.file.name);
+            formDataToSubmit.append('images', image.file);
+          } else if (typeof image === 'string') {
+            // For existing images, just send the filename
+            const filename = image.split('/').pop();
+            console.log(`Adding existing image ${index}:`, filename);
+            formDataToSubmit.append('imageUrls', filename);
+          }
+        });
+      }
+
+      // Log the final FormData
+      console.log('FormData entries:');
+      for (let pair of formDataToSubmit.entries()) {
+        console.log(pair[0], pair[1]);
+      }
+
+      // Submit the form
+      onSubmit(formDataToSubmit);
+    } catch (error) {
+      console.error('Error preparing form data:', error);
+      // You might want to show this error to the user
+    }
   };
 
   return (
