@@ -469,17 +469,17 @@ console.log("- POST /contact");
 console.log("- POST /api/contact");
 console.log("- POST /api/api/contact");
 
-// Import our new direct product controller
-const directProductController = require("./controllers/directProductController");
+// Import our new V2 product controller
+const v2ProductController = require("./controllers/v2ProductController");
 
 // New guaranteed product creation route that ensures all fields are saved
 app.post(
   "/api/v2/products",
   upload.array("images", 10),
-  directProductController.createProduct
+  v2ProductController.createProduct
 );
-app.get("/api/v2/products", directProductController.getAllProducts);
-app.get("/api/v2/products/:id", directProductController.getProduct);
+app.get("/api/v2/products", v2ProductController.getAllProducts);
+app.get("/api/v2/products/:id", v2ProductController.getProduct);
 
 console.log("V2 Product routes:");
 console.log("- POST /api/v2/products (guaranteed field saving)");
