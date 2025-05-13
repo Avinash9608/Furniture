@@ -11,8 +11,17 @@ const Category = require("../models/Category");
 exports.createProduct = async (req, res) => {
   try {
     console.log("=== DIRECT PRODUCT CONTROLLER ===");
-    console.log("Request body:", req.body);
-    console.log("Request files:", req.files);
+    console.log("Request body:", JSON.stringify(req.body, null, 2));
+    console.log(
+      "Request files:",
+      req.files
+        ? JSON.stringify(
+            req.files.map((f) => f.filename),
+            null,
+            2
+          )
+        : "none"
+    );
 
     // Check MongoDB connection
     if (mongoose.connection.readyState !== 1) {
@@ -86,6 +95,15 @@ exports.createProduct = async (req, res) => {
         console.error("Error parsing dimensions:", error);
       }
     }
+
+    // Ensure dimensions are numbers, not strings
+    dimensions = {
+      length: parseFloat(dimensions.length) || 0,
+      width: parseFloat(dimensions.width) || 0,
+      height: parseFloat(dimensions.height) || 0,
+    };
+
+    console.log("Normalized dimensions:", dimensions);
 
     // Process category
     let categoryId;
@@ -183,6 +201,9 @@ exports.createProduct = async (req, res) => {
     }
 
     // Create product document with all fields from the Product model
+    const now = new Date();
+
+    // Create a proper MongoDB document that matches the Product schema
     const productData = {
       // Required fields
       name: req.body.name,
@@ -204,15 +225,18 @@ exports.createProduct = async (req, res) => {
       numReviews: 0,
       reviews: [],
 
-      // Timestamps
-      createdAt: new Date(),
-      updatedAt: new Date(),
+      // Timestamps - ensure these are proper Date objects
+      createdAt: now,
+      updatedAt: now,
     };
 
     // Handle discount price separately to avoid saving 0 when it's not provided
     if (req.body.discountPrice) {
       productData.discountPrice = parseFloat(req.body.discountPrice);
     }
+
+    // Log the dimensions to ensure they're properly formatted
+    console.log("Dimensions being saved:", JSON.stringify(dimensions));
 
     // Remove undefined/null values to avoid MongoDB issues
     Object.keys(productData).forEach((key) => {
@@ -221,7 +245,11 @@ exports.createProduct = async (req, res) => {
       }
     });
 
-    console.log("Final product data:", JSON.stringify(productData, null, 2));
+    // Final validation check
+    console.log(
+      "Final product data to be saved:",
+      JSON.stringify(productData, null, 2)
+    );
 
     // Get direct access to the collection
     const db = mongoose.connection.db;
