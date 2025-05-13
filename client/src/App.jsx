@@ -29,6 +29,7 @@ import AdminShippingAddresses from "./pages/admin/ShippingAddresses";
 import AdminSourceAddress from "./pages/admin/SourceAddress";
 import TestProduct from "./pages/admin/TestProduct";
 import SimpleAddProduct from "./pages/admin/SimpleAddProduct";
+import V2AddProduct from "./pages/admin/V2AddProduct";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/admin/ProtectedRoute";
 import UserProtectedRoute from "./components/UserProtectedRoute";
@@ -216,6 +217,7 @@ function App() {
             path="/admin/simple-add-product"
             element={<SimpleAddProduct />}
           />
+          <Route path="/admin/v2/add-product" element={<V2AddProduct />} />
 
           {/* 404 Route */}
           <Route path="*" element={<NotFound />} />

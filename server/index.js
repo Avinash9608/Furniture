@@ -180,6 +180,9 @@ const {
   deleteProduct,
 } = require("./controllers/directProducts");
 
+// Import our new direct product controller
+const directProductController = require("./controllers/directProductController");
+
 const {
   getAllCategories,
   getCategoryById,
@@ -212,6 +215,10 @@ app.get("/api/direct/products/:id", getProductById);
 app.post("/api/direct/products", createProduct);
 app.put("/api/direct/products/:id", updateProduct);
 app.delete("/api/direct/products/:id", deleteProduct);
+
+// New guaranteed product creation route that ensures all fields are saved
+app.post("/api/v2/products", directProductController.createProduct);
+app.get("/api/v2/products", directProductController.getAllProducts);
 
 // Special route for products page - handle both /products and /api/products
 app.get("/products", getAllProducts);
@@ -439,6 +446,8 @@ console.log("- GET /api/direct/products/:id");
 console.log("- POST /api/direct/products");
 console.log("- PUT /api/direct/products/:id");
 console.log("- DELETE /api/direct/products/:id");
+console.log("- POST /api/v2/products (guaranteed field saving)");
+console.log("- GET /api/v2/products");
 console.log("Category routes:");
 console.log("- GET /api/direct/categories");
 console.log("- GET /api/direct/categories/:id");
