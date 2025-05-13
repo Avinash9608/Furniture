@@ -240,6 +240,8 @@ const AddProduct = () => {
       const baseUrl = isDevelopment ? "http://localhost:5000" : window.location.origin;
 
       console.log("Submitting product data...");
+      console.log(`Environment: ${isDevelopment ? "Development" : "Production"}`);
+      console.log(`Base URL: ${baseUrl}`);
 
       // Try the direct endpoint
       try {
@@ -247,47 +249,48 @@ const AddProduct = () => {
         const directUrl = `${baseUrl}/api/direct/products`;
         console.log(`Sending POST to ${directUrl}`);
 
-        // Create a new FormData object with the correct content
-        const formDataToSend = new FormData();
-        
-        // If productData is already FormData, copy its entries
-        if (productData instanceof FormData) {
-          for (let pair of productData.entries()) {
-            // For files, append them directly
-            if (pair[1] instanceof File) {
-              formDataToSend.append(pair[0], pair[1]);
-            } else {
-              // For other data, ensure it's properly formatted
-              formDataToSend.append(pair[0], pair[1]);
-            }
-          }
-        }
-
-        // Add source flag
-        formDataToSend.append("source", "client_direct");
-
         // Send the request with proper headers
         const response = await fetch(directUrl, {
           method: "POST",
-          body: formDataToSend,
+          body: productData,
+          // Remove the Content-Type header to let the browser set it with the boundary
           headers: {
             'Accept': 'application/json',
           }
         });
+
+        // First check if the response is ok
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error("Server error response:", errorText);
+          throw new Error(`Server error: ${response.status} ${response.statusText}`);
+        }
 
         // Try to parse the response
         let responseData;
         try {
           const textResponse = await response.text();
           console.log("Raw response:", textResponse);
-          responseData = JSON.parse(textResponse);
-          console.log("Parsed response:", responseData);
-        } catch (parseError) {
-          console.error("Error parsing response:", parseError);
-          throw new Error("Could not parse server response");
+          
+          // Only try to parse if we have content
+          if (textResponse.trim()) {
+            try {
+              responseData = JSON.parse(textResponse);
+              console.log("Parsed response:", responseData);
+            } catch (parseError) {
+              console.error("Error parsing JSON response:", parseError);
+              throw new Error("Invalid JSON response from server");
+            }
+          } else {
+            console.warn("Empty response from server");
+            throw new Error("Empty response from server");
+          }
+        } catch (textError) {
+          console.error("Error reading response text:", textError);
+          throw new Error("Could not read server response");
         }
 
-        if (response.ok) {
+        if (responseData && responseData.success) {
           console.log("Product created successfully:", responseData);
           
           // Show success message and redirect
@@ -299,14 +302,14 @@ const AddProduct = () => {
           
           return;
         } else {
-          throw new Error(responseData.message || "Failed to create product");
+          throw new Error(responseData?.message || "Failed to create product");
         }
       } catch (error) {
-        console.error("Error creating product:", error);
-        throw error;
+        console.error("Error in product creation:", error);
+        throw new Error(`Direct endpoint failed: ${error.message}`);
       }
     } catch (error) {
-      console.error("Error in form submission:", error);
+      console.error("Form submission error:", error);
       setSubmitError(error.message || "Failed to create product. Please try again.");
     } finally {
       setIsSubmitting(false);

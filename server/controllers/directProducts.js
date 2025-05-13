@@ -427,77 +427,84 @@ exports.createProduct = async (req, res) => {
       });
     }
 
-    // Process images
+    // Handle image files
     const images = [];
     if (req.files && req.files.length > 0) {
       console.log("Processing uploaded files...");
-      for (const file of req.files) {
+      req.files.forEach(file => {
         if (!file.path) {
           console.warn("File missing path:", file);
-          continue;
+          return;
         }
         // Format the image path correctly for storage
-        const filename = file.filename || path.basename(file.path);
+        const filename = path.basename(file.path);
         const imagePath = `/uploads/${filename}`;
         images.push(imagePath);
         console.log("Added image path:", imagePath);
-      }
+      });
     }
 
-    // Create product data object
+    // Parse numeric fields
+    const price = parseFloat(req.body.price);
+    const stock = parseInt(req.body.stock);
+    const discountPrice = req.body.discountPrice ? parseFloat(req.body.discountPrice) : undefined;
+
+    // Validate numeric fields
+    if (isNaN(price) || price <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid price value'
+      });
+    }
+
+    if (isNaN(stock) || stock < 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid stock value'
+      });
+    }
+
+    // Create the product object
     const productData = {
-      name: req.body.name,
-      description: req.body.description,
-      price: Number(req.body.price),
+      name: req.body.name.trim(),
+      description: req.body.description.trim(),
+      price,
+      stock,
       category: req.body.category,
-      stock: Number(req.body.stock),
-      images: images,
+      images,
+      material: req.body.material?.trim(),
+      color: req.body.color?.trim(),
+      dimensions: req.body.dimensions || {},
       featured: req.body.featured === 'true',
+      discountPrice
     };
-
-    // Add optional fields if they exist
-    if (req.body.discountPrice) {
-      productData.discountPrice = Number(req.body.discountPrice);
-    }
-
-    if (req.body.material) {
-      productData.material = req.body.material;
-    }
-
-    if (req.body.color) {
-      productData.color = req.body.color;
-    }
-
-    // Handle dimensions if provided
-    if (req.body.dimensions) {
-      try {
-        const dimensions = typeof req.body.dimensions === 'string' 
-          ? JSON.parse(req.body.dimensions)
-          : req.body.dimensions;
-        
-        productData.dimensions = dimensions;
-      } catch (error) {
-        console.error("Error parsing dimensions:", error);
-      }
-    }
 
     console.log("Final product data:", JSON.stringify(productData, null, 2));
 
     // Save to database
-    const product = await insertDocument(COLLECTION, productData);
-    console.log("Product created successfully:", product._id);
+    const db = await getDb();
+    const result = await db.collection('products').insertOne(productData);
 
+    if (!result.acknowledged) {
+      throw new Error('Database operation failed');
+    }
+
+    console.log("Product created successfully:", result.insertedId);
+
+    // Send success response
     return res.status(201).json({
       success: true,
-      message: "Product created successfully",
-      data: product
+      message: 'Product created successfully',
+      productId: result.insertedId
     });
 
   } catch (error) {
     console.error("Error in createProduct:", error);
+    
+    // Send formatted error response
     return res.status(500).json({
       success: false,
-      message: "Error creating product",
+      message: 'Error creating product',
       error: error.message
     });
   }
