@@ -953,12 +953,23 @@ app.post(
         });
       }
 
-      if (!req.body.category) {
-        return res.status(400).json({
-          success: false,
-          message: "Product category is required",
-        });
+      // Generate a guaranteed unique slug
+      const timestamp = Date.now();
+      let baseSlug = slugify(req.body.name, {
+        lower: true,
+        strict: true,
+        remove: /[*+~.()'"!:@]/g,
+      });
+
+      // If baseSlug is empty after processing, use a fallback
+      if (!baseSlug || baseSlug.trim() === "") {
+        baseSlug = "product";
       }
+
+      // Always add timestamp to ensure uniqueness
+      const uniqueSlug = `${baseSlug}-${timestamp}`;
+
+      console.log("Generated unique slug:", uniqueSlug);
 
       // Create a new product from the request body with all possible fields
       const productData = {
@@ -967,7 +978,7 @@ app.post(
         description: req.body.description || "No description provided",
         price: price || 0,
         stock: stock || 0,
-        category: req.body.category,
+        slug: uniqueSlug, // Guaranteed to be unique and not null
 
         // Optional fields
         featured:
@@ -988,6 +999,16 @@ app.post(
         ratings: 0,
         reviews: [],
       };
+
+      // Handle category field
+      if (req.body.category) {
+        productData.category = req.body.category;
+      } else {
+        return res.status(400).json({
+          success: false,
+          message: "Product category is required",
+        });
+      }
 
       console.log(
         "Creating product with data:",
@@ -1024,7 +1045,10 @@ app.post(
         console.log(`Processing category: ${productData.category}`);
 
         // Check if it's a standard category
-        if (productData.category.startsWith("standard_")) {
+        if (
+          typeof productData.category === "string" &&
+          productData.category.startsWith("standard_")
+        ) {
           console.log("Converting standard category to real category");
 
           // Map standard category IDs to real categories
@@ -1060,22 +1084,57 @@ app.post(
             );
           } catch (categoryError) {
             console.error("Error handling category:", categoryError);
-            return res.status(500).json({
-              success: false,
-              message: "Error processing category",
-              error: categoryError.message,
-            });
+
+            // Create a default category as fallback
+            try {
+              console.log("Creating fallback category due to error");
+              const fallbackCategory = new Category({
+                name: "Fallback Category",
+                description: "Fallback category created due to error",
+              });
+
+              const savedFallback = await fallbackCategory.save();
+              productData.category = savedFallback._id;
+              console.log(`Using fallback category: ${savedFallback._id}`);
+            } catch (fallbackError) {
+              console.error("Error creating fallback category:", fallbackError);
+              return res.status(500).json({
+                success: false,
+                message: "Error processing category",
+                error: categoryError.message,
+              });
+            }
           }
         } else {
-          // Check if the category exists
+          // Check if the category exists or is a valid ObjectId
           try {
-            const categoryExists = await Category.exists({
-              _id: productData.category,
-            });
+            // Try to convert to ObjectId
+            let categoryId;
+            try {
+              categoryId = new mongoose.Types.ObjectId(productData.category);
+            } catch (idError) {
+              console.error("Invalid category ID format:", idError);
+
+              // Create a default category
+              console.log("Creating default category due to invalid ID format");
+              const defaultCategory = new Category({
+                name: "Default Category",
+                description:
+                  "Default category created due to invalid ID format",
+              });
+
+              const savedDefault = await defaultCategory.save();
+              productData.category = savedDefault._id;
+              console.log(`Using default category: ${savedDefault._id}`);
+              return; // Skip the rest of the category handling
+            }
+
+            // Check if category exists
+            const categoryExists = await Category.exists({ _id: categoryId });
 
             if (!categoryExists) {
               console.log(
-                `Category with ID ${productData.category} not found, creating default category`
+                `Category with ID ${categoryId} not found, creating default category`
               );
 
               // Create a default category
@@ -1090,15 +1149,15 @@ app.post(
                 `Using default category: Other (${savedCategory._id})`
               );
             } else {
-              console.log(
-                `Using existing category with ID: ${productData.category}`
-              );
+              console.log(`Using existing category with ID: ${categoryId}`);
+              productData.category = categoryId;
             }
           } catch (categoryError) {
             console.error("Error checking category:", categoryError);
 
             // Create a default category as fallback
             try {
+              console.log("Creating default category due to error");
               const defaultCategory = new Category({
                 name: "Default",
                 description: "Default category",
@@ -1239,15 +1298,32 @@ app.post("/api/raw/product", async (req, res) => {
     // 0 = disconnected, 1 = connected, 2 = connecting, 3 = disconnecting
 
     // Create a simple product document with all required fields
+    const timestamp = Date.now();
+    const productName = req.body.name || "Raw Product " + timestamp;
+
+    // Generate a guaranteed unique slug
+    let baseSlug = slugify(productName, {
+      lower: true,
+      strict: true,
+      remove: /[*+~.()'"!:@]/g,
+    });
+
+    // If baseSlug is empty after processing, use a fallback
+    if (!baseSlug || baseSlug.trim() === "") {
+      baseSlug = "product";
+    }
+
+    // Always add timestamp to ensure uniqueness
+    const uniqueSlug = `${baseSlug}-${timestamp}`;
+
+    console.log("Generated unique slug:", uniqueSlug);
+
     const productDoc = {
-      name: req.body.name || "Raw Product " + Date.now(),
+      name: productName,
       description: req.body.description || "Raw product description",
       price: parseFloat(req.body.price) || 999,
       stock: parseInt(req.body.stock) || 10,
-      slug:
-        slugify(req.body.name || "Raw Product " + Date.now(), { lower: true }) +
-        "-" +
-        Date.now(),
+      slug: uniqueSlug, // Guaranteed to be unique and not null
       createdAt: new Date(),
       updatedAt: new Date(),
     };
