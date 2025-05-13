@@ -912,19 +912,63 @@ app.post(
   async (req, res) => {
     try {
       console.log("Direct product creation endpoint called");
-      console.log("Request body:", req.body);
+      console.log("Request body keys:", Object.keys(req.body));
+      console.log("Request files:", req.files ? req.files.length : "none");
 
-      // Create a new product from the request body
+      // Log all form data for debugging
+      for (const key in req.body) {
+        console.log(
+          `${key}: ${
+            typeof req.body[key] === "object"
+              ? JSON.stringify(req.body[key])
+              : req.body[key]
+          }`
+        );
+      }
+
+      // Validate required fields
+      if (!req.body.name) {
+        return res.status(400).json({
+          success: false,
+          message: "Product name is required",
+        });
+      }
+
+      // Parse numeric values
+      const price = parseFloat(req.body.price) || 0;
+      const stock = parseInt(req.body.stock) || 0;
+
+      // Create a new product from the request body with all possible fields
       const productData = {
         name: req.body.name,
-        description: req.body.description,
-        price: req.body.price,
-        stock: req.body.stock || 0,
+        description: req.body.description || "",
+        price: price,
+        stock: stock,
         category: req.body.category,
-        // Handle other fields as needed
+        brand: req.body.brand || "",
+        color: req.body.color || "",
+        material: req.body.material || "",
+        dimensions: req.body.dimensions
+          ? typeof req.body.dimensions === "string"
+            ? JSON.parse(req.body.dimensions)
+            : req.body.dimensions
+          : { length: 0, width: 0, height: 0 },
+        weight: parseFloat(req.body.weight) || 0,
+        features: req.body.features || [],
+        isAvailable: req.body.isAvailable !== "false",
+        isFeatured: req.body.isFeatured === "true",
+        discount: parseFloat(req.body.discount) || 0,
+        ratings: {
+          average: 0,
+          count: 0,
+        },
+        reviews: [],
       };
 
-      console.log("Creating product with data:", productData);
+      console.log(
+        "Creating product with data:",
+        JSON.stringify(productData, null, 2)
+      );
 
       // Create a slug from the name
       const baseSlug = slugify(productData.name, { lower: true });
@@ -942,18 +986,62 @@ app.post(
       // Handle images
       if (req.files && req.files.length > 0) {
         productData.images = req.files.map((file) => file.path);
+        console.log("Using uploaded images:", productData.images);
       } else {
         // Use default image
         productData.images = [
           "https://placehold.co/300x300/gray/white?text=Product",
         ];
+        console.log("Using default image");
+      }
+
+      // Handle standard categories (convert from string ID to ObjectId if needed)
+      if (
+        productData.category &&
+        productData.category.startsWith("standard_")
+      ) {
+        console.log("Converting standard category to real category");
+
+        // Map standard category IDs to real categories
+        const categoryMap = {
+          standard_sofa_beds: "Sofa Beds",
+          standard_tables: "Tables",
+          standard_chairs: "Chairs",
+          standard_wardrobes: "Wardrobes",
+          standard_beds: "Beds",
+        };
+
+        // Find or create the category
+        const categoryName = categoryMap[productData.category] || "Other";
+
+        try {
+          // Try to find the category by name
+          let category = await Category.findOne({ name: categoryName });
+
+          // If category doesn't exist, create it
+          if (!category) {
+            console.log(`Creating category: ${categoryName}`);
+            category = new Category({
+              name: categoryName,
+              description: `${categoryName} furniture items`,
+            });
+            await category.save();
+          }
+
+          // Use the real category ID
+          productData.category = category._id;
+          console.log(`Using real category: ${categoryName} (${category._id})`);
+        } catch (categoryError) {
+          console.error("Error handling category:", categoryError);
+          // Continue with the original category ID if there's an error
+        }
       }
 
       // Create and save the product
       const product = new Product(productData);
       const savedProduct = await product.save();
 
-      console.log("Product created successfully:", savedProduct);
+      console.log("Product created successfully:", savedProduct._id);
 
       return res.status(201).json({
         success: true,
@@ -962,10 +1050,23 @@ app.post(
       });
     } catch (error) {
       console.error("Error in direct product creation:", error);
+
+      // Provide more detailed error information
+      let errorMessage = "Failed to create product";
+      let errorDetails = error.message;
+
+      // Check for validation errors
+      if (error.name === "ValidationError") {
+        errorMessage = "Validation error";
+        errorDetails = Object.keys(error.errors)
+          .map((field) => `${field}: ${error.errors[field].message}`)
+          .join(", ");
+      }
+
       return res.status(500).json({
         success: false,
-        message: "Failed to create product",
-        error: error.message,
+        message: errorMessage,
+        error: errorDetails,
       });
     }
   }

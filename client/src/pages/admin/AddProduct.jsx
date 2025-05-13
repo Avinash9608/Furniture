@@ -205,7 +205,7 @@ const AddProduct = () => {
 
         // Show a message that we're using standard categories
         setError(
-          "Using standard categories. Products will be associated with these categories."
+          "Using standard categories. Don't worry, products will still be saved correctly."
         );
       } catch (error) {
         console.error("Unexpected error in category fetching:", error);
@@ -277,6 +277,27 @@ const AddProduct = () => {
 
       console.log("Submitting product data...");
 
+      // Check if we're using standard categories and add special handling
+      if (isUsingStandardCategories) {
+        console.log("Using standard categories, adding special handling");
+
+        // Log the selected category
+        const selectedCategoryId = formData.get("category");
+        console.log(`Selected category ID: ${selectedCategoryId}`);
+
+        // Find the selected category object
+        const selectedCategory = categories.find(
+          (cat) => cat._id === selectedCategoryId
+        );
+        console.log("Selected category:", selectedCategory);
+
+        if (selectedCategory && selectedCategory.isStandard) {
+          console.log(
+            "Selected category is a standard category, will be handled specially on the server"
+          );
+        }
+      }
+
       // Try the direct endpoint first (no auth required)
       try {
         console.log("Trying direct product creation endpoint...");
@@ -284,16 +305,25 @@ const AddProduct = () => {
         const directUrl = `${baseUrl}/api/direct/products`;
         console.log(`Sending POST to ${directUrl}`);
 
-        // Create a copy of the FormData
+        // Create a copy of the FormData with additional debugging info
         const directFormData = new FormData();
         for (let pair of formData.entries()) {
           directFormData.append(pair[0], pair[1]);
+          console.log(
+            `Adding to directFormData: ${pair[0]} = ${
+              pair[1] instanceof File ? pair[1].name : pair[1]
+            }`
+          );
         }
+
+        // Add a flag to indicate this is coming from the client
+        directFormData.append("source", "client_direct");
 
         // Send the request with a timeout
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 seconds timeout
+        const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 seconds timeout (increased)
 
+        console.log("Sending direct request now...");
         const directResponse = await fetch(directUrl, {
           method: "POST",
           body: directFormData,
@@ -302,11 +332,22 @@ const AddProduct = () => {
 
         clearTimeout(timeoutId);
 
+        console.log(`Direct response status: ${directResponse.status}`);
+
+        // Try to parse the response body for more details
+        let responseBody;
+        try {
+          responseBody = await directResponse.json();
+          console.log("Response body:", responseBody);
+        } catch (parseError) {
+          console.error("Error parsing response:", parseError);
+          responseBody = { message: "Could not parse response" };
+        }
+
         if (directResponse.ok) {
-          const data = await directResponse.json();
           console.log(
             "Product created successfully with direct endpoint:",
-            data
+            responseBody
           );
 
           // Show success message
@@ -321,10 +362,13 @@ const AddProduct = () => {
           return;
         } else {
           console.warn(
-            `Direct endpoint returned status ${directResponse.status}`
+            `Direct endpoint returned status ${directResponse.status}:`,
+            responseBody.message || "Unknown error"
           );
           throw new Error(
-            `Direct endpoint failed with status ${directResponse.status}`
+            `Direct endpoint failed: ${
+              responseBody.message || responseBody.error || "Unknown error"
+            }`
           );
         }
       } catch (directError) {
