@@ -938,30 +938,54 @@ app.post(
       const price = parseFloat(req.body.price) || 0;
       const stock = parseInt(req.body.stock) || 0;
 
+      // Validate required fields according to the Product model schema
+      if (!req.body.name) {
+        return res.status(400).json({
+          success: false,
+          message: "Product name is required",
+        });
+      }
+
+      if (!req.body.description) {
+        return res.status(400).json({
+          success: false,
+          message: "Product description is required",
+        });
+      }
+
+      if (!req.body.category) {
+        return res.status(400).json({
+          success: false,
+          message: "Product category is required",
+        });
+      }
+
       // Create a new product from the request body with all possible fields
       const productData = {
+        // Required fields according to the Product model schema
         name: req.body.name,
-        description: req.body.description || "",
-        price: price,
-        stock: stock,
+        description: req.body.description || "No description provided",
+        price: price || 0,
+        stock: stock || 0,
         category: req.body.category,
-        brand: req.body.brand || "",
-        color: req.body.color || "",
+
+        // Optional fields
+        featured:
+          req.body.featured === "true" || req.body.isFeatured === "true",
         material: req.body.material || "",
+        color: req.body.color || "",
         dimensions: req.body.dimensions
           ? typeof req.body.dimensions === "string"
             ? JSON.parse(req.body.dimensions)
             : req.body.dimensions
           : { length: 0, width: 0, height: 0 },
+
+        // Additional fields
+        brand: req.body.brand || "",
         weight: parseFloat(req.body.weight) || 0,
-        features: req.body.features || [],
-        isAvailable: req.body.isAvailable !== "false",
-        isFeatured: req.body.isFeatured === "true",
-        discount: parseFloat(req.body.discount) || 0,
-        ratings: {
-          average: 0,
-          count: 0,
-        },
+        discountPrice: parseFloat(req.body.discountPrice) || undefined,
+        numReviews: 0,
+        ratings: 0,
         reviews: [],
       };
 
@@ -996,44 +1020,130 @@ app.post(
       }
 
       // Handle standard categories (convert from string ID to ObjectId if needed)
-      if (
-        productData.category &&
-        productData.category.startsWith("standard_")
-      ) {
-        console.log("Converting standard category to real category");
+      if (productData.category) {
+        console.log(`Processing category: ${productData.category}`);
 
-        // Map standard category IDs to real categories
-        const categoryMap = {
-          standard_sofa_beds: "Sofa Beds",
-          standard_tables: "Tables",
-          standard_chairs: "Chairs",
-          standard_wardrobes: "Wardrobes",
-          standard_beds: "Beds",
-        };
+        // Check if it's a standard category
+        if (productData.category.startsWith("standard_")) {
+          console.log("Converting standard category to real category");
 
-        // Find or create the category
-        const categoryName = categoryMap[productData.category] || "Other";
+          // Map standard category IDs to real categories
+          const categoryMap = {
+            standard_sofa_beds: "Sofa Beds",
+            standard_tables: "Tables",
+            standard_chairs: "Chairs",
+            standard_wardrobes: "Wardrobes",
+            standard_beds: "Beds",
+          };
 
-        try {
-          // Try to find the category by name
-          let category = await Category.findOne({ name: categoryName });
+          // Find or create the category
+          const categoryName = categoryMap[productData.category] || "Other";
 
-          // If category doesn't exist, create it
-          if (!category) {
-            console.log(`Creating category: ${categoryName}`);
-            category = new Category({
-              name: categoryName,
-              description: `${categoryName} furniture items`,
+          try {
+            // Try to find the category by name
+            let category = await Category.findOne({ name: categoryName });
+
+            // If category doesn't exist, create it
+            if (!category) {
+              console.log(`Creating category: ${categoryName}`);
+              category = new Category({
+                name: categoryName,
+                description: `${categoryName} furniture items`,
+              });
+              await category.save();
+            }
+
+            // Use the real category ID
+            productData.category = category._id;
+            console.log(
+              `Using real category: ${categoryName} (${category._id})`
+            );
+          } catch (categoryError) {
+            console.error("Error handling category:", categoryError);
+            return res.status(500).json({
+              success: false,
+              message: "Error processing category",
+              error: categoryError.message,
             });
-            await category.save();
           }
+        } else {
+          // Check if the category exists
+          try {
+            const categoryExists = await Category.exists({
+              _id: productData.category,
+            });
 
-          // Use the real category ID
-          productData.category = category._id;
-          console.log(`Using real category: ${categoryName} (${category._id})`);
-        } catch (categoryError) {
-          console.error("Error handling category:", categoryError);
-          // Continue with the original category ID if there's an error
+            if (!categoryExists) {
+              console.log(
+                `Category with ID ${productData.category} not found, creating default category`
+              );
+
+              // Create a default category
+              const defaultCategory = new Category({
+                name: "Other",
+                description: "Other furniture items",
+              });
+
+              const savedCategory = await defaultCategory.save();
+              productData.category = savedCategory._id;
+              console.log(
+                `Using default category: Other (${savedCategory._id})`
+              );
+            } else {
+              console.log(
+                `Using existing category with ID: ${productData.category}`
+              );
+            }
+          } catch (categoryError) {
+            console.error("Error checking category:", categoryError);
+
+            // Create a default category as fallback
+            try {
+              const defaultCategory = new Category({
+                name: "Default",
+                description: "Default category",
+              });
+
+              const savedCategory = await defaultCategory.save();
+              productData.category = savedCategory._id;
+              console.log(
+                `Using fallback category: Default (${savedCategory._id})`
+              );
+            } catch (fallbackError) {
+              console.error("Error creating fallback category:", fallbackError);
+              return res.status(500).json({
+                success: false,
+                message: "Error processing category",
+                error: fallbackError.message,
+              });
+            }
+          }
+        }
+      } else {
+        // If no category provided, create a default one
+        try {
+          console.log("No category provided, creating default category");
+
+          const defaultCategory = new Category({
+            name: "Uncategorized",
+            description: "Uncategorized furniture items",
+          });
+
+          const savedCategory = await defaultCategory.save();
+          productData.category = savedCategory._id;
+          console.log(
+            `Using default category: Uncategorized (${savedCategory._id})`
+          );
+        } catch (defaultCategoryError) {
+          console.error(
+            "Error creating default category:",
+            defaultCategoryError
+          );
+          return res.status(500).json({
+            success: false,
+            message: "Error creating default category",
+            error: defaultCategoryError.message,
+          });
         }
       }
 

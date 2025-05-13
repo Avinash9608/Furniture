@@ -205,7 +205,7 @@ const AddProduct = () => {
 
         // Show a message that we're using standard categories
         setError(
-          "Using standard categories. Don't worry, products will still be saved correctly."
+          "Using standard categories. Products will be saved with proper category associations."
         );
       } catch (error) {
         console.error("Unexpected error in category fetching:", error);
@@ -235,26 +235,54 @@ const AddProduct = () => {
       // Create FormData object for file upload
       const formData = new FormData();
 
+      // Ensure all required fields are present
+      const requiredFields = {
+        name: productData.name || "",
+        description: productData.description || "No description provided",
+        price: productData.price || 0,
+        stock: productData.stock || 0,
+        category: productData.category || "",
+      };
+
+      // Log required fields
+      console.log("Required fields:", requiredFields);
+
+      // Add required fields first
+      Object.keys(requiredFields).forEach((key) => {
+        formData.append(key, requiredFields[key]);
+        console.log(`Adding required field: ${key} = ${requiredFields[key]}`);
+      });
+
       // Add product data to FormData
       Object.keys(productData).forEach((key) => {
+        // Skip required fields as they've already been added
+        if (Object.keys(requiredFields).includes(key)) {
+          return;
+        }
+
         if (key === "images") {
           // Handle images
           if (productData.images && productData.images.length > 0) {
             productData.images.forEach((image) => {
               if (image.file) {
                 formData.append("images", image.file);
+                console.log(`Adding image: ${image.file.name}`);
               }
             });
           } else {
             // If no images, set a flag for the server
             formData.append("defaultImage", "true");
+            console.log("Adding defaultImage flag");
           }
         } else if (key === "dimensions") {
           // Handle dimensions object
-          formData.append("dimensions", JSON.stringify(productData.dimensions));
+          const dimensionsStr = JSON.stringify(productData.dimensions);
+          formData.append("dimensions", dimensionsStr);
+          console.log(`Adding dimensions: ${dimensionsStr}`);
         } else {
           // Handle other fields
           formData.append(key, productData[key]);
+          console.log(`Adding field: ${key} = ${productData[key]}`);
         }
       });
 
