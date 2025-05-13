@@ -11,7 +11,10 @@ dotenv.config();
 // Configure multer storage
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, path.join(__dirname, "uploads"));
+    // Ensure uploads directory exists before saving
+    const uploadsDir = path.join(__dirname, "uploads");
+    fs.mkdirSync(uploadsDir, { recursive: true });
+    cb(null, uploadsDir);
   },
   filename: function (req, file, cb) {
     const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
@@ -22,9 +25,12 @@ const storage = multer.diskStorage({
   },
 });
 
-// Create upload middleware with file filter
+// Create upload middleware with file filter and limits
 const upload = multer({ 
   storage: storage,
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB file size limit
+  },
   fileFilter: (req, file, cb) => {
     // Accept images only
     if (!file.originalname.match(/\.(jpg|jpeg|png|gif)$/)) {
@@ -115,7 +121,15 @@ app.use(apiPrefixFix);
 
 // Static Files
 // Serve uploaded files
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+app.use("/uploads", express.static(path.join(__dirname, "uploads"), {
+  setHeaders: (res, path) => {
+    res.set({
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Headers': 'Origin, X-Requested-With, Content-Type, Accept',
+      'Cache-Control': 'public, max-age=31557600', // Cache for 1 year
+    });
+  }
+}));
 
 // Add CORS headers for image files
 app.use("/uploads", (req, res, next) => {

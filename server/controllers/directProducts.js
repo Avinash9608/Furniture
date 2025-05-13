@@ -14,6 +14,7 @@ const {
   deleteDocument,
 } = require("../utils/directDbConnection");
 const path = require('path');
+const fs = require('fs');
 
 // Collection name
 const COLLECTION = "products";
@@ -453,37 +454,25 @@ exports.createProduct = async (req, res) => {
       updatedAt: new Date()
     };
 
-    // Add optional fields if they exist and are valid
-    if (req.body.discountPrice && !isNaN(Number(req.body.discountPrice))) {
-      productData.discountPrice = Number(req.body.discountPrice);
-    }
-    if (req.body.material && req.body.material.trim()) {
-      productData.material = req.body.material.trim();
-    }
-    if (req.body.color && req.body.color.trim()) {
-      productData.color = req.body.color.trim();
-    }
+    // Add optional fields if they exist
+    if (req.body.discountPrice) productData.discountPrice = Number(req.body.discountPrice);
+    if (req.body.material) productData.material = req.body.material.trim();
+    if (req.body.color) productData.color = req.body.color.trim();
 
-    // Handle dimensions
+    // Handle dimensions if provided
     if (req.body.dimensions) {
       try {
-        let dimensions;
-        if (typeof req.body.dimensions === 'string') {
-          dimensions = JSON.parse(req.body.dimensions);
-        } else {
-          dimensions = req.body.dimensions;
-        }
+        const dimensions = typeof req.body.dimensions === 'string' 
+          ? JSON.parse(req.body.dimensions) 
+          : req.body.dimensions;
         
-        // Validate and convert dimension values to numbers
-        const validDimensions = {};
-        for (const [key, value] of Object.entries(dimensions)) {
-          if (value && !isNaN(Number(value))) {
-            validDimensions[key] = Number(value);
-          }
-        }
-        
-        if (Object.keys(validDimensions).length > 0) {
-          productData.dimensions = validDimensions;
+        if (dimensions && typeof dimensions === 'object') {
+          productData.dimensions = Object.entries(dimensions).reduce((acc, [key, value]) => {
+            if (value && !isNaN(Number(value))) {
+              acc[key] = Number(value);
+            }
+            return acc;
+          }, {});
         }
       } catch (error) {
         console.error('Error parsing dimensions:', error);
@@ -494,45 +483,53 @@ exports.createProduct = async (req, res) => {
     const images = [];
     if (req.files && req.files.length > 0) {
       console.log("Processing uploaded files...");
-      req.files.forEach(file => {
-        if (!file.path) {
-          console.warn("File missing path:", file);
-          return;
-        }
-        // Extract just the filename and create the correct path
-        const filename = path.basename(file.path);
-        const imagePath = `/uploads/${filename}`;
-        images.push(imagePath);
-        console.log("Added image path:", imagePath);
-      });
-    }
-
-    // Handle image URLs
-    if (req.body.imageUrls) {
-      const imageUrls = Array.isArray(req.body.imageUrls) 
-        ? req.body.imageUrls 
-        : typeof req.body.imageUrls === 'string'
-          ? [req.body.imageUrls]
-          : [];
-      
-      // Filter out empty or invalid URLs and ensure proper format
-      const validUrls = imageUrls
-        .filter(url => url && typeof url === 'string' && url.trim())
-        .map(url => {
-          // If the URL is already in the correct format, use it as is
-          if (url.startsWith('/uploads/')) {
-            return url;
+      for (const file of req.files) {
+        try {
+          if (!file.path) {
+            console.warn("File missing path:", file);
+            continue;
           }
-          // Otherwise, extract the filename and format properly
-          const filename = path.basename(url);
-          return `/uploads/${filename}`;
-        });
-      
-      images.push(...validUrls);
-      console.log("Added image URLs:", validUrls);
+          // Ensure the file exists
+          if (!fs.existsSync(file.path)) {
+            console.warn("File does not exist:", file.path);
+            continue;
+          }
+          // Extract just the filename and create the correct path
+          const filename = path.basename(file.path);
+          const imagePath = `/uploads/${filename}`;
+          images.push(imagePath);
+          console.log("Added image path:", imagePath);
+        } catch (fileError) {
+          console.error("Error processing file:", fileError);
+        }
+      }
     }
 
-    // Set default image if no images provided
+    // Handle existing image URLs
+    if (req.body.imageUrls) {
+      try {
+        const imageUrls = Array.isArray(req.body.imageUrls) 
+          ? req.body.imageUrls 
+          : typeof req.body.imageUrls === 'string'
+            ? [req.body.imageUrls]
+            : [];
+        
+        const validUrls = imageUrls
+          .filter(url => url && typeof url === 'string' && url.trim())
+          .map(url => {
+            if (url.startsWith('/uploads/')) return url;
+            const filename = path.basename(url);
+            return `/uploads/${filename}`;
+          });
+        
+        images.push(...validUrls);
+        console.log("Added image URLs:", validUrls);
+      } catch (urlError) {
+        console.error("Error processing image URLs:", urlError);
+      }
+    }
+
+    // Set default image if no images were successfully processed
     if (images.length === 0) {
       images.push("https://placehold.co/300x300/gray/white?text=No+Image");
       console.log("Using default image");
@@ -542,61 +539,42 @@ exports.createProduct = async (req, res) => {
 
     console.log("\nFinal product data to insert:", JSON.stringify(productData, null, 2));
 
-    try {
-      // Insert the product
-      const result = await insertDocument(COLLECTION, productData);
-      console.log("Insert result:", result);
-
-      if (!result || !result._id) {
-        throw new Error("Failed to get _id from database operation");
-      }
-
-      // Fetch the inserted product
-      const insertedProduct = await findOneDocument(COLLECTION, { _id: result._id });
-      
-      if (!insertedProduct) {
-        throw new Error("Failed to fetch the inserted product");
-      }
-
-      // Map category name
-      const categoryMap = {
-        "680c9481ab11e96a288ef6d9": "Sofa Beds",
-        "680c9484ab11e96a288ef6da": "Tables",
-        "680c9486ab11e96a288ef6db": "Chairs",
-        "680c9489ab11e96a288ef6dc": "Wardrobes",
-        "680c948eab11e96a288ef6dd": "Beds"
-      };
-
-      if (insertedProduct.category) {
-        const categoryId = insertedProduct.category;
-        insertedProduct.category = {
-          _id: categoryId,
-          name: categoryMap[categoryId] || "Other",
-          slug: (categoryMap[categoryId] || "Other").toLowerCase().replace(/\s+/g, '-')
-        };
-      }
-
-      console.log("\nProduct created successfully:", insertedProduct);
-
-      return res.status(201).json({
-        success: true,
-        data: insertedProduct
-      });
-    } catch (dbError) {
-      console.error("\nDatabase operation failed:", dbError);
-      throw new Error(`Database operation failed: ${dbError.message}`);
+    // Insert the product
+    const result = await insertDocument(COLLECTION, productData);
+    
+    if (!result || !result._id) {
+      throw new Error("Failed to get _id from database operation");
     }
+
+    // Fetch the inserted product
+    const insertedProduct = await findOneDocument(COLLECTION, { _id: result._id });
+    
+    if (!insertedProduct) {
+      throw new Error("Failed to fetch the inserted product");
+    }
+
+    // Map category name
+    if (insertedProduct.category) {
+      const categoryId = insertedProduct.category;
+      insertedProduct.category = {
+        _id: categoryId,
+        name: categoryMap[categoryId] || "Other",
+        slug: (categoryMap[categoryId] || "Other").toLowerCase().replace(/\s+/g, '-')
+      };
+    }
+
+    console.log("\nProduct created successfully:", insertedProduct);
+
+    return res.status(201).json({
+      success: true,
+      data: insertedProduct
+    });
   } catch (error) {
     console.error("\nError in product creation:", error);
     return res.status(500).json({
       success: false,
       message: "Error creating product",
-      error: error.message,
-      details: {
-        requestBody: req.body,
-        filesReceived: req.files ? req.files.length : 0
-      },
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      error: error.message
     });
   }
 };
