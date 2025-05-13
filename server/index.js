@@ -479,10 +479,12 @@ app.post(
   directProductController.createProduct
 );
 app.get("/api/v2/products", directProductController.getAllProducts);
+app.get("/api/v2/products/:id", directProductController.getProduct);
 
 console.log("V2 Product routes:");
 console.log("- POST /api/v2/products (guaranteed field saving)");
 console.log("- GET /api/v2/products");
+console.log("- GET /api/v2/products/:id");
 
 // Note: All other contact routes (GET, PUT, DELETE) are handled by contactRoutes
 
