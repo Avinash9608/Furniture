@@ -4,6 +4,25 @@ const cors = require("cors");
 const dotenv = require("dotenv");
 const path = require("path");
 const fs = require("fs");
+const multer = require("multer");
+const slugify = require("slugify");
+
+// Configure multer for file uploads
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, path.join(__dirname, "../uploads/images"));
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now();
+    cb(
+      null,
+      file.fieldname + "-" + uniqueSuffix + path.extname(file.originalname)
+    );
+  },
+});
+
+// Initialize multer with the storage configuration
+const upload = multer({ storage: storage });
 
 // Load environment variables
 dotenv.config();
@@ -180,9 +199,6 @@ const {
   deleteProduct,
 } = require("./controllers/directProducts");
 
-// Import our new direct product controller
-const directProductController = require("./controllers/directProductController");
-
 const {
   getAllCategories,
   getCategoryById,
@@ -215,10 +231,6 @@ app.get("/api/direct/products/:id", getProductById);
 app.post("/api/direct/products", createProduct);
 app.put("/api/direct/products/:id", updateProduct);
 app.delete("/api/direct/products/:id", deleteProduct);
-
-// New guaranteed product creation route that ensures all fields are saved
-app.post("/api/v2/products", directProductController.createProduct);
-app.get("/api/v2/products", directProductController.getAllProducts);
 
 // Special route for products page - handle both /products and /api/products
 app.get("/products", getAllProducts);
@@ -446,8 +458,6 @@ console.log("- GET /api/direct/products/:id");
 console.log("- POST /api/direct/products");
 console.log("- PUT /api/direct/products/:id");
 console.log("- DELETE /api/direct/products/:id");
-console.log("- POST /api/v2/products (guaranteed field saving)");
-console.log("- GET /api/v2/products");
 console.log("Category routes:");
 console.log("- GET /api/direct/categories");
 console.log("- GET /api/direct/categories/:id");
@@ -458,6 +468,21 @@ console.log("Contact form routes:");
 console.log("- POST /contact");
 console.log("- POST /api/contact");
 console.log("- POST /api/api/contact");
+
+// Import our new direct product controller
+const directProductController = require("./controllers/directProductController");
+
+// New guaranteed product creation route that ensures all fields are saved
+app.post(
+  "/api/v2/products",
+  upload.array("images", 10),
+  directProductController.createProduct
+);
+app.get("/api/v2/products", directProductController.getAllProducts);
+
+console.log("V2 Product routes:");
+console.log("- POST /api/v2/products (guaranteed field saving)");
+console.log("- GET /api/v2/products");
 
 // Note: All other contact routes (GET, PUT, DELETE) are handled by contactRoutes
 
@@ -962,23 +987,12 @@ app.post(
         });
       }
 
-      // Generate a guaranteed unique slug
-      const timestamp = Date.now();
-      let baseSlug = slugify(req.body.name, {
-        lower: true,
-        strict: true,
-        remove: /[*+~.()'"!:@]/g,
-      });
-
-      // If baseSlug is empty after processing, use a fallback
-      if (!baseSlug || baseSlug.trim() === "") {
-        baseSlug = "product";
+      if (!req.body.category) {
+        return res.status(400).json({
+          success: false,
+          message: "Product category is required",
+        });
       }
-
-      // Always add timestamp to ensure uniqueness
-      const uniqueSlug = `${baseSlug}-${timestamp}`;
-
-      console.log("Generated unique slug:", uniqueSlug);
 
       // Create a new product from the request body with all possible fields
       const productData = {
@@ -987,7 +1001,7 @@ app.post(
         description: req.body.description || "No description provided",
         price: price || 0,
         stock: stock || 0,
-        slug: uniqueSlug, // Guaranteed to be unique and not null
+        category: req.body.category,
 
         // Optional fields
         featured:
@@ -1008,16 +1022,6 @@ app.post(
         ratings: 0,
         reviews: [],
       };
-
-      // Handle category field
-      if (req.body.category) {
-        productData.category = req.body.category;
-      } else {
-        return res.status(400).json({
-          success: false,
-          message: "Product category is required",
-        });
-      }
 
       console.log(
         "Creating product with data:",
@@ -1054,10 +1058,7 @@ app.post(
         console.log(`Processing category: ${productData.category}`);
 
         // Check if it's a standard category
-        if (
-          typeof productData.category === "string" &&
-          productData.category.startsWith("standard_")
-        ) {
+        if (productData.category.startsWith("standard_")) {
           console.log("Converting standard category to real category");
 
           // Map standard category IDs to real categories
@@ -1093,57 +1094,22 @@ app.post(
             );
           } catch (categoryError) {
             console.error("Error handling category:", categoryError);
-
-            // Create a default category as fallback
-            try {
-              console.log("Creating fallback category due to error");
-              const fallbackCategory = new Category({
-                name: "Fallback Category",
-                description: "Fallback category created due to error",
-              });
-
-              const savedFallback = await fallbackCategory.save();
-              productData.category = savedFallback._id;
-              console.log(`Using fallback category: ${savedFallback._id}`);
-            } catch (fallbackError) {
-              console.error("Error creating fallback category:", fallbackError);
-              return res.status(500).json({
-                success: false,
-                message: "Error processing category",
-                error: categoryError.message,
-              });
-            }
+            return res.status(500).json({
+              success: false,
+              message: "Error processing category",
+              error: categoryError.message,
+            });
           }
         } else {
-          // Check if the category exists or is a valid ObjectId
+          // Check if the category exists
           try {
-            // Try to convert to ObjectId
-            let categoryId;
-            try {
-              categoryId = new mongoose.Types.ObjectId(productData.category);
-            } catch (idError) {
-              console.error("Invalid category ID format:", idError);
-
-              // Create a default category
-              console.log("Creating default category due to invalid ID format");
-              const defaultCategory = new Category({
-                name: "Default Category",
-                description:
-                  "Default category created due to invalid ID format",
-              });
-
-              const savedDefault = await defaultCategory.save();
-              productData.category = savedDefault._id;
-              console.log(`Using default category: ${savedDefault._id}`);
-              return; // Skip the rest of the category handling
-            }
-
-            // Check if category exists
-            const categoryExists = await Category.exists({ _id: categoryId });
+            const categoryExists = await Category.exists({
+              _id: productData.category,
+            });
 
             if (!categoryExists) {
               console.log(
-                `Category with ID ${categoryId} not found, creating default category`
+                `Category with ID ${productData.category} not found, creating default category`
               );
 
               // Create a default category
@@ -1158,15 +1124,15 @@ app.post(
                 `Using default category: Other (${savedCategory._id})`
               );
             } else {
-              console.log(`Using existing category with ID: ${categoryId}`);
-              productData.category = categoryId;
+              console.log(
+                `Using existing category with ID: ${productData.category}`
+              );
             }
           } catch (categoryError) {
             console.error("Error checking category:", categoryError);
 
             // Create a default category as fallback
             try {
-              console.log("Creating default category due to error");
               const defaultCategory = new Category({
                 name: "Default",
                 description: "Default category",
@@ -1307,32 +1273,15 @@ app.post("/api/raw/product", async (req, res) => {
     // 0 = disconnected, 1 = connected, 2 = connecting, 3 = disconnecting
 
     // Create a simple product document with all required fields
-    const timestamp = Date.now();
-    const productName = req.body.name || "Raw Product " + timestamp;
-
-    // Generate a guaranteed unique slug
-    let baseSlug = slugify(productName, {
-      lower: true,
-      strict: true,
-      remove: /[*+~.()'"!:@]/g,
-    });
-
-    // If baseSlug is empty after processing, use a fallback
-    if (!baseSlug || baseSlug.trim() === "") {
-      baseSlug = "product";
-    }
-
-    // Always add timestamp to ensure uniqueness
-    const uniqueSlug = `${baseSlug}-${timestamp}`;
-
-    console.log("Generated unique slug:", uniqueSlug);
-
     const productDoc = {
-      name: productName,
+      name: req.body.name || "Raw Product " + Date.now(),
       description: req.body.description || "Raw product description",
       price: parseFloat(req.body.price) || 999,
       stock: parseInt(req.body.stock) || 10,
-      slug: uniqueSlug, // Guaranteed to be unique and not null
+      slug:
+        slugify(req.body.name || "Raw Product " + Date.now(), { lower: true }) +
+        "-" +
+        Date.now(),
       createdAt: new Date(),
       updatedAt: new Date(),
     };
