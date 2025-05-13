@@ -144,16 +144,36 @@ const ProductSchema = new mongoose.Schema({
   },
 });
 
+// Debug middleware to log product data before saving
+ProductSchema.pre("save", function (next) {
+  console.log("=== PRODUCT PRE-SAVE MIDDLEWARE ===");
+  console.log("Product data:", this.toObject());
+  console.log("isNew:", this.isNew);
+  console.log("Required fields:");
+  console.log("- name:", this.name);
+  console.log("- description:", this.description);
+  console.log("- price:", this.price);
+  console.log("- category:", this.category);
+  console.log("- stock:", this.stock);
+  next();
+});
+
 // Create slug from name before saving
 ProductSchema.pre("save", async function (next) {
   try {
+    console.log("=== SLUG GENERATION MIDDLEWARE ===");
+
     // If name hasn't changed and we already have a slug, skip slug generation
     if (!this.isModified("name") && this.slug) {
+      console.log(
+        "Name not modified and slug exists, skipping slug generation"
+      );
       return next();
     }
 
     // Make sure we have a name to work with
     if (!this.name || this.name.trim() === "") {
+      console.log("No name provided, using fallback slug");
       this.slug = `product-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
       return next();
     }
@@ -167,6 +187,7 @@ ProductSchema.pre("save", async function (next) {
 
     // If baseSlug is empty after processing, use a fallback
     if (!baseSlug || baseSlug.trim() === "") {
+      console.log("Empty slug after processing, using fallback");
       baseSlug = `product-${Date.now()}`;
     }
 

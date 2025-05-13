@@ -1182,6 +1182,144 @@ app.post(
   }
 );
 
+// Test product creation endpoint for debugging
+app.post("/api/test/product", async (req, res) => {
+  try {
+    console.log("=== TEST PRODUCT CREATION ENDPOINT CALLED ===");
+    console.log("Request body:", req.body);
+    console.log("Request files:", req.files);
+
+    // Log MongoDB connection status
+    console.log("MongoDB connection state:", mongoose.connection.readyState);
+    // 0 = disconnected, 1 = connected, 2 = connecting, 3 = disconnecting
+
+    // Create a simple product with minimal fields
+    const testProduct = new Product({
+      name: "Test Product " + Date.now(),
+      description: "Test description",
+      price: 999,
+      stock: 10,
+      category: "6822c5e3c9343f8816127436", // Use an existing category ID or create one
+    });
+
+    console.log("Test product before save:", testProduct);
+
+    // Save the product
+    const savedProduct = await testProduct.save();
+
+    console.log("Test product after save:", savedProduct);
+
+    return res.status(201).json({
+      success: true,
+      message: "Test product created successfully",
+      data: savedProduct,
+    });
+  } catch (error) {
+    console.error("Error in test product creation:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Test product creation failed",
+      error: error.message,
+      stack: error.stack,
+    });
+  }
+});
+
+// Direct product creation with raw MongoDB
+app.post("/api/raw/product", async (req, res) => {
+  try {
+    console.log("=== RAW PRODUCT CREATION ENDPOINT CALLED ===");
+
+    // Get direct access to the MongoDB collection
+    const db = mongoose.connection.db;
+    const productsCollection = db.collection("products");
+
+    // Log MongoDB connection state
+    console.log("MongoDB connection state:", mongoose.connection.readyState);
+    // 0 = disconnected, 1 = connected, 2 = connecting, 3 = disconnecting
+
+    // Create a simple product document with all required fields
+    const productDoc = {
+      name: req.body.name || "Raw Product " + Date.now(),
+      description: req.body.description || "Raw product description",
+      price: parseFloat(req.body.price) || 999,
+      stock: parseInt(req.body.stock) || 10,
+      slug:
+        slugify(req.body.name || "Raw Product " + Date.now(), { lower: true }) +
+        "-" +
+        Date.now(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    // Handle category - try to use a valid ObjectId
+    try {
+      if (req.body.category) {
+        // Try to convert to ObjectId
+        productDoc.category = new mongoose.Types.ObjectId(req.body.category);
+      } else {
+        // Find any category to use
+        const categoriesCollection = db.collection("categories");
+        const anyCategory = await categoriesCollection.findOne({});
+
+        if (anyCategory) {
+          productDoc.category = anyCategory._id;
+          console.log(
+            "Using existing category:",
+            anyCategory.name,
+            anyCategory._id
+          );
+        } else {
+          // Create a new category
+          const newCategory = {
+            name: "Default Category",
+            description: "Default category created for product",
+            createdAt: new Date(),
+          };
+
+          const categoryResult = await categoriesCollection.insertOne(
+            newCategory
+          );
+          productDoc.category = categoryResult.insertedId;
+          console.log(
+            "Created new category with ID:",
+            categoryResult.insertedId
+          );
+        }
+      }
+    } catch (categoryError) {
+      console.error("Error handling category:", categoryError);
+      // Create a string ID as fallback
+      productDoc.category = new mongoose.Types.ObjectId();
+      console.log("Using fallback category ID:", productDoc.category);
+    }
+
+    console.log("Raw product document:", productDoc);
+
+    // Insert directly into MongoDB
+    const result = await productsCollection.insertOne(productDoc);
+
+    console.log("Raw insert result:", result);
+
+    return res.status(201).json({
+      success: true,
+      message: "Raw product created successfully",
+      data: {
+        _id: result.insertedId,
+        ...productDoc,
+      },
+    });
+  } catch (error) {
+    console.error("Error in raw product creation:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Raw product creation failed",
+      error: error.message,
+      stack: error.stack,
+    });
+  }
+});
+
 // Mock products endpoint that always works
 app.get("/api/mock/products", (req, res) => {
   console.log("Mock products endpoint called");

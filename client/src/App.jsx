@@ -27,6 +27,8 @@ import AdminPaymentSettings from "./pages/admin/PaymentSettings";
 import AdminPaymentRequests from "./pages/admin/PaymentRequests";
 import AdminShippingAddresses from "./pages/admin/ShippingAddresses";
 import AdminSourceAddress from "./pages/admin/SourceAddress";
+import TestProduct from "./pages/admin/TestProduct";
+import SimpleAddProduct from "./pages/admin/SimpleAddProduct";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/admin/ProtectedRoute";
 import UserProtectedRoute from "./components/UserProtectedRoute";
@@ -206,6 +208,13 @@ function App() {
                 <AdminSourceAddress />
               </ProtectedRoute>
             }
+          />
+
+          {/* Test Routes - No protection for testing */}
+          <Route path="/admin/test-product" element={<TestProduct />} />
+          <Route
+            path="/admin/simple-add-product"
+            element={<SimpleAddProduct />}
           />
 
           {/* 404 Route */}
