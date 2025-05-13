@@ -481,10 +481,16 @@ app.post(
 app.get("/api/v2/products", v2ProductController.getAllProducts);
 app.get("/api/v2/products/:id", v2ProductController.getProduct);
 
+// Test route to create a product with all fields
+app.post("/api/v2/test-product", v2ProductController.createTestProduct);
+
 console.log("V2 Product routes:");
 console.log("- POST /api/v2/products (guaranteed field saving)");
 console.log("- GET /api/v2/products");
 console.log("- GET /api/v2/products/:id");
+console.log(
+  "- POST /api/v2/test-product (creates a test product with all fields)"
+);
 
 // Note: All other contact routes (GET, PUT, DELETE) are handled by contactRoutes
 
