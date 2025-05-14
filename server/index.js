@@ -74,41 +74,44 @@ if (!process.env.JWT_SECRET) {
 // Initialize express app
 const app = express();
 
-// Middleware Configuration
-// Define allowed origins
-const allowedOrigins = [
-  "https://furniture-q3nb.onrender.com",
-  "http://localhost:5173",
-  "http://localhost:3000",
-  process.env.CLIENT_URL,
-].filter(Boolean); // Remove any undefined values
+// CORS configuration
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps, curl, etc.)
+    if (!origin) {
+      return callback(null, true);
+    }
 
-console.log("CORS allowed origins:", allowedOrigins);
+    // List of allowed origins
+    const allowedOrigins = [
+      'http://localhost:3000',
+      'http://localhost:5000',
+      'https://furniture-q3nb.onrender.com',
+      'https://furniture-admin.onrender.com'
+    ];
 
-// Configure CORS
-app.use(
-  cors({
-    origin: function (origin, callback) {
-      // Allow requests with no origin (like mobile apps, curl requests)
-      if (!origin) return callback(null, true);
+    // Check if the origin is allowed
+    if (allowedOrigins.indexOf(origin) !== -1 || origin.match(/^https?:\/\/localhost(:\d+)?$/)) {
+      callback(null, true);
+    } else {
+      console.warn(`Origin ${origin} not allowed by CORS`);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true, // Allow credentials
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+  exposedHeaders: ['Content-Range', 'X-Content-Range'],
+  maxAge: 600 // Cache preflight requests for 10 minutes
+};
 
-      if (
-        allowedOrigins.indexOf(origin) !== -1 ||
-        process.env.NODE_ENV !== "production"
-      ) {
-        callback(null, true);
-      } else {
-        console.log("CORS blocked origin:", origin);
-        callback(new Error("Not allowed by CORS"));
-      }
-    },
-    credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-  })
-);
+// Apply CORS middleware
+app.use(cors(corsOptions));
 
+// Parse JSON bodies
 app.use(express.json());
+
+// Parse URL-encoded bodies
 app.use(express.urlencoded({ extended: true }));
 
 // Logging middleware

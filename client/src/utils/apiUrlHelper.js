@@ -10,8 +10,25 @@
  * @returns {string} The base URL for API calls
  */
 export const getApiBaseUrl = () => {
-  // Always use relative URLs for API calls
-  return '/api';
+  // Get the current hostname and origin
+  const hostname = window.location.hostname;
+  const origin = window.location.origin;
+
+  // Check if we're on Render's domain
+  if (hostname.includes("render.com") || hostname === "furniture-q3nb.onrender.com") {
+    console.log("Using Render production API URL");
+    return `${origin}/api`;
+  }
+
+  // In development, use localhost:5000
+  if (hostname === "localhost" || hostname === "127.0.0.1") {
+    console.log("Using development API URL");
+    return "http://localhost:5000/api";
+  }
+
+  // In other production environments, use relative path
+  console.log("Using relative API URL");
+  return "/api";
 };
 
 /**
@@ -33,66 +50,47 @@ export const getApiUrl = (endpoint) => {
  * @returns {string} The base URL for static assets
  */
 export const getAssetsBaseUrl = () => {
-  // Use the current origin
-  return window.location.origin;
+  const hostname = window.location.hostname;
+  const origin = window.location.origin;
+
+  // In production on Render, use the current origin
+  if (hostname.includes("render.com") || hostname === "furniture-q3nb.onrender.com") {
+    return origin;
+  }
+
+  // In development, use localhost:5000
+  if (hostname === "localhost" || hostname === "127.0.0.1") {
+    return "http://localhost:5000";
+  }
+
+  // In other production environments, use the current origin
+  return origin;
 };
 
 /**
- * Get the full URL for a static asset
- * @param {string} path - The asset path
+ * Get the full URL for an asset
+ * @param {string} assetPath - The asset path
  * @returns {string} The full URL for the asset
  */
-export const getAssetUrl = (path) => {
-  // If it's already a full URL, return as is
-  if (path && (path.startsWith('http://') || path.startsWith('https://'))) {
-    return path;
-  }
-  
+export const getAssetUrl = (assetPath) => {
   const baseUrl = getAssetsBaseUrl();
-  
-  // Ensure path starts with a slash
-  const normalizedPath = path && !path.startsWith('/') ? `/${path}` : path;
-  
+  const normalizedPath = assetPath.startsWith('/') ? assetPath : `/${assetPath}`;
   return `${baseUrl}${normalizedPath}`;
 };
 
 /**
- * Fix image URLs in objects
- * @param {Object|Array} data - The data containing image URLs
- * @param {string[]} imageFields - The fields containing image URLs
- * @returns {Object|Array} The data with fixed image URLs
+ * Fix image URLs to ensure they work in both development and production
+ * @param {string[]} urls - Array of image URLs to fix
+ * @returns {string[]} Array of fixed image URLs
  */
-export const fixImageUrls = (data, imageFields = ['image', 'images']) => {
-  if (!data) return data;
+export const fixImageUrls = (urls) => {
+  if (!Array.isArray(urls)) return [];
   
-  // Handle arrays
-  if (Array.isArray(data)) {
-    return data.map(item => fixImageUrls(item, imageFields));
-  }
-  
-  // Handle objects
-  if (typeof data === 'object') {
-    const result = { ...data };
-    
-    // Fix image URLs in specified fields
-    imageFields.forEach(field => {
-      if (result[field]) {
-        if (Array.isArray(result[field])) {
-          // Handle array of images
-          result[field] = result[field].map(img => 
-            typeof img === 'string' ? getAssetUrl(img) : img
-          );
-        } else if (typeof result[field] === 'string') {
-          // Handle single image
-          result[field] = getAssetUrl(result[field]);
-        }
-      }
-    });
-    
-    return result;
-  }
-  
-  return data;
+  return urls.map(url => {
+    if (!url) return url;
+    if (url.startsWith('http')) return url;
+    return getAssetUrl(url);
+  });
 };
 
 export default {

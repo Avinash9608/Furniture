@@ -39,11 +39,30 @@ const getBaseURL = () => {
 // Create axios instance with base URL
 const api = axios.create({
   baseURL: getBaseURL(),
-  timeout: 30000, // Increased timeout to 30 seconds
+  timeout: 60000, // Increased timeout to 60 seconds for production
   withCredentials: false, // Must be false to work with wildcard CORS
   headers: {
     Accept: "application/json",
   },
+  // Add retry configuration
+  retry: 3,
+  retryDelay: 1000,
+});
+
+// Add retry interceptor
+api.interceptors.response.use(undefined, async (err) => {
+  const { config } = err;
+  if (!config || !config.retry) {
+    return Promise.reject(err);
+  }
+  config.__retryCount = config.__retryCount || 0;
+  if (config.__retryCount >= config.retry) {
+    return Promise.reject(err);
+  }
+  config.__retryCount += 1;
+  console.log(`Retrying request (${config.__retryCount}/${config.retry})...`);
+  await new Promise((resolve) => setTimeout(resolve, config.retryDelay));
+  return api(config);
 });
 
 // Log the actual baseURL being used
@@ -570,78 +589,70 @@ const productsAPI = {
       };
     }
   },
-  create: (productData, headers) => {
+  create: async (productData, headers) => {
     console.log("Creating product with data:", productData);
-    const formData = new FormData();
+    
+    try {
+      // Create a direct axios instance with retry mechanism
+      const directApi = axios.create({
+        timeout: 60000,
+        headers: {
+          "Content-Type": "multipart/form-data",
+          Accept: "application/json",
+          ...(headers || {}),
+        },
+        retry: 3,
+        retryDelay: 1000,
+      });
 
-    // Handle different types of product data
-    if (productData instanceof FormData) {
-      // If already FormData, use as is
-      // Check if custom headers were provided
-      if (headers) {
-        console.log("Using custom headers for product creation:", headers);
-        return api.post("/products", productData, { headers });
-      }
-      return api.post("/products", productData);
-    }
+      // Add retry interceptor
+      directApi.interceptors.response.use(undefined, async (err) => {
+        const { config } = err;
+        if (!config || !config.retry) {
+          return Promise.reject(err);
+        }
+        config.__retryCount = config.__retryCount || 0;
+        if (config.__retryCount >= config.retry) {
+          return Promise.reject(err);
+        }
+        config.__retryCount += 1;
+        console.log(`Retrying request (${config.__retryCount}/${config.retry})...`);
+        await new Promise((resolve) => setTimeout(resolve, config.retryDelay));
+        return directApi(config);
+      });
 
-    // Convert object to FormData
-    Object.entries(productData).forEach(([key, value]) => {
-      if (key === "images") {
-        // Handle images array (could be FileList, File[], or array of objects with file property)
-        if (value instanceof FileList) {
-          if (value.length === 0) {
-            // Use default image if no files provided
-            console.log("No images provided, using default image");
-            formData.append("defaultImage", "true");
-          } else {
-            Array.from(value).forEach((file) =>
-              formData.append("images", file)
-            );
-          }
-        } else if (Array.isArray(value)) {
-          if (value.length === 0) {
-            // Use default image if empty array
-            console.log("Empty images array, using default image");
-            formData.append("defaultImage", "true");
-          } else {
-            let hasValidImages = false;
-            value.forEach((item) => {
-              if (item instanceof File) {
-                formData.append("images", item);
-                hasValidImages = true;
-              } else if (item.file instanceof File) {
-                formData.append("images", item.file);
-                hasValidImages = true;
-              }
-            });
+      // Try multiple endpoints
+      const baseUrl = window.location.origin;
+      const deployedUrl = "https://furniture-q3nb.onrender.com";
+      const endpoints = [
+        // Direct endpoints first (most reliable)
+        `${baseUrl}/api/direct/products`,
+        `${baseUrl}/api/products`,
+        `${deployedUrl}/api/direct/products`,
+        `${deployedUrl}/api/products`,
+      ];
 
-            if (!hasValidImages) {
-              console.log("No valid images found, using default image");
-              formData.append("defaultImage", "true");
-            }
+      // Try each endpoint until one works
+      for (const endpoint of endpoints) {
+        try {
+          console.log(`Trying to create product at: ${endpoint}`);
+          const response = await directApi.post(endpoint, productData);
+          console.log(`Product created successfully at ${endpoint}:`, response.data);
+          return response;
+        } catch (error) {
+          console.warn(`Error creating product at ${endpoint}:`, error);
+          // Continue to next endpoint unless it's the last one
+          if (endpoint === endpoints[endpoints.length - 1]) {
+            throw error;
           }
         }
-      } else if (
-        key === "dimensions" ||
-        key === "specifications" ||
-        typeof value === "object"
-      ) {
-        // Handle objects by stringifying them
-        formData.append(key, JSON.stringify(value));
-      } else if (value !== undefined && value !== null) {
-        // Handle primitive values
-        formData.append(key, value);
       }
-    });
 
-    console.log("Sending product data to server...");
-    // Check if custom headers were provided
-    if (headers) {
-      console.log("Using custom headers for product creation:", headers);
-      return api.post("/products", formData, { headers });
+      throw new Error("All endpoints failed");
+    } catch (error) {
+      console.error("Error in productsAPI.create:", error);
+      throw error;
     }
-    return api.post("/products", formData);
   },
   update: (id, productData) => {
     console.log("Updating product with ID:", id);

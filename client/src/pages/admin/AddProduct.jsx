@@ -222,95 +222,135 @@ const AddProduct = () => {
   }, []);
 
   // Handle form submission
-  const handleSubmit = async (productData) => {
+  const handleSubmit = async (formData) => {
     try {
       setIsSubmitting(true);
       setSubmitError(null);
 
-      // Log the received FormData
-      console.log("Received product data:");
-      if (productData instanceof FormData) {
-        for (let pair of productData.entries()) {
-          console.log(pair[0] + ': ' + (pair[1] instanceof File ? pair[1].name : pair[1]));
+      console.log("Starting product submission...");
+
+      // Create FormData for submission
+      const formDataToSubmit = new FormData();
+
+      // Add basic fields with proper type conversion and validation
+      const stringFields = ['name', 'description', 'material', 'color'];
+      const numberFields = ['price', 'stock', 'discountPrice'];
+
+      // Add string fields
+      stringFields.forEach(field => {
+        if (formData[field]) {
+          console.log(`Adding ${field}:`, formData[field]);
+          formDataToSubmit.append(field, formData[field].trim());
+        }
+      });
+
+      // Add number fields
+      numberFields.forEach(field => {
+        if (formData[field] !== '') {
+          const value = Number(formData[field]);
+          if (!isNaN(value)) {
+            console.log(`Adding ${field}:`, value);
+            formDataToSubmit.append(field, value);
+          }
+        }
+      });
+
+      // Add category
+      if (formData.category) {
+        console.log('Adding category:', formData.category);
+        formDataToSubmit.append('category', formData.category);
+      }
+
+      // Add boolean fields
+      formDataToSubmit.append('featured', formData.featured);
+
+      // Handle dimensions
+      if (Object.values(formData.dimensions).some(val => val !== '')) {
+        const dimensions = {};
+        Object.entries(formData.dimensions).forEach(([key, value]) => {
+          if (value !== '' && !isNaN(Number(value))) {
+            dimensions[key] = Number(value);
+          }
+        });
+        if (Object.keys(dimensions).length > 0) {
+          formDataToSubmit.append('dimensions', JSON.stringify(dimensions));
         }
       }
 
-      // Determine if we're in development or production
-      const isDevelopment = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
-      const baseUrl = isDevelopment ? "http://localhost:5000" : window.location.origin;
-
-      console.log("Submitting product data...");
-      console.log(`Environment: ${isDevelopment ? "Development" : "Production"}`);
-      console.log(`Base URL: ${baseUrl}`);
-
-      // Try the direct endpoint
-      try {
-        console.log("Trying direct product creation endpoint...");
-        const directUrl = `${baseUrl}/api/direct/products`;
-        console.log(`Sending POST to ${directUrl}`);
-
-        // Send the request with proper headers
-        const response = await fetch(directUrl, {
-          method: "POST",
-          body: productData,
-          // Remove the Content-Type header to let the browser set it with the boundary
-          headers: {
-            'Accept': 'application/json',
+      // Handle images
+      if (formData.images && formData.images.length > 0) {
+        console.log('Processing images:', formData.images);
+        formData.images.forEach((image, index) => {
+          if (image instanceof File) {
+            console.log(`Adding image file ${index}:`, image.name);
+            formDataToSubmit.append('images', image);
+          } else if (image.file instanceof File) {
+            console.log(`Adding image file ${index}:`, image.file.name);
+            formDataToSubmit.append('images', image.file);
+          } else if (typeof image === 'string') {
+            // For existing images, just send the filename
+            const filename = image.split('/').pop();
+            console.log(`Adding existing image ${index}:`, filename);
+            formDataToSubmit.append('imageUrls', filename);
           }
         });
+      }
 
-        // First check if the response is ok
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error("Server error response:", errorText);
-          throw new Error(`Server error: ${response.status} ${response.statusText}`);
-        }
+      // Log the final FormData
+      console.log('FormData entries:');
+      for (let pair of formDataToSubmit.entries()) {
+        console.log(pair[0], pair[1]);
+      }
 
-        // Try to parse the response
-        let responseData;
+      // Try to create the product with retry logic
+      let retryCount = 0;
+      const maxRetries = 3;
+      const retryDelay = 1000; // 1 second
+
+      while (retryCount < maxRetries) {
         try {
-          const textResponse = await response.text();
-          console.log("Raw response:", textResponse);
-          
-          // Only try to parse if we have content
-          if (textResponse.trim()) {
-            try {
-              responseData = JSON.parse(textResponse);
-              console.log("Parsed response:", responseData);
-            } catch (parseError) {
-              console.error("Error parsing JSON response:", parseError);
-              throw new Error("Invalid JSON response from server");
-            }
-          } else {
-            console.warn("Empty response from server");
-            throw new Error("Empty response from server");
-          }
-        } catch (textError) {
-          console.error("Error reading response text:", textError);
-          throw new Error("Could not read server response");
-        }
+          console.log(`Attempt ${retryCount + 1} to create product...`);
+          const response = await productsAPI.create(formDataToSubmit);
+          const responseData = response.data;
 
-        if (responseData && responseData.success) {
-          console.log("Product created successfully:", responseData);
-          
-          // Show success message and redirect
-          setTimeout(() => {
-            navigate("/admin/products", {
-              state: { successMessage: "Product added successfully!" }
-            });
-          }, 500);
-          
-          return;
-        } else {
-          throw new Error(responseData?.message || "Failed to create product");
+          if (responseData && responseData.success) {
+            console.log("Product created successfully:", responseData);
+            
+            // Show success message and redirect
+            setTimeout(() => {
+              navigate("/admin/products", {
+                state: { successMessage: "Product added successfully!" }
+              });
+            }, 500);
+            
+            return;
+          } else {
+            throw new Error(responseData?.message || "Failed to create product");
+          }
+        } catch (error) {
+          console.error(`Attempt ${retryCount + 1} failed:`, error);
+          retryCount++;
+
+          if (retryCount < maxRetries) {
+            console.log(`Waiting ${retryDelay}ms before retry...`);
+            await new Promise(resolve => setTimeout(resolve, retryDelay));
+          } else {
+            throw error;
+          }
         }
-      } catch (error) {
-        console.error("Error in product creation:", error);
-        throw new Error(`Direct endpoint failed: ${error.message}`);
       }
     } catch (error) {
       console.error("Form submission error:", error);
-      setSubmitError(error.message || "Failed to create product. Please try again.");
+      let errorMessage = "Failed to create product. Please try again.";
+
+      if (error.message === "Failed to fetch") {
+        errorMessage = "Network error: Please check your internet connection and try again.";
+      } else if (error.response) {
+        // Server responded with an error
+        errorMessage = error.response.data?.message || errorMessage;
+      }
+
+      setSubmitError(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
