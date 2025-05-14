@@ -1,5 +1,6 @@
 import React, { useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
+import { getAssetUrl } from '../utils/apiUrlHelper';
 
 const FileUpload = ({
   multiple = false,
@@ -13,14 +14,32 @@ const FileUpload = ({
   className = ''
 }) => {
   const onDrop = useCallback((acceptedFiles) => {
+    // Validate file types
+    const validFiles = acceptedFiles.filter(file => {
+      const isValidType = file.type.startsWith('image/');
+      if (!isValidType) {
+        console.warn(`Invalid file type: ${file.type}`);
+      }
+      return isValidType;
+    });
+
+    if (validFiles.length === 0) {
+      console.warn('No valid image files were selected');
+      return;
+    }
+
     // Create preview URLs for accepted files
-    const newFiles = acceptedFiles.map(file => Object.assign(file, {
-      preview: URL.createObjectURL(file)
+    const newFiles = validFiles.map(file => ({
+      file,
+      preview: URL.createObjectURL(file),
+      name: file.name,
+      size: file.size,
+      type: file.type
     }));
 
     // If not multiple, replace existing files
     if (!multiple) {
-      onChange(newFiles);
+      onChange([newFiles[0]]);
     } else {
       // Add new files to existing ones, respecting maxFiles limit
       const currentFiles = Array.isArray(value) ? value : [];
@@ -37,7 +56,57 @@ const FileUpload = ({
     multiple,
     maxFiles,
     maxSize: maxSize * 1024 * 1024, // Convert MB to bytes
+    validator: (file) => {
+      if (!file.type.startsWith('image/')) {
+        return {
+          code: 'file-invalid-type',
+          message: 'Please upload only image files'
+        };
+      }
+      return null;
+    }
   });
+
+  // Render preview of selected files
+  const renderPreviews = () => {
+    if (!value || value.length === 0) return null;
+
+    return (
+      <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+        {value.map((file, index) => (
+          <div key={index} className="relative group">
+            <div className="aspect-w-1 aspect-h-1 w-full overflow-hidden rounded-lg bg-gray-200">
+              <img
+                src={file.preview || getAssetUrl(file)}
+                alt={`Preview ${index + 1}`}
+                className="object-cover object-center w-full h-full"
+                onError={(e) => {
+                  // If preview fails, try using the asset URL
+                  if (e.target.src !== getAssetUrl(file)) {
+                    e.target.src = getAssetUrl(file);
+                  }
+                }}
+              />
+            </div>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                const newFiles = [...value];
+                newFiles.splice(index, 1);
+                onChange(newFiles);
+              }}
+              className="absolute top-2 right-2 p-1 rounded-full bg-red-500 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+              </svg>
+            </button>
+          </div>
+        ))}
+      </div>
+    );
+  };
 
   return (
     <div className={className}>
@@ -60,13 +129,14 @@ const FileUpload = ({
             )}
           </p>
           <p className="text-xs text-gray-500 dark:text-gray-400">
-            {helperText || `Upload up to ${maxFiles} files (${maxSize}MB max each)`}
+            {helperText || `Upload up to ${maxFiles} ${multiple ? 'files' : 'file'} (${maxSize}MB max each)`}
           </p>
         </div>
       </div>
       {error && (
         <p className="mt-1 text-xs text-red-500">{error}</p>
       )}
+      {renderPreviews()}
     </div>
   );
 };

@@ -274,8 +274,16 @@ const AddProduct = () => {
       // Add images
       if (formData.images && formData.images.length > 0) {
         console.log(`Adding ${formData.images.length} images`);
-        Array.from(formData.images).forEach((image, index) => {
-          formDataToSubmit.append("images", image);
+        formData.images.forEach((image, index) => {
+          if (image instanceof File) {
+            formDataToSubmit.append("images", image);
+          } else if (image.file instanceof File) {
+            formDataToSubmit.append("images", image.file);
+          } else if (typeof image === 'string' || image.url) {
+            // For existing images, send the URL or filename
+            const imageUrl = image.url || image;
+            formDataToSubmit.append("imageUrls", imageUrl);
+          }
         });
       }
 
@@ -283,7 +291,7 @@ const AddProduct = () => {
       const isDevelopment = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
       const baseUrl = isDevelopment ? "http://localhost:5000" : window.location.origin;
 
-      // Try multiple endpoints
+      // Try multiple endpoints with proper headers
       const endpoints = [
         `${baseUrl}/api/products`,
         `${baseUrl}/api/admin/products`,
@@ -305,14 +313,17 @@ const AddProduct = () => {
           });
 
           if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
           }
 
           const data = await response.json();
           console.log("Product created successfully:", data);
 
-          // Navigate to products page
-          navigate("/admin/products");
+          // Navigate to products page with success message
+          navigate("/admin/products", {
+            state: { successMessage: "Product added successfully!" }
+          });
           return;
         } catch (error) {
           console.warn(`Error creating product at ${endpoint}:`, error);

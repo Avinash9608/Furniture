@@ -33,6 +33,7 @@ const ProductForm = ({
   // Form validation state
   const [errors, setErrors] = useState({});
   const [images, setImages] = useState([]);
+  const [imageError, setImageError] = useState(null);
   const [touched, setTouched] = useState({});
   const [imagePreviews, setImagePreviews] = useState([]);
 
@@ -78,6 +79,21 @@ const ProductForm = ({
       });
 
       setImagePreviews(processedData.images || []);
+
+      // Handle images
+      if (processedData.images && processedData.images.length > 0) {
+        const processedImages = processedData.images.map(img => {
+          if (typeof img === 'string') {
+            return {
+              preview: getAssetUrl(img),
+              name: img.split('/').pop(),
+              url: img
+            };
+          }
+          return img;
+        });
+        setImages(processedImages);
+      }
     }
   }, [initialData]);
 
@@ -126,17 +142,16 @@ const ProductForm = ({
     }
   };
 
-  // Handle image upload
-  const handleImageChange = (e) => {
-    const files = Array.from(e.target.files);
+  // Handle image change
+  const handleImageChange = (newImages) => {
+    setImages(newImages);
+    setImageError(null);
+    
+    // Update form data with the new images
     setFormData(prev => ({
       ...prev,
-      images: files
+      images: newImages.map(img => img.file || img)
     }));
-
-    // Create preview URLs
-    const previewUrls = files.map(file => URL.createObjectURL(file));
-    setImagePreviews(previewUrls);
   };
 
   // Validate form on submit
@@ -639,8 +654,9 @@ const ProductForm = ({
               maxFiles={5}
               maxSize={5}
               accept="image/*"
+              value={images}
               onChange={handleImageChange}
-              error={errors.images}
+              error={imageError || errors.images}
               helperText="Upload up to 5 product images (5MB max each)"
               className="mt-1"
             />
