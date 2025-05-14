@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import FileUpload from "../FileUpload";
 import Button from "../Button";
 import { validateProductForm } from "../../utils/validation";
+import { getAssetUrl, fixImageUrls } from '../../utils/apiUrlHelper';
 
 const ProductForm = ({
   initialData = {},
@@ -33,6 +34,7 @@ const ProductForm = ({
   const [errors, setErrors] = useState({});
   const [images, setImages] = useState([]);
   const [touched, setTouched] = useState({});
+  const [imagePreviews, setImagePreviews] = useState([]);
 
   // Set initial data when it changes
   useEffect(() => {
@@ -51,32 +53,31 @@ const ProductForm = ({
         );
       }
 
+      const processedData = {
+        ...initialData,
+        // Fix image URLs to ensure they work in production
+        images: initialData.images ? fixImageUrls(initialData.images) : []
+      };
+
       setFormData({
-        name: initialData.name || "",
-        description: initialData.description || "",
-        price: initialData.price || "",
-        discountPrice: initialData.discountPrice || "",
+        name: processedData.name || "",
+        description: processedData.description || "",
+        price: processedData.price || "",
+        discountPrice: processedData.discountPrice || "",
         discountPercentage: discountPercentage,
-        category: initialData.category?._id || initialData.category || "",
-        stock: initialData.stock || "",
-        featured: initialData.featured || false,
-        material: initialData.material || "",
-        color: initialData.color || "",
+        category: processedData.category?._id || processedData.category || "",
+        stock: processedData.stock || "",
+        featured: processedData.featured || false,
+        material: processedData.material || "",
+        color: processedData.color || "",
         dimensions: {
-          length: initialData.dimensions?.length || "",
-          width: initialData.dimensions?.width || "",
-          height: initialData.dimensions?.height || "",
+          length: processedData.dimensions?.length || "",
+          width: processedData.dimensions?.width || "",
+          height: processedData.dimensions?.height || "",
         },
       });
 
-      // Set images if available
-      if (initialData.images && initialData.images.length > 0) {
-        setImages(
-          initialData.images.map((img) =>
-            typeof img === "string" ? img : img.url
-          )
-        );
-      }
+      setImagePreviews(processedData.images || []);
     }
   }, [initialData]);
 
@@ -126,11 +127,16 @@ const ProductForm = ({
   };
 
   // Handle image upload
-  const handleImageChange = (newImages) => {
-    setImages(newImages);
-    if (errors.images) {
-      setErrors((prev) => ({ ...prev, images: null }));
-    }
+  const handleImageChange = (e) => {
+    const files = Array.from(e.target.files);
+    setFormData(prev => ({
+      ...prev,
+      images: files
+    }));
+
+    // Create preview URLs
+    const previewUrls = files.map(file => URL.createObjectURL(file));
+    setImagePreviews(previewUrls);
   };
 
   // Validate form on submit
@@ -633,7 +639,6 @@ const ProductForm = ({
               maxFiles={5}
               maxSize={5}
               accept="image/*"
-              value={images}
               onChange={handleImageChange}
               error={errors.images}
               helperText="Upload up to 5 product images (5MB max each)"
@@ -647,36 +652,31 @@ const ProductForm = ({
           )}
 
           {/* Image Preview */}
-          {images && images.length > 0 && (
-            <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-              {images.map((image, index) => (
-                <div key={index} className="relative group">
-                  <div className="aspect-w-1 aspect-h-1 w-full overflow-hidden rounded-lg bg-gray-200">
-                    <img
-                      src={typeof image === 'string' 
-                        ? (image.startsWith('/uploads') ? image : `/uploads/${image.split('\\').pop()}`)
-                        : (image.preview || URL.createObjectURL(image))}
-                      alt={`Preview ${index + 1}`}
-                      className="object-cover object-center w-full h-full"
-                    />
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const newImages = [...images];
-                      newImages.splice(index, 1);
-                      setImages(newImages);
-                    }}
-                    className="absolute top-2 right-2 p-1 rounded-full bg-red-500 text-white opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                    </svg>
-                  </button>
-                </div>
-              ))}
+          {imagePreviews.map((preview, index) => (
+            <div key={index} className="relative">
+              <img
+                src={preview}
+                alt={`Preview ${index + 1}`}
+                className="w-24 h-24 object-cover rounded-lg"
+                onError={(e) => {
+                  // If image fails to load, try with fixed URL
+                  e.target.src = getAssetUrl(preview);
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  const newImages = [...imagePreviews];
+                  newImages.splice(index, 1);
+                  setImagePreviews(newImages);
+                }}
+                className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1"
+              >
+                <span className="sr-only">Remove image</span>
+                ×
+              </button>
             </div>
-          )}
+          ))}
         </div>
       </div>
 

@@ -53,9 +53,10 @@ export const getAssetsBaseUrl = () => {
   const hostname = window.location.hostname;
   const origin = window.location.origin;
 
-  // In production on Render, use the current origin
+  // Always use HTTPS in production
   if (hostname.includes("render.com") || hostname === "furniture-q3nb.onrender.com") {
-    return origin;
+    // Ensure we're using HTTPS
+    return origin.replace('http:', 'https:');
   }
 
   // In development, use localhost:5000
@@ -63,8 +64,8 @@ export const getAssetsBaseUrl = () => {
     return "http://localhost:5000";
   }
 
-  // In other production environments, use the current origin
-  return origin;
+  // In other production environments, use HTTPS
+  return origin.replace('http:', 'https:');
 };
 
 /**
@@ -73,8 +74,18 @@ export const getAssetsBaseUrl = () => {
  * @returns {string} The full URL for the asset
  */
 export const getAssetUrl = (assetPath) => {
+  // If the path is already a full URL, ensure it uses HTTPS in production
+  if (assetPath && assetPath.startsWith('http')) {
+    const hostname = window.location.hostname;
+    if (hostname.includes("render.com") || hostname === "furniture-q3nb.onrender.com") {
+      return assetPath.replace('http:', 'https:');
+    }
+    return assetPath;
+  }
+
+  // Handle relative paths
   const baseUrl = getAssetsBaseUrl();
-  const normalizedPath = assetPath.startsWith('/') ? assetPath : `/${assetPath}`;
+  const normalizedPath = assetPath && assetPath.startsWith('/') ? assetPath : `/${assetPath || ''}`;
   return `${baseUrl}${normalizedPath}`;
 };
 
@@ -87,8 +98,16 @@ export const fixImageUrls = (urls) => {
   if (!Array.isArray(urls)) return [];
   
   return urls.map(url => {
-    if (!url) return url;
-    if (url.startsWith('http')) return url;
+    if (!url) return '';
+    // If it's a full URL, ensure HTTPS in production
+    if (url.startsWith('http')) {
+      const hostname = window.location.hostname;
+      if (hostname.includes("render.com") || hostname === "furniture-q3nb.onrender.com") {
+        return url.replace('http:', 'https:');
+      }
+      return url;
+    }
+    // Handle relative paths
     return getAssetUrl(url);
   });
 };

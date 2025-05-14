@@ -257,100 +257,74 @@ const AddProduct = () => {
 
       // Add category
       if (formData.category) {
-        console.log('Adding category:', formData.category);
-        formDataToSubmit.append('category', formData.category);
+        console.log("Adding category:", formData.category);
+        formDataToSubmit.append("category", formData.category);
       }
 
-      // Add boolean fields
-      formDataToSubmit.append('featured', formData.featured);
+      // Add featured flag
+      formDataToSubmit.append("featured", formData.featured || false);
 
-      // Handle dimensions
-      if (Object.values(formData.dimensions).some(val => val !== '')) {
-        const dimensions = {};
-        Object.entries(formData.dimensions).forEach(([key, value]) => {
-          if (value !== '' && !isNaN(Number(value))) {
-            dimensions[key] = Number(value);
-          }
-        });
-        if (Object.keys(dimensions).length > 0) {
-          formDataToSubmit.append('dimensions', JSON.stringify(dimensions));
-        }
+      // Add dimensions if any field is filled
+      const dimensions = formData.dimensions || {};
+      if (dimensions.length || dimensions.width || dimensions.height) {
+        console.log("Adding dimensions:", dimensions);
+        formDataToSubmit.append("dimensions", JSON.stringify(dimensions));
       }
 
-      // Handle images
+      // Add images
       if (formData.images && formData.images.length > 0) {
-        console.log('Processing images:', formData.images);
-        formData.images.forEach((image, index) => {
-          if (image instanceof File) {
-            console.log(`Adding image file ${index}:`, image.name);
-            formDataToSubmit.append('images', image);
-          } else if (image.file instanceof File) {
-            console.log(`Adding image file ${index}:`, image.file.name);
-            formDataToSubmit.append('images', image.file);
-          } else if (typeof image === 'string') {
-            // For existing images, just send the filename
-            const filename = image.split('/').pop();
-            console.log(`Adding existing image ${index}:`, filename);
-            formDataToSubmit.append('imageUrls', filename);
-          }
+        console.log(`Adding ${formData.images.length} images`);
+        Array.from(formData.images).forEach((image, index) => {
+          formDataToSubmit.append("images", image);
         });
       }
 
-      // Log the final FormData
-      console.log('FormData entries:');
-      for (let pair of formDataToSubmit.entries()) {
-        console.log(pair[0], pair[1]);
-      }
+      // Determine if we're in development or production
+      const isDevelopment = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+      const baseUrl = isDevelopment ? "http://localhost:5000" : window.location.origin;
 
-      // Try to create the product with retry logic
-      let retryCount = 0;
-      const maxRetries = 3;
-      const retryDelay = 1000; // 1 second
+      // Try multiple endpoints
+      const endpoints = [
+        `${baseUrl}/api/products`,
+        `${baseUrl}/api/admin/products`,
+        `${baseUrl}/products`,
+        `https://furniture-q3nb.onrender.com/api/products`,
+        `https://furniture-q3nb.onrender.com/api/admin/products`
+      ];
 
-      while (retryCount < maxRetries) {
+      let lastError = null;
+      for (const endpoint of endpoints) {
         try {
-          console.log(`Attempt ${retryCount + 1} to create product...`);
-          const response = await productsAPI.create(formDataToSubmit);
-          const responseData = response.data;
+          console.log(`Trying to create product at: ${endpoint}`);
+          const response = await fetch(endpoint, {
+            method: 'POST',
+            body: formDataToSubmit,
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('adminToken')}`,
+            },
+          });
 
-          if (responseData && responseData.success) {
-            console.log("Product created successfully:", responseData);
-            
-            // Show success message and redirect
-            setTimeout(() => {
-              navigate("/admin/products", {
-                state: { successMessage: "Product added successfully!" }
-              });
-            }, 500);
-            
-            return;
-          } else {
-            throw new Error(responseData?.message || "Failed to create product");
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
           }
+
+          const data = await response.json();
+          console.log("Product created successfully:", data);
+
+          // Navigate to products page
+          navigate("/admin/products");
+          return;
         } catch (error) {
-          console.error(`Attempt ${retryCount + 1} failed:`, error);
-          retryCount++;
-
-          if (retryCount < maxRetries) {
-            console.log(`Waiting ${retryDelay}ms before retry...`);
-            await new Promise(resolve => setTimeout(resolve, retryDelay));
-          } else {
-            throw error;
-          }
+          console.warn(`Error creating product at ${endpoint}:`, error);
+          lastError = error;
         }
       }
+
+      // If all endpoints fail, throw the last error
+      throw lastError || new Error("Failed to create product after trying all endpoints");
     } catch (error) {
-      console.error("Form submission error:", error);
-      let errorMessage = "Failed to create product. Please try again.";
-
-      if (error.message === "Failed to fetch") {
-        errorMessage = "Network error: Please check your internet connection and try again.";
-      } else if (error.response) {
-        // Server responded with an error
-        errorMessage = error.response.data?.message || errorMessage;
-      }
-
-      setSubmitError(errorMessage);
+      console.error("Error creating product:", error);
+      setSubmitError(error.message || "Failed to create product. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
