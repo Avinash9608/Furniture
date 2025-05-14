@@ -161,10 +161,47 @@ const ProductForm = ({
       images: images,
     };
 
-    const { isValid, errors: validationErrors } =
-      validateProductForm(productData);
+    // Required fields validation
+    const errors = {};
+    
+    if (!productData.name?.trim()) {
+      errors.name = 'Product name is required';
+    }
+    
+    if (!productData.description?.trim()) {
+      errors.description = 'Product description is required';
+    }
+    
+    if (!productData.price || isNaN(productData.price) || productData.price <= 0) {
+      errors.price = 'Valid price is required';
+    }
+    
+    if (!productData.category) {
+      errors.category = 'Category is required';
+    }
+    
+    if (!productData.stock || isNaN(productData.stock) || productData.stock < 0) {
+      errors.stock = 'Valid stock quantity is required';
+    }
 
-    setErrors(validationErrors);
+    // Validate dimensions if any are provided
+    if (productData.dimensions) {
+      const { length, width, height } = productData.dimensions;
+      if ((length && isNaN(length)) || (width && isNaN(width)) || (height && isNaN(height))) {
+        errors.dimensions = 'Dimensions must be valid numbers';
+      }
+    }
+
+    // Validate discount price if provided
+    if (productData.discountPrice) {
+      if (isNaN(productData.discountPrice) || productData.discountPrice <= 0) {
+        errors.discountPrice = 'Discount price must be a valid number';
+      } else if (productData.discountPrice >= productData.price) {
+        errors.discountPrice = 'Discount price must be less than regular price';
+      }
+    }
+
+    setErrors(errors);
     setTouched(
       Object.keys(formData).reduce((acc, key) => {
         acc[key] = true;
@@ -172,97 +209,70 @@ const ProductForm = ({
       }, {})
     );
 
-    return isValid;
+    return Object.keys(errors).length === 0;
   };
 
   // Handle form submission
   const handleSubmit = (e) => {
     e.preventDefault();
 
-    if (!validateForm()) return;
+    if (!validateForm()) {
+      console.log('Form validation failed:', errors);
+      return;
+    }
 
     // Create FormData for submission
     const formDataToSubmit = new FormData();
 
-    // Log validation state before submission
-    console.log('Form validation state:', { formData, errors, touched });
-
     try {
-      // Add basic fields with proper type conversion and validation
-      const stringFields = ['name', 'description', 'material', 'color'];
-      const numberFields = ['price', 'stock', 'discountPrice'];
-
-      // Add string fields
-      stringFields.forEach(field => {
-        if (formData[field]) {
-          console.log(`Adding ${field}:`, formData[field]);
-          formDataToSubmit.append(field, formData[field].trim());
-        }
-      });
-
-      // Add number fields
-      numberFields.forEach(field => {
-        if (formData[field] !== '') {
-          const value = Number(formData[field]);
-          if (!isNaN(value)) {
-            console.log(`Adding ${field}:`, value);
-            formDataToSubmit.append(field, value);
-          }
-        }
-      });
-
-      // Add category
-      if (formData.category) {
-        console.log('Adding category:', formData.category);
-        formDataToSubmit.append('category', formData.category);
-      }
-
-      // Add boolean fields
+      // Add basic fields
+      formDataToSubmit.append('name', formData.name.trim());
+      formDataToSubmit.append('description', formData.description.trim());
+      formDataToSubmit.append('price', formData.price);
+      formDataToSubmit.append('stock', formData.stock);
+      formDataToSubmit.append('category', formData.category);
       formDataToSubmit.append('featured', formData.featured);
 
-      // Handle dimensions
-      if (Object.values(formData.dimensions).some(val => val !== '')) {
-        const dimensions = {};
-        Object.entries(formData.dimensions).forEach(([key, value]) => {
-          if (value !== '' && !isNaN(Number(value))) {
-            dimensions[key] = Number(value);
-          }
-        });
-        if (Object.keys(dimensions).length > 0) {
-          formDataToSubmit.append('dimensions', JSON.stringify(dimensions));
-        }
+      // Add optional fields if they exist
+      if (formData.material) formDataToSubmit.append('material', formData.material.trim());
+      if (formData.color) formDataToSubmit.append('color', formData.color.trim());
+      if (formData.discountPrice) formDataToSubmit.append('discountPrice', formData.discountPrice);
+
+      // Add dimensions if any are provided
+      const dimensions = {};
+      if (formData.dimensions.length) dimensions.length = Number(formData.dimensions.length);
+      if (formData.dimensions.width) dimensions.width = Number(formData.dimensions.width);
+      if (formData.dimensions.height) dimensions.height = Number(formData.dimensions.height);
+      
+      if (Object.keys(dimensions).length > 0) {
+        formDataToSubmit.append('dimensions', JSON.stringify(dimensions));
       }
 
-      // Handle images
+      // Add images
       if (images && images.length > 0) {
-        console.log('Processing images:', images);
         images.forEach((image, index) => {
           if (image instanceof File) {
-            console.log(`Adding image file ${index}:`, image.name);
             formDataToSubmit.append('images', image);
           } else if (image.file instanceof File) {
-            console.log(`Adding image file ${index}:`, image.file.name);
             formDataToSubmit.append('images', image.file);
-          } else if (typeof image === 'string') {
-            // For existing images, just send the filename
-            const filename = image.split('/').pop();
-            console.log(`Adding existing image ${index}:`, filename);
-            formDataToSubmit.append('imageUrls', filename);
           }
         });
       }
 
-      // Log the final FormData
-      console.log('FormData entries:');
+      // Log the FormData contents
+      console.log('FormData contents:');
       for (let pair of formDataToSubmit.entries()) {
-        console.log(pair[0], pair[1]);
+        console.log(pair[0], typeof pair[1], pair[1]);
       }
 
       // Submit the form
       onSubmit(formDataToSubmit);
     } catch (error) {
       console.error('Error preparing form data:', error);
-      // You might want to show this error to the user
+      setErrors(prev => ({
+        ...prev,
+        submit: 'Error preparing form data: ' + error.message
+      }));
     }
   };
 

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { productsAPI } from "../../utils/api";
+import { productsAPI, categoriesAPI } from "../../utils/api";
 import { adminProductsAPI, adminCategoriesAPI } from "../../utils/adminAPI";
 import AdminLayout from "../../components/admin/AdminLayout";
 import ProductForm from "../../components/admin/ProductForm";
@@ -230,6 +230,12 @@ const AddProduct = () => {
 
       console.log("Starting product submission...");
 
+      // Get the token first
+      const token = localStorage.getItem('adminToken');
+      if (!token) {
+        throw new Error('Admin authentication required. Please log in as an administrator.');
+      }
+
       // Create FormData for submission
       const formDataToSubmit = new FormData();
 
@@ -239,16 +245,17 @@ const AddProduct = () => {
 
       // Add string fields
       stringFields.forEach(field => {
-        if (formData[field]) {
-          console.log(`Adding ${field}:`, formData[field]);
-          formDataToSubmit.append(field, formData[field].trim());
+        if (formData.get(field)) {
+          const value = formData.get(field).trim();
+          console.log(`Adding ${field}:`, value);
+          formDataToSubmit.append(field, value);
         }
       });
 
       // Add number fields
       numberFields.forEach(field => {
-        if (formData[field] !== '') {
-          const value = Number(formData[field]);
+        if (formData.get(field)) {
+          const value = Number(formData.get(field));
           if (!isNaN(value)) {
             console.log(`Adding ${field}:`, value);
             formDataToSubmit.append(field, value);
@@ -257,69 +264,51 @@ const AddProduct = () => {
       });
 
       // Add category
-      if (formData.category) {
-        console.log("Adding category:", formData.category);
-        formDataToSubmit.append("category", formData.category);
+      const category = formData.get('category');
+      if (category) {
+        console.log("Adding category:", category);
+        formDataToSubmit.append("category", category);
       }
 
       // Add featured flag
-      formDataToSubmit.append("featured", formData.featured || false);
+      formDataToSubmit.append("featured", formData.get("featured") === "true");
 
-      // Add dimensions if any field is filled
-      const dimensions = formData.dimensions || {};
-      if (dimensions.length || dimensions.width || dimensions.height) {
-        console.log("Adding dimensions:", dimensions);
-        formDataToSubmit.append("dimensions", JSON.stringify(dimensions));
+      // Add dimensions
+      const dimensionsData = formData.get('dimensions');
+      if (dimensionsData) {
+        try {
+          const dimensions = JSON.parse(dimensionsData);
+          if (Object.keys(dimensions).length > 0) {
+            console.log("Adding dimensions:", dimensions);
+            formDataToSubmit.append("dimensions", JSON.stringify(dimensions));
+          }
+        } catch (e) {
+          console.warn("Error parsing dimensions:", e);
+        }
       }
 
       // Add images
-      if (formData.images && formData.images.length > 0) {
-        console.log(`Adding ${formData.images.length} images`);
-        formData.images.forEach((image, index) => {
+      const imageFiles = formData.getAll('images');
+      if (imageFiles && imageFiles.length > 0) {
+        console.log(`Processing ${imageFiles.length} images`);
+        imageFiles.forEach((image, index) => {
           if (image instanceof File) {
+            console.log(`Adding image file ${index}:`, image.name);
             formDataToSubmit.append("images", image);
-          } else if (image.file instanceof File) {
-            formDataToSubmit.append("images", image.file);
-          } else if (typeof image === 'string' || image.url) {
-            // For existing images, send the URL or filename
-            const imageUrl = image.url || image;
-            formDataToSubmit.append("imageUrls", imageUrl);
           }
         });
       }
 
-      // Get the base URL based on environment
-      const hostname = window.location.hostname;
-      const origin = window.location.origin;
-      let baseUrl;
-
-      if (hostname.includes("render.com") || hostname === "furniture-q3nb.onrender.com") {
-        baseUrl = origin;
-      } else if (hostname === "localhost" || hostname === "127.0.0.1") {
-        baseUrl = "http://localhost:5000";
-      } else {
-        baseUrl = origin;
+      // Log all form data being sent
+      console.log('FormData entries:');
+      for (let pair of formDataToSubmit.entries()) {
+        console.log(pair[0], pair[1]);
       }
 
-      // Create axios instance for this request
-      const axiosInstance = axios.create({
-        baseURL: baseUrl,
-        timeout: 60000,
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`,
-          'Accept': 'application/json',
-        }
-      });
-
-      // Try to create the product
-      console.log(`Attempting to create product at ${baseUrl}/api/admin/products`);
-      const response = await axiosInstance.post('/api/admin/products', formDataToSubmit, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        }
-      });
-
-      console.log("Product created successfully:", response.data);
+      // Create the product using the API
+      console.log('Sending product creation request...');
+      const response = await productsAPI.create(formDataToSubmit);
+      console.log('Product created successfully:', response);
 
       // Navigate to products page with success message
       navigate("/admin/products", {
@@ -334,9 +323,13 @@ const AddProduct = () => {
       if (error.response) {
         // The server responded with an error
         errorMessage = error.response.data?.message || error.response.statusText || errorMessage;
+        console.error('Server error response:', error.response.data);
       } else if (error.request) {
         // The request was made but no response was received
         errorMessage = "Network error: Could not reach the server. Please check your connection.";
+      } else if (error.message) {
+        // Something else went wrong
+        errorMessage = error.message;
       }
       
       setSubmitError(errorMessage);

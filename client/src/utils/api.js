@@ -36,13 +36,17 @@ const api = axios.create({
 // Add request interceptor to handle auth token
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('adminToken');
+    const token = localStorage.getItem('adminToken') || localStorage.getItem('token');
     if (token) {
+      console.log('Adding auth token to request');
       config.headers['Authorization'] = `Bearer ${token}`;
+    } else {
+      console.warn('No auth token found in localStorage');
     }
     return config;
   },
   (error) => {
+    console.error('Request interceptor error:', error);
     return Promise.reject(error);
   }
 );
@@ -51,24 +55,14 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
-    const originalRequest = error.config;
-
-    // If the error is due to an expired token and we haven't tried to refresh yet
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true;
-
-      try {
-        // Try to refresh the token here if you have a refresh token mechanism
-        const token = localStorage.getItem('adminToken');
-        if (token) {
-          originalRequest.headers['Authorization'] = `Bearer ${token}`;
-          return api(originalRequest);
-        }
-      } catch (refreshError) {
-        return Promise.reject(refreshError);
-      }
+    console.error('API Error Response:', error.response?.data || error.message);
+    
+    if (error.response?.status === 401) {
+      console.error('Authentication error - please log in again');
+      // Optionally redirect to login page
+      window.location.href = '/login';
     }
-
+    
     return Promise.reject(error);
   }
 );
@@ -77,14 +71,26 @@ api.interceptors.response.use(
 const productsAPI = {
   create: async (formData) => {
     try {
-      const response = await api.post('/admin/products', formData, {
+      // Log the request details
+      console.log('Creating product with FormData');
+      console.log('FormData entries:');
+      for (let pair of formData.entries()) {
+        console.log(pair[0], typeof pair[1], pair[1]);
+      }
+
+      // Ensure we're using the correct content type for FormData
+      const config = {
         headers: {
           'Content-Type': 'multipart/form-data',
-        }
-      });
+          'Accept': 'application/json',
+        },
+      };
+
+      const response = await api.post('/admin/products', formData, config);
+      console.log('Product creation response:', response.data);
       return response.data;
     } catch (error) {
-      console.error('Error creating product:', error);
+      console.error('Error creating product:', error.response?.data || error.message);
       throw error;
     }
   },
