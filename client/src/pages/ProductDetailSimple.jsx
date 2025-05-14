@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { productsAPI, getImageUrl } from "../utils/api";
+import { productsAPI } from "../utils/api";
+import { getAssetUrl } from "../utils/apiUrlHelper";
 import { formatPrice, calculateDiscountPercentage } from "../utils/format";
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
@@ -520,7 +521,7 @@ const ProductDetailSimple = () => {
                     Array.isArray(product.images) &&
                     product.images.length > 0 &&
                     selectedImage < product.images.length
-                      ? getImageUrl(product.images[selectedImage])
+                      ? getAssetUrl(product.images[selectedImage])
                       : `https://via.placeholder.com/800x600?text=${encodeURIComponent(
                           product.name || "Product"
                         )}`
@@ -555,7 +556,7 @@ const ProductDetailSimple = () => {
                         onClick={() => setSelectedImage(index)}
                       >
                         <img
-                          src={getImageUrl(image)}
+                          src={getAssetUrl(image)}
                           alt={`${product.name} - Image ${index + 1}`}
                           className="w-full h-full object-cover"
                           onError={(e) => {
@@ -1101,7 +1102,7 @@ const ProductDetailSimple = () => {
                         src={
                           relatedProduct.images &&
                           relatedProduct.images.length > 0
-                            ? getImageUrl(relatedProduct.images[0])
+                            ? getAssetUrl(relatedProduct.images[0])
                             : `https://via.placeholder.com/300x200?text=${encodeURIComponent(
                                 relatedProduct.name || "Product"
                               )}`

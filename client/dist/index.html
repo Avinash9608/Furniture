@@ -17,8 +17,27 @@
     <title>Shyam Furnitures | Quality Furniture in Sharsha, Bihar</title>
     <!-- Fix for right-click issues -->
     <script src="/fix-rightclick.js"></script>
-    <script type="module" crossorigin src="/assets/index-bc0b7279.js"></script>
-    <link rel="stylesheet" href="/assets/index-9b81234b.css">
+
+    <!-- Load react-toastify from CDN as fallback -->
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/react-toastify@9.1.3/dist/ReactToastify.min.css"
+    />
+    <script src="https://cdn.jsdelivr.net/npm/react-toastify@9.1.3/dist/ReactToastify.min.js"></script>
+
+    <!-- Make react-toastify available globally -->
+    <script>
+      window.addEventListener("load", function () {
+        // Create a global reference to ReactToastify if it's loaded from CDN
+        if (window.ReactToastify) {
+          console.log("ReactToastify loaded from CDN");
+        }
+      });
+    </script>
+    <script type="module" crossorigin src="/assets/index-2e5a235b.js"></script>
+    <link rel="modulepreload" crossorigin href="/assets/vendor-2195d973.js">
+    <link rel="modulepreload" crossorigin href="/assets/ui-e3746d20.js">
+    <link rel="stylesheet" href="/assets/index-5703267f.css">
   </head>
   <body>
     <div id="root"></div>

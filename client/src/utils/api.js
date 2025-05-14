@@ -187,11 +187,237 @@ const categoriesAPI = {
   }
 };
 
+// Payment Settings API
+const paymentSettingsAPI = {
+  getAll: async () => {
+    try {
+      const response = await api.get('/payment-settings');
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching payment settings:', error);
+      throw error;
+    }
+  },
+
+  getByMethod: async (method) => {
+    try {
+      const response = await api.get(`/payment-settings/${method}`);
+      return response.data;
+    } catch (error) {
+      console.error(`Error fetching payment settings for ${method}:`, error);
+      throw error;
+    }
+  },
+
+  update: async (method, data) => {
+    try {
+      const response = await api.put(`/admin/payment-settings/${method}`, data);
+      return response.data;
+    } catch (error) {
+      console.error(`Error updating payment settings for ${method}:`, error);
+      throw error;
+    }
+  }
+};
+
+// Orders API
+const ordersAPI = {
+  create: async (orderData) => {
+    try {
+      const response = await api.post('/orders', orderData);
+      return response.data;
+    } catch (error) {
+      console.error('Error creating order:', error);
+      throw error;
+    }
+  },
+
+  getAll: async (params = {}) => {
+    try {
+      const response = await api.get('/orders', { params });
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching orders:', error);
+      throw error;
+    }
+  },
+
+  getById: async (id) => {
+    try {
+      const response = await api.get(`/orders/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error(`Error fetching order ${id}:`, error);
+      throw error;
+    }
+  },
+
+  update: async (id, data) => {
+    try {
+      const response = await api.put(`/orders/${id}`, data);
+      return response.data;
+    } catch (error) {
+      console.error(`Error updating order ${id}:`, error);
+      throw error;
+    }
+  },
+
+  delete: async (id) => {
+    try {
+      const response = await api.delete(`/orders/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error(`Error deleting order ${id}:`, error);
+      throw error;
+    }
+  },
+
+  updateStatus: async (id, status) => {
+    try {
+      const response = await api.patch(`/orders/${id}/status`, { status });
+      return response.data;
+    } catch (error) {
+      console.error(`Error updating order ${id} status:`, error);
+      throw error;
+    }
+  }
+};
+
+// Payment Requests API
+const paymentRequestsAPI = {
+  create: async (requestData) => {
+    try {
+      const response = await api.post('/payment-requests', requestData);
+      return response.data;
+    } catch (error) {
+      console.error('Error creating payment request:', error);
+      throw error;
+    }
+  },
+
+  getAll: async (params = {}) => {
+    try {
+      const response = await api.get('/payment-requests', { params });
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching payment requests:', error);
+      throw error;
+    }
+  },
+
+  getById: async (id) => {
+    try {
+      const response = await api.get(`/payment-requests/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error(`Error fetching payment request ${id}:`, error);
+      throw error;
+    }
+  },
+
+  update: async (id, data) => {
+    try {
+      const response = await api.put(`/payment-requests/${id}`, data);
+      return response.data;
+    } catch (error) {
+      console.error(`Error updating payment request ${id}:`, error);
+      throw error;
+    }
+  },
+
+  delete: async (id) => {
+    try {
+      const response = await api.delete(`/payment-requests/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error(`Error deleting payment request ${id}:`, error);
+      throw error;
+    }
+  },
+
+  updateStatus: async (id, status) => {
+    try {
+      const response = await api.patch(`/payment-requests/${id}/status`, { status });
+      return response.data;
+    } catch (error) {
+      console.error(`Error updating payment request ${id} status:`, error);
+      throw error;
+    }
+  }
+};
+
+// Contact API
+const contactAPI = {
+  create: async (messageData) => {
+    try {
+      const response = await api.post('/contact', messageData);
+      return response.data;
+    } catch (error) {
+      console.error('Error sending contact message:', error);
+      throw error;
+    }
+  },
+
+  getAll: async (params = {}) => {
+    try {
+      const response = await api.get('/admin/contact', { params });
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching contact messages:', error);
+      throw error;
+    }
+  },
+
+  getById: async (id) => {
+    try {
+      const response = await api.get(`/admin/contact/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error(`Error fetching contact message ${id}:`, error);
+      throw error;
+    }
+  },
+
+  update: async (id, data) => {
+    try {
+      const response = await api.put(`/admin/contact/${id}`, data);
+      return response.data;
+    } catch (error) {
+      console.error(`Error updating contact message ${id}:`, error);
+      throw error;
+    }
+  },
+
+  delete: async (id) => {
+    try {
+      const response = await api.delete(`/admin/contact/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error(`Error deleting contact message ${id}:`, error);
+      throw error;
+    }
+  },
+
+  markAsRead: async (id) => {
+    try {
+      const response = await api.patch(`/admin/contact/${id}/read`);
+      return response.data;
+    } catch (error) {
+      console.error(`Error marking contact message ${id} as read:`, error);
+      throw error;
+    }
+  }
+};
+
 // Export the API instances and utilities
 export {
   api,
   productsAPI,
   categoriesAPI,
+  paymentSettingsAPI,
+  ordersAPI,
+  paymentRequestsAPI,
+  contactAPI,
   getBaseURL
 };
 

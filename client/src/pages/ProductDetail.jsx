@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Link, useParams } from "react-router-dom";
-import { getImageUrl } from "../utils/api";
+import { getAssetUrl } from "../utils/apiUrlHelper";
 import { formatPrice, calculateDiscountPercentage } from "../utils/format";
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
@@ -374,7 +374,7 @@ const ProductDetail = () => {
                           Array.isArray(product.images) &&
                           product.images.length > 0 &&
                           selectedImage < product.images.length
-                            ? getImageUrl(product.images[selectedImage])
+                            ? getAssetUrl(product.images[selectedImage])
                             : "https://placehold.co/800x600/gray/white?text=Product"
                         }
                         alt={(product && product.name) || "Product"}
@@ -399,7 +399,7 @@ const ProductDetail = () => {
                                 Array.isArray(product.images) &&
                                 product.images.length > 0 &&
                                 selectedImage < product.images.length
-                                  ? getImageUrl(product.images[selectedImage])
+                                  ? getAssetUrl(product.images[selectedImage])
                                   : "https://placehold.co/800x600/gray/white?text=Product"
                               })`,
                               backgroundPosition: `${zoomPosition.x}% ${zoomPosition.y}%`,
@@ -447,7 +447,7 @@ const ProductDetail = () => {
                               whileTap={{ scale: 0.95 }}
                             >
                               <img
-                                src={getImageUrl(image)}
+                                src={getAssetUrl(image)}
                                 alt={`${
                                   (product && product.name) || "Product"
                                 } - Image ${index + 1}`}
