@@ -36,13 +36,24 @@ const api = axios.create({
 // Add request interceptor to handle auth token
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('adminToken') || localStorage.getItem('token');
+    // Try to get admin token first, then fall back to regular token
+    const adminToken = localStorage.getItem('adminToken');
+    const regularToken = localStorage.getItem('token');
+    const token = adminToken || regularToken;
+
     if (token) {
       console.log('Adding auth token to request');
       config.headers['Authorization'] = `Bearer ${token}`;
     } else {
       console.warn('No auth token found in localStorage');
     }
+
+    // For admin endpoints, ensure we're using admin token
+    if (config.url.includes('/admin/') && !adminToken) {
+      console.error('Attempting to access admin endpoint without admin token');
+      throw new Error('Admin authentication required. Please log in as an administrator.');
+    }
+
     return config;
   },
   (error) => {
@@ -58,9 +69,13 @@ api.interceptors.response.use(
     console.error('API Error Response:', error.response?.data || error.message);
     
     if (error.response?.status === 401) {
-      console.error('Authentication error - please log in again');
-      // Optionally redirect to login page
-      window.location.href = '/login';
+      console.error('Authentication error - clearing tokens and redirecting to login');
+      // Clear all tokens
+      localStorage.removeItem('token');
+      localStorage.removeItem('adminToken');
+      localStorage.removeItem('user');
+      // Redirect to login page
+      window.location.href = '/admin/login';
     }
     
     return Promise.reject(error);

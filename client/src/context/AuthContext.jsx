@@ -320,66 +320,36 @@ export const AuthProvider = ({ children }) => {
       // Try the direct admin login endpoint first (more reliable)
       const directApiUrl = isDevelopment
         ? `${localServerUrl}/api/auth/admin/direct-login`
-        : "/api/auth/admin/direct-login";
-
-      const regularApiUrl = isDevelopment
-        ? `${localServerUrl}/api/auth/admin/login`
         : "/api/auth/admin/login";
 
-      console.log("Attempting admin login with direct API:", directApiUrl);
+      console.log("Attempting admin login with:", directApiUrl);
 
-      // Variable to hold the response
-      let response;
-
-      try {
-        // Try the direct login endpoint first (bypasses MongoDB)
-        response = await axios.post(
-          directApiUrl,
-          {
-            email,
-            password,
-          },
-          {
-            timeout: 30000, // 30 seconds timeout
-          }
-        );
-      } catch (directError) {
-        console.log(
-          "Direct admin login failed, trying regular login endpoint:",
-          directError.message
-        );
-
-        // If the direct endpoint fails, try the regular login endpoint
-        try {
-          // Special admin login endpoint - validates against .env credentials
-          response = await axios.post(
-            regularApiUrl,
-            {
-              email,
-              password,
-            },
-            {
-              timeout: 30000, // 30 seconds timeout
-            }
-          );
-        } catch (regularError) {
-          console.error("Both login endpoints failed:", regularError.message);
-          throw regularError;
+      const response = await axios.post(
+        directApiUrl,
+        {
+          email,
+          password,
+        },
+        {
+          timeout: 30000, // 30 seconds timeout
         }
-      }
+      );
 
-      // Save token and user to localStorage
-      localStorage.setItem("token", response.data.token);
-      localStorage.setItem("user", JSON.stringify(response.data.user));
+      // Store tokens properly
+      const { token, user } = response.data;
+      
+      // Store the admin token specifically
+      localStorage.setItem("adminToken", token);
+      localStorage.setItem("token", token); // Also store as regular token for compatibility
+      localStorage.setItem("user", JSON.stringify({ ...user, role: "admin" }));
 
       // Set auth header
-      axios.defaults.headers.common[
-        "Authorization"
-      ] = `Bearer ${response.data.token}`;
+      axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
 
-      // Set user
-      setUser(response.data.user);
+      // Set user with admin role
+      setUser({ ...user, role: "admin" });
 
+      console.log("Admin login successful");
       return response.data;
     } catch (err) {
       console.error("Admin login error:", err);
@@ -398,8 +368,9 @@ export const AuthProvider = ({ children }) => {
       // Call logout endpoint
       await authAPI.logout();
 
-      // Clear localStorage
+      // Clear all tokens
       localStorage.removeItem("token");
+      localStorage.removeItem("adminToken");
       localStorage.removeItem("user");
 
       // Clear auth header
@@ -411,6 +382,7 @@ export const AuthProvider = ({ children }) => {
       console.error("Logout error:", err);
       // Still clear localStorage and user on error
       localStorage.removeItem("token");
+      localStorage.removeItem("adminToken");
       localStorage.removeItem("user");
       delete axios.defaults.headers.common["Authorization"];
       setUser(null);
