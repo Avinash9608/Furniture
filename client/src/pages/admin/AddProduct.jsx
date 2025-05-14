@@ -8,6 +8,7 @@ import ProductForm from "../../components/admin/ProductForm";
 import Loading from "../../components/Loading";
 import Alert from "../../components/Alert";
 import Button from "../../components/Button";
+import axios from "axios";
 
 const AddProduct = () => {
   const [categories, setCategories] = useState([]);
@@ -287,55 +288,58 @@ const AddProduct = () => {
         });
       }
 
-      // Determine if we're in development or production
-      const isDevelopment = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
-      const baseUrl = isDevelopment ? "http://localhost:5000" : window.location.origin;
+      // Get the base URL based on environment
+      const hostname = window.location.hostname;
+      const origin = window.location.origin;
+      let baseUrl;
 
-      // Try multiple endpoints with proper headers
-      const endpoints = [
-        `${baseUrl}/api/products`,
-        `${baseUrl}/api/admin/products`,
-        `${baseUrl}/products`,
-        `https://furniture-q3nb.onrender.com/api/products`,
-        `https://furniture-q3nb.onrender.com/api/admin/products`
-      ];
-
-      let lastError = null;
-      for (const endpoint of endpoints) {
-        try {
-          console.log(`Trying to create product at: ${endpoint}`);
-          const response = await fetch(endpoint, {
-            method: 'POST',
-            body: formDataToSubmit,
-            headers: {
-              'Authorization': `Bearer ${localStorage.getItem('adminToken')}`,
-            },
-          });
-
-          if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
-          }
-
-          const data = await response.json();
-          console.log("Product created successfully:", data);
-
-          // Navigate to products page with success message
-          navigate("/admin/products", {
-            state: { successMessage: "Product added successfully!" }
-          });
-          return;
-        } catch (error) {
-          console.warn(`Error creating product at ${endpoint}:`, error);
-          lastError = error;
-        }
+      if (hostname.includes("render.com") || hostname === "furniture-q3nb.onrender.com") {
+        baseUrl = origin;
+      } else if (hostname === "localhost" || hostname === "127.0.0.1") {
+        baseUrl = "http://localhost:5000";
+      } else {
+        baseUrl = origin;
       }
 
-      // If all endpoints fail, throw the last error
-      throw lastError || new Error("Failed to create product after trying all endpoints");
+      // Create axios instance for this request
+      const axiosInstance = axios.create({
+        baseURL: baseUrl,
+        timeout: 60000,
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`,
+          'Accept': 'application/json',
+        }
+      });
+
+      // Try to create the product
+      console.log(`Attempting to create product at ${baseUrl}/api/admin/products`);
+      const response = await axiosInstance.post('/api/admin/products', formDataToSubmit, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        }
+      });
+
+      console.log("Product created successfully:", response.data);
+
+      // Navigate to products page with success message
+      navigate("/admin/products", {
+        state: { successMessage: "Product added successfully!" }
+      });
     } catch (error) {
       console.error("Error creating product:", error);
-      setSubmitError(error.message || "Failed to create product. Please try again.");
+      
+      // Handle different types of errors
+      let errorMessage = "Failed to create product. Please try again.";
+      
+      if (error.response) {
+        // The server responded with an error
+        errorMessage = error.response.data?.message || error.response.statusText || errorMessage;
+      } else if (error.request) {
+        // The request was made but no response was received
+        errorMessage = "Network error: Could not reach the server. Please check your connection.";
+      }
+      
+      setSubmitError(errorMessage);
     } finally {
       setIsSubmitting(false);
     }

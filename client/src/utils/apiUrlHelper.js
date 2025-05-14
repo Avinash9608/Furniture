@@ -55,7 +55,6 @@ export const getAssetsBaseUrl = () => {
 
   // Always use HTTPS in production
   if (hostname.includes("render.com") || hostname === "furniture-q3nb.onrender.com") {
-    // Ensure we're using HTTPS
     return origin.replace('http:', 'https:');
   }
 
@@ -70,23 +69,47 @@ export const getAssetsBaseUrl = () => {
 
 /**
  * Get the full URL for an asset
- * @param {string} assetPath - The asset path
+ * @param {string|object} asset - The asset path or object containing the path
  * @returns {string} The full URL for the asset
  */
-export const getAssetUrl = (assetPath) => {
-  // If the path is already a full URL, ensure it uses HTTPS in production
-  if (assetPath && assetPath.startsWith('http')) {
-    const hostname = window.location.hostname;
-    if (hostname.includes("render.com") || hostname === "furniture-q3nb.onrender.com") {
-      return assetPath.replace('http:', 'https:');
+export const getAssetUrl = (asset) => {
+  if (!asset) return '';
+
+  // If the asset is an object (like from FileUpload)
+  if (typeof asset === 'object') {
+    // If it's a File object or has a preview URL
+    if (asset instanceof File || asset.preview) {
+      return asset.preview || URL.createObjectURL(asset);
     }
-    return assetPath;
+    // If it has a URL property
+    if (asset.url) {
+      return getAssetUrl(asset.url);
+    }
+    // If it has a file property that's a File object
+    if (asset.file instanceof File) {
+      return URL.createObjectURL(asset.file);
+    }
   }
 
-  // Handle relative paths
-  const baseUrl = getAssetsBaseUrl();
-  const normalizedPath = assetPath && assetPath.startsWith('/') ? assetPath : `/${assetPath || ''}`;
-  return `${baseUrl}${normalizedPath}`;
+  // If it's a string URL
+  if (typeof asset === 'string') {
+    // If it's already a full URL
+    if (asset.startsWith('http')) {
+      const hostname = window.location.hostname;
+      // Ensure HTTPS in production
+      if (hostname.includes("render.com") || hostname === "furniture-q3nb.onrender.com") {
+        return asset.replace('http:', 'https:');
+      }
+      return asset;
+    }
+
+    // Handle relative paths
+    const baseUrl = getAssetsBaseUrl();
+    const normalizedPath = asset.startsWith('/') ? asset : `/${asset}`;
+    return `${baseUrl}${normalizedPath}`;
+  }
+
+  return '';
 };
 
 /**
@@ -99,15 +122,13 @@ export const fixImageUrls = (urls) => {
   
   return urls.map(url => {
     if (!url) return '';
-    // If it's a full URL, ensure HTTPS in production
-    if (url.startsWith('http')) {
-      const hostname = window.location.hostname;
-      if (hostname.includes("render.com") || hostname === "furniture-q3nb.onrender.com") {
-        return url.replace('http:', 'https:');
-      }
-      return url;
+    
+    // If it's an object
+    if (typeof url === 'object') {
+      return getAssetUrl(url);
     }
-    // Handle relative paths
+    
+    // If it's a string
     return getAssetUrl(url);
   });
 };
