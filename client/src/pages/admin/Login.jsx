@@ -78,13 +78,28 @@ const Login = () => {
       console.log("Attempting admin login with:", formData.email);
 
       // Attempt admin login
-      await adminLogin(formData.email, formData.password);
+      const response = await adminLogin(formData.email, formData.password);
 
-      // If successful, navigate to dashboard (handled by useEffect)
+      // Verify admin token was set
+      const adminToken = localStorage.getItem('adminToken');
+      if (!adminToken) {
+        throw new Error('Admin token not set after login');
+      }
+
+      // Verify user role
+      const user = JSON.parse(localStorage.getItem('user'));
+      if (!user || user.role !== 'admin') {
+        throw new Error('Invalid admin credentials');
+      }
+
       console.log("Admin login successful, redirecting to:", redirectPath);
+      navigate(redirectPath);
     } catch (error) {
-      // Error handling is done by the auth context
       console.error("Admin login error:", error);
+      setFormErrors(prev => ({
+        ...prev,
+        submit: error.message || 'Login failed. Please try again.'
+      }));
     }
   };
 

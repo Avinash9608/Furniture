@@ -28,30 +28,30 @@ const api = axios.create({
   baseURL: getBaseURL(),
   timeout: 60000, // Increased timeout to 60 seconds for production
   withCredentials: false, // Must be false to work with wildcard CORS
-  headers: {
-    'Accept': 'application/json',
-  }
 });
 
 // Add request interceptor to handle auth token
 api.interceptors.request.use(
   (config) => {
-    // Try to get admin token first, then fall back to regular token
+    // Try to get admin token first
     const adminToken = localStorage.getItem('adminToken');
-    const regularToken = localStorage.getItem('token');
-    const token = adminToken || regularToken;
-
-    if (token) {
-      console.log('Adding auth token to request');
-      config.headers['Authorization'] = `Bearer ${token}`;
-    } else {
-      console.warn('No auth token found in localStorage');
+    
+    // For admin endpoints, ensure we have admin token
+    if (config.url.includes('/admin/')) {
+      if (!adminToken) {
+        console.error('Attempting to access admin endpoint without admin token');
+        throw new Error('Admin authentication required. Please log in as an administrator.');
+      }
+      console.log('Using admin token for admin endpoint');
+      config.headers['Authorization'] = `Bearer ${adminToken}`;
+      return config;
     }
 
-    // For admin endpoints, ensure we're using admin token
-    if (config.url.includes('/admin/') && !adminToken) {
-      console.error('Attempting to access admin endpoint without admin token');
-      throw new Error('Admin authentication required. Please log in as an administrator.');
+    // For non-admin endpoints, try regular token
+    const token = localStorage.getItem('token');
+    if (token) {
+      console.log('Using regular token for non-admin endpoint');
+      config.headers['Authorization'] = `Bearer ${token}`;
     }
 
     return config;
@@ -74,8 +74,12 @@ api.interceptors.response.use(
       localStorage.removeItem('token');
       localStorage.removeItem('adminToken');
       localStorage.removeItem('user');
-      // Redirect to login page
-      window.location.href = '/admin/login';
+      // Redirect to admin login for admin endpoints
+      if (error.config.url.includes('/admin/')) {
+        window.location.href = '/admin/login';
+      } else {
+        window.location.href = '/login';
+      }
     }
     
     return Promise.reject(error);
@@ -86,6 +90,12 @@ api.interceptors.response.use(
 const productsAPI = {
   create: async (formData) => {
     try {
+      // Verify admin token exists
+      const adminToken = localStorage.getItem('adminToken');
+      if (!adminToken) {
+        throw new Error('Admin authentication required. Please log in as an administrator.');
+      }
+
       // Log the request details
       console.log('Creating product with FormData');
       console.log('FormData entries:');
@@ -93,11 +103,10 @@ const productsAPI = {
         console.log(pair[0], typeof pair[1], pair[1]);
       }
 
-      // Ensure we're using the correct content type for FormData
       const config = {
         headers: {
           'Content-Type': 'multipart/form-data',
-          'Accept': 'application/json',
+          'Authorization': `Bearer ${adminToken}`,
         },
       };
 

@@ -78,14 +78,30 @@ const ProductForm = ({
         },
       });
 
-      setImagePreviews(processedData.images || []);
+      // Handle image previews with error handling
+      if (processedData.images && processedData.images.length > 0) {
+        const previews = processedData.images.map(img => {
+          if (typeof img === 'string') {
+            // Try the direct URL first
+            const directUrl = getAssetUrl(img);
+            // Fallback to production URL if needed
+            const fallbackUrl = `https://furniture-q3nb.onrender.com${img.startsWith('/') ? '' : '/'}${img}`;
+            return { url: directUrl, fallback: fallbackUrl };
+          }
+          return { url: getAssetUrl(img), fallback: null };
+        });
+        setImagePreviews(previews.map(p => p.url));
+      }
 
-      // Handle images
+      // Handle images with error handling
       if (processedData.images && processedData.images.length > 0) {
         const processedImages = processedData.images.map(img => {
           if (typeof img === 'string') {
+            const directUrl = getAssetUrl(img);
+            const fallbackUrl = `https://furniture-q3nb.onrender.com${img.startsWith('/') ? '' : '/'}${img}`;
             return {
-              preview: getAssetUrl(img),
+              preview: directUrl,
+              fallback: fallbackUrl,
               name: img.split('/').pop(),
               url: img
             };
@@ -96,6 +112,19 @@ const ProductForm = ({
       }
     }
   }, [initialData]);
+
+  // Handle image error and try fallback
+  const handleImageError = (index, e) => {
+    const img = images[index];
+    if (img && img.fallback && e.target.src !== img.fallback) {
+      console.log(`Trying fallback URL for image ${index}:`, img.fallback);
+      e.target.src = img.fallback;
+    } else {
+      console.error(`Failed to load image ${index}:`, e.target.src);
+      // You could set a default placeholder image here
+      e.target.src = 'https://placehold.co/300x300/gray/white?text=Image+Not+Found';
+    }
+  };
 
   // Handle form input changes
   const handleChange = (e) => {
@@ -225,6 +254,16 @@ const ProductForm = ({
     const formDataToSubmit = new FormData();
 
     try {
+      // Add authentication token
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setErrors(prev => ({
+          ...prev,
+          submit: 'Authentication required. Please log in again.'
+        }));
+        return;
+      }
+
       // Add basic fields
       formDataToSubmit.append('name', formData.name.trim());
       formDataToSubmit.append('description', formData.description.trim());
@@ -265,8 +304,8 @@ const ProductForm = ({
         console.log(pair[0], typeof pair[1], pair[1]);
       }
 
-      // Submit the form
-      onSubmit(formDataToSubmit);
+      // Submit the form with authentication token
+      onSubmit(formDataToSubmit, token);
     } catch (error) {
       console.error('Error preparing form data:', error);
       setErrors(prev => ({
@@ -684,10 +723,7 @@ const ProductForm = ({
                 src={preview}
                 alt={`Preview ${index + 1}`}
                 className="w-24 h-24 object-cover rounded-lg"
-                onError={(e) => {
-                  // If image fails to load, try with fixed URL
-                  e.target.src = getAssetUrl(preview);
-                }}
+                onError={(e) => handleImageError(index, e)}
               />
               <button
                 type="button"
@@ -695,6 +731,11 @@ const ProductForm = ({
                   const newImages = [...imagePreviews];
                   newImages.splice(index, 1);
                   setImagePreviews(newImages);
+                  
+                  // Also remove from images array
+                  const newImagesArray = [...images];
+                  newImagesArray.splice(index, 1);
+                  setImages(newImagesArray);
                 }}
                 className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1"
               >

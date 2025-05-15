@@ -55,7 +55,7 @@ export const getAssetsBaseUrl = () => {
 
   // Always use HTTPS in production
   if (hostname.includes("render.com") || hostname === "furniture-q3nb.onrender.com") {
-    return origin.replace('http:', 'https:');
+    return "https://furniture-q3nb.onrender.com";  // Always use the full production URL
   }
 
   // In development, use localhost:5000
@@ -63,7 +63,7 @@ export const getAssetsBaseUrl = () => {
     return "http://localhost:5000";
   }
 
-  // In other production environments, use HTTPS
+  // In other production environments, use the current origin with HTTPS
   return origin.replace('http:', 'https:');
 };
 
