@@ -22,17 +22,36 @@ const AdminMessages = () => {
   // Function to handle logout and redirect to login page
   const handleLogout = () => {
     console.log("Logging out user and redirecting to login page");
+    // Clear all authentication data
     localStorage.removeItem("token");
+    localStorage.removeItem("adminToken");
     localStorage.removeItem("user");
+
+    // Clear any auth cookies
+    document.cookie =
+      "adminToken=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;";
+    document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;";
+
+    // Redirect to admin login
     window.location.href = "/admin/login";
   };
 
   // Function to check if user is logged in as admin
   const checkAdminAuth = () => {
+    // Check for both token types
     const token = localStorage.getItem("token");
+    const adminToken = localStorage.getItem("adminToken");
     const userStr = localStorage.getItem("user");
 
-    if (!token) {
+    // Log available tokens for debugging
+    console.log("Available tokens:", {
+      token: token ? "exists" : "missing",
+      adminToken: adminToken ? "exists" : "missing",
+      user: userStr ? "exists" : "missing",
+    });
+
+    // Check if we have any token
+    if (!token && !adminToken) {
       console.warn("No authentication token found, user may not be logged in");
       setError(
         "You must be logged in to view messages. Please log in as an admin."
@@ -42,6 +61,26 @@ const AdminMessages = () => {
 
     try {
       const user = JSON.parse(userStr || "{}");
+
+      // If we have an adminToken, assume the user is an admin
+      if (adminToken) {
+        console.log("Admin token found, assuming user is an admin");
+        // If user data is missing but we have adminToken, create a placeholder
+        if (!userStr || Object.keys(user).length === 0) {
+          console.log("Creating placeholder admin user data");
+          localStorage.setItem(
+            "user",
+            JSON.stringify({
+              role: "admin",
+              email: "admin@example.com",
+              name: "Admin User",
+            })
+          );
+        }
+        return true;
+      }
+
+      // Otherwise check the user role
       if (user.role !== "admin") {
         console.warn("User is not an admin:", user);
         setError("You must be logged in as an admin to view messages.");
@@ -53,7 +92,10 @@ const AdminMessages = () => {
       }
 
       console.log("User is logged in as admin:", user.email);
-      console.log("Authentication token:", token.substring(0, 10) + "...");
+      console.log(
+        "Authentication token:",
+        token ? token.substring(0, 10) + "..." : "Using adminToken"
+      );
       return true;
     } catch (error) {
       console.error("Error parsing user data:", error);
@@ -193,74 +235,146 @@ const AdminMessages = () => {
       // Clear all mock data first
       clearAllMockData();
 
-      // Get the token
+      // Get the tokens - try both token and adminToken
       const token = localStorage.getItem("token");
+      const adminToken = localStorage.getItem("adminToken");
+      const effectiveToken = adminToken || token;
+
+      if (!effectiveToken) {
+        console.error("No authentication token found");
+        setError("Authentication required. Please log in as an admin.");
+        setLoading(false);
+        return;
+      }
 
       // Get the base URL based on environment
       const baseUrl = window.location.origin;
       const isProduction = baseUrl.includes("onrender.com");
+      const isDevelopment =
+        baseUrl.includes("localhost") || baseUrl.includes("127.0.0.1");
 
-      // Use the correct API endpoint based on the environment
-      // In development, use /api/contact (not /api/contacts)
-      // In production, use /api/admin/messages
-      const apiUrl = isProduction ? "/api/admin/messages" : "/api/contact";
+      // Define all possible API endpoints to try
+      const apiEndpoints = [
+        // Primary endpoints
+        "/api/admin/messages",
+        "/admin/messages",
 
-      console.log(
-        `Using API URL: ${apiUrl} for environment: ${
-          isProduction ? "production" : "development"
-        }`
-      );
+        // Fallback endpoints
+        "/api/contact",
 
-      // Make a direct fetch request with the correct API endpoint
-      const response = await fetch(apiUrl, {
-        method: "GET",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-          Authorization: token ? `Bearer ${token}` : "",
-          "Cache-Control": "no-cache, no-store, must-revalidate",
-          Pragma: "no-cache",
-          Expires: "0",
-          "X-Requested-With": "XMLHttpRequest",
-        },
-        credentials: "include",
-      });
+        // Development-specific endpoints
+        isDevelopment ? "http://localhost:5000/api/admin/messages" : null,
+        isDevelopment ? "http://localhost:5000/admin/messages" : null,
+        isDevelopment ? "http://localhost:5000/api/contact" : null,
 
-      if (!response.ok) {
-        throw new Error(`API returned status ${response.status}`);
+        // Production-specific endpoints
+        isProduction
+          ? "https://furniture-q3nb.onrender.com/api/admin/messages"
+          : null,
+        isProduction
+          ? "https://furniture-q3nb.onrender.com/admin/messages"
+          : null,
+      ].filter(Boolean); // Remove null entries
+
+      console.log("Will try these API endpoints:", apiEndpoints);
+
+      // Try each endpoint until one works
+      let success = false;
+      let responseData = null;
+      let errorMessages = [];
+
+      for (const apiUrl of apiEndpoints) {
+        if (success) break;
+
+        try {
+          console.log(`Trying API URL: ${apiUrl}`);
+
+          // Make a direct fetch request with the correct API endpoint
+          const response = await fetch(apiUrl, {
+            method: "GET",
+            headers: {
+              Accept: "application/json",
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${effectiveToken}`,
+              "Cache-Control": "no-cache, no-store, must-revalidate",
+              Pragma: "no-cache",
+              Expires: "0",
+              "X-Requested-With": "XMLHttpRequest",
+            },
+            credentials: "include",
+          });
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(
+              `API returned status ${response.status}: ${errorText}`
+            );
+          }
+
+          const data = await response.json();
+          console.log(`Response from ${apiUrl}:`, data);
+
+          // Check if the response has valid data
+          if (data) {
+            responseData = data;
+            success = true;
+            console.log(`Successfully fetched data from ${apiUrl}`);
+            break;
+          }
+        } catch (endpointError) {
+          console.error(`Error with endpoint ${apiUrl}:`, endpointError);
+          errorMessages.push(`${apiUrl}: ${endpointError.message}`);
+        }
       }
 
-      const data = await response.json();
-      console.log("Direct fetch response:", data);
+      if (!success) {
+        throw new Error(
+          `All API endpoints failed: ${errorMessages.join("; ")}`
+        );
+      }
 
-      // If the response has the expected format, update the messages
+      // Process the successful response
       if (
-        data &&
-        data.source === "direct_database" &&
-        data.data &&
-        Array.isArray(data.data)
+        responseData &&
+        responseData.source === "direct_database" &&
+        responseData.data &&
+        Array.isArray(responseData.data)
       ) {
-        console.log("Setting messages from direct fetch:", data.data);
-        setMessages(data.data);
-        setSuccessMessage(
-          "Successfully fetched messages directly from the API!"
-        );
-      } else if (data && Array.isArray(data)) {
-        console.log("Setting messages from direct fetch (array format):", data);
-        setMessages(data);
-        setSuccessMessage(
-          "Successfully fetched messages directly from the API!"
-        );
-      } else if (data && data.data && Array.isArray(data.data)) {
         console.log(
-          "Setting messages from direct fetch (nested data):",
-          data.data
+          "Setting messages from direct database:",
+          responseData.data
         );
-        setMessages(data.data);
+        setMessages(responseData.data);
         setSuccessMessage(
-          "Successfully fetched messages directly from the API!"
+          "Successfully fetched messages directly from the database!"
         );
+      } else if (responseData && Array.isArray(responseData)) {
+        console.log("Setting messages from array format:", responseData);
+        setMessages(responseData);
+        setSuccessMessage("Successfully fetched messages from the API!");
+      } else if (
+        responseData &&
+        responseData.data &&
+        Array.isArray(responseData.data)
+      ) {
+        console.log(
+          "Setting messages from nested data format:",
+          responseData.data
+        );
+        setMessages(responseData.data);
+        setSuccessMessage("Successfully fetched messages from the API!");
+      } else if (responseData && responseData.success && responseData.data) {
+        console.log(
+          "Setting messages from success response format:",
+          responseData.data
+        );
+        setMessages(responseData.data);
+        setSuccessMessage("Successfully fetched messages from the API!");
       } else {
+        console.error(
+          "API response doesn't have the expected format:",
+          responseData
+        );
         setUpdateError("API response doesn't have the expected format");
       }
     } catch (error) {

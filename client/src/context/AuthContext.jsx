@@ -28,34 +28,56 @@ export const AuthProvider = ({ children }) => {
     try {
       setLoading(true);
 
-      // Check if we have a token in localStorage
+      // Check for admin token first
+      const adminToken = localStorage.getItem("adminToken") || sessionStorage.getItem("adminToken");
+      const userStr = localStorage.getItem("user") || sessionStorage.getItem("user");
+      
+      if (adminToken && userStr) {
+        try {
+          const parsedUser = JSON.parse(userStr);
+          if (parsedUser.role === "admin") {
+            // For admin users, verify token with backend
+            try {
+              const response = await axios.get('/api/admin/verify-token', {
+                headers: {
+                  Authorization: `Bearer ${adminToken}`
+                }
+              });
+              
+              if (response.data.success) {
+                if (isMounted) {
+                  setUser(parsedUser);
+                  setLoading(false);
+                }
+                return true;
+              }
+            } catch (verifyError) {
+              console.error('Admin token verification failed:', verifyError);
+              // Clear invalid tokens
+              localStorage.removeItem('adminToken');
+              sessionStorage.removeItem('adminToken');
+              localStorage.removeItem('user');
+              sessionStorage.removeItem('user');
+              document.cookie = 'adminToken=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+              if (isMounted) {
+                setUser(null);
+              }
+              return false;
+            }
+          }
+        } catch (e) {
+          console.error("Error parsing stored user:", e);
+        }
+      }
+
+      // Check for regular user token
       const token = localStorage.getItem("token");
       if (!token) {
         if (isMounted) {
           setUser(null);
           setLoading(false);
         }
-        return;
-      }
-
-      // Check for admin token pattern
-      if (token.startsWith("admin-token-")) {
-        // For admin tokens, just use the stored user data
-        const storedUser = localStorage.getItem("user");
-        if (storedUser) {
-          try {
-            const parsedUser = JSON.parse(storedUser);
-            if (parsedUser.role === "admin") {
-              if (isMounted) {
-                setUser(parsedUser);
-                setLoading(false);
-              }
-              return;
-            }
-          } catch (e) {
-            console.error("Error parsing stored admin user:", e);
-          }
-        }
+        return false;
       }
 
       // Set auth header
@@ -68,24 +90,25 @@ export const AuthProvider = ({ children }) => {
       if (isMounted) {
         setUser(response.data.data);
       }
+      return true;
     } catch (err) {
       console.error("Auth check error:", err);
       // Clear localStorage on auth error
       localStorage.removeItem("token");
+      localStorage.removeItem("adminToken");
+      sessionStorage.removeItem("adminToken");
       localStorage.removeItem("user");
+      sessionStorage.removeItem("user");
+      document.cookie = 'adminToken=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
       if (isMounted) {
         setUser(null);
       }
+      return false;
     } finally {
       if (isMounted) {
         setLoading(false);
       }
     }
-
-    // Return cleanup function
-    return () => {
-      isMounted = false;
-    };
   }, []);
 
   // Check auth on mount
@@ -306,86 +329,79 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Admin login
+  // Admin login function
   const adminLogin = async (email, password) => {
     try {
       setLoading(true);
       setError(null);
 
-      // Determine if we're in development or production
-      const baseUrl = window.location.origin;
-      const isDevelopment = !baseUrl.includes("onrender.com");
-      const localServerUrl = "http://localhost:5000";
+      // Try the regular admin login endpoint
+      const response = await axios.post('/api/auth/admin/login', {
+        email: email.trim(),
+        password: password.trim()
+      });
 
-      // Try the direct admin login endpoint first (more reliable)
-      const directApiUrl = isDevelopment
-        ? `${localServerUrl}/api/auth/admin/direct-login`
-        : "/api/auth/admin/login";
-
-      console.log("Attempting admin login with:", directApiUrl);
-
-      const response = await axios.post(
-        directApiUrl,
-        {
-          email,
-          password,
-        },
-        {
-          timeout: 30000, // 30 seconds timeout
-        }
-      );
-
-      // Store tokens properly
       const { token, user } = response.data;
+
+      // Store token in both localStorage and sessionStorage for persistence
+      localStorage.setItem('adminToken', token);
+      sessionStorage.setItem('adminToken', token);
       
-      // Store the admin token specifically
-      localStorage.setItem("adminToken", token);
-      localStorage.setItem("token", token); // Also store as regular token for compatibility
-      localStorage.setItem("user", JSON.stringify({ ...user, role: "admin" }));
+      // Store user data
+      const userData = { ...user, role: 'admin' };
+      localStorage.setItem('user', JSON.stringify(userData));
+      sessionStorage.setItem('user', JSON.stringify(userData));
 
-      // Set auth header
-      axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+      // Set axios default header
+      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
 
-      // Set user with admin role
-      setUser({ ...user, role: "admin" });
+      // Update state
+      setUser(userData);
+      setError(null);
 
-      console.log("Admin login successful");
       return response.data;
     } catch (err) {
-      console.error("Admin login error:", err);
-      setError(err.response?.data?.message || "Admin login failed");
+      console.error('Admin login error:', err);
+      const errorMessage = err.response?.data?.message || 'Failed to login. Please check your credentials.';
+      setError(errorMessage);
       throw err;
     } finally {
       setLoading(false);
     }
   };
 
-  // Logout user
+  // Logout function
   const logout = async () => {
     try {
       setLoading(true);
-
-      // Call logout endpoint
-      await authAPI.logout();
-
-      // Clear all tokens
-      localStorage.removeItem("token");
-      localStorage.removeItem("adminToken");
-      localStorage.removeItem("user");
-
-      // Clear auth header
-      delete axios.defaults.headers.common["Authorization"];
-
-      // Clear user
+      
+      // Clear all stored tokens and user data
+      localStorage.removeItem('token');
+      localStorage.removeItem('adminToken');
+      localStorage.removeItem('user');
+      sessionStorage.removeItem('token');
+      sessionStorage.removeItem('adminToken');
+      sessionStorage.removeItem('user');
+      
+      // Clear cookies
+      document.cookie = 'adminToken=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+      
+      // Clear axios default header
+      delete axios.defaults.headers.common['Authorization'];
+      
+      // Clear user state
       setUser(null);
+      
+      // Try to call logout endpoint, but don't wait for it
+      try {
+        await axios.get('/api/auth/logout');
+      } catch (err) {
+        console.error('Logout endpoint error:', err);
+        // Continue with local logout even if server logout fails
+      }
     } catch (err) {
-      console.error("Logout error:", err);
-      // Still clear localStorage and user on error
-      localStorage.removeItem("token");
-      localStorage.removeItem("adminToken");
-      localStorage.removeItem("user");
-      delete axios.defaults.headers.common["Authorization"];
-      setUser(null);
+      console.error('Logout error:', err);
+      setError('Failed to logout. Please try again.');
     } finally {
       setLoading(false);
     }

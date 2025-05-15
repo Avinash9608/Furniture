@@ -48,10 +48,50 @@ const CategoriesSimple = () => {
       setLoading(true);
       setError(null);
 
+      console.log("Fetching categories...");
       const response = await categoriesAPI.getAll();
+      console.log("Raw categories response:", response);
+
+      // Extract categories data with safe fallbacks
+      let categoriesData = [];
+
+      if (response.data && Array.isArray(response.data.data)) {
+        console.log("Found categories in response.data.data");
+        categoriesData = response.data.data;
+      } else if (Array.isArray(response.data)) {
+        console.log("Found categories in response.data (array)");
+        categoriesData = response.data;
+      } else if (response.success && Array.isArray(response.data)) {
+        console.log("Found categories in response.data with success flag");
+        categoriesData = response.data;
+      } else if (
+        response.data &&
+        response.data.success &&
+        Array.isArray(response.data.data)
+      ) {
+        console.log("Found categories in response.data.data with success flag");
+        categoriesData = response.data.data;
+      } else if (response.data && typeof response.data === "object") {
+        // Look for any array property that might contain categories
+        for (const key in response.data) {
+          if (Array.isArray(response.data[key])) {
+            console.log(`Found potential categories array in property: ${key}`);
+            categoriesData = response.data[key];
+            break;
+          }
+        }
+      }
+
+      console.log("Extracted categories data:", categoriesData);
+
+      // If we don't have categories, just use an empty array - no fallback data
+      if (!categoriesData || categoriesData.length === 0) {
+        console.warn("No categories found in response, using empty array");
+        categoriesData = [];
+      }
 
       // Validate categories data to ensure all required fields exist
-      const validatedCategories = validateCategories(response.data.data);
+      const validatedCategories = validateCategories(categoriesData);
       console.log("Validated categories:", validatedCategories);
 
       setCategories(validatedCategories);
@@ -70,7 +110,26 @@ const CategoriesSimple = () => {
             category: category._id,
             limit: 1,
           });
-          productCounts[category._id] = productsResponse.data.count || 0;
+
+          // Handle different response formats
+          let count = 0;
+          if (
+            productsResponse.data &&
+            typeof productsResponse.data.count === "number"
+          ) {
+            count = productsResponse.data.count;
+          } else if (productsResponse.count) {
+            count = productsResponse.count;
+          } else if (Array.isArray(productsResponse.data)) {
+            count = productsResponse.data.length;
+          } else if (
+            productsResponse.data &&
+            Array.isArray(productsResponse.data.data)
+          ) {
+            count = productsResponse.data.data.length;
+          }
+
+          productCounts[category._id] = count;
         } catch (err) {
           console.error(
             `Error fetching products for category ${category._id}:`,
@@ -82,19 +141,12 @@ const CategoriesSimple = () => {
       setCategoryProducts(productCounts);
     } catch (err) {
       console.error("Error fetching categories:", err);
-      setError("Failed to load categories. Please try again later.");
+      setError(
+        "No categories found in the database. Use the 'Add Category' button to create new categories."
+      );
 
-      // Set fallback categories in case of error
-      const fallbackCategories = validateCategories([
-        {
-          name: "Sofa Beds",
-          description: "Comfortable sofa beds for your living room",
-        },
-        { name: "Tables", description: "Stylish tables for your home" },
-        { name: "Chairs", description: "Ergonomic chairs for comfort" },
-        { name: "Wardrobes", description: "Spacious wardrobes for storage" },
-      ]);
-      setCategories(fallbackCategories);
+      // Don't set any fallback categories, just use an empty array
+      setCategories([]);
     } finally {
       setLoading(false);
     }
@@ -104,8 +156,34 @@ const CategoriesSimple = () => {
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (file) {
+      console.log(
+        "Selected image file:",
+        file.name,
+        "Size:",
+        file.size,
+        "Type:",
+        file.type
+      );
+
       setNewCategory({ ...newCategory, image: file });
-      setImagePreview(URL.createObjectURL(file));
+
+      // Create object URL for preview
+      const objectUrl = URL.createObjectURL(file);
+      console.log("Created object URL for preview:", objectUrl);
+      setImagePreview(objectUrl);
+
+      // Log file details for debugging
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        console.log(
+          "File loaded successfully, size in bytes:",
+          event.target.result.length
+        );
+      };
+      reader.onerror = (error) => {
+        console.error("Error reading file:", error);
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -113,8 +191,34 @@ const CategoriesSimple = () => {
   const handleEditImageChange = (e) => {
     const file = e.target.files[0];
     if (file) {
+      console.log(
+        "Selected edit image file:",
+        file.name,
+        "Size:",
+        file.size,
+        "Type:",
+        file.type
+      );
+
       setEditCategory({ ...editCategory, newImage: file });
-      setEditImagePreview(URL.createObjectURL(file));
+
+      // Create object URL for preview
+      const objectUrl = URL.createObjectURL(file);
+      console.log("Created object URL for edit preview:", objectUrl);
+      setEditImagePreview(objectUrl);
+
+      // Log file details for debugging
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        console.log(
+          "Edit file loaded successfully, size in bytes:",
+          event.target.result.length
+        );
+      };
+      reader.onerror = (error) => {
+        console.error("Error reading edit file:", error);
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -131,12 +235,34 @@ const CategoriesSimple = () => {
       setIsSubmitting(true);
       setFormError(null);
 
+      // Create FormData object for file upload
       const formData = new FormData();
-      formData.append("name", newCategory.name);
-      formData.append("description", newCategory.description);
 
+      // Add required fields with validation
+      if (!newCategory.name || newCategory.name.trim() === "") {
+        setFormError("Category name is required");
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Add name and description to form data
+      formData.append("name", newCategory.name.trim());
+
+      if (newCategory.description) {
+        formData.append("description", newCategory.description.trim());
+      } else {
+        formData.append("description", "");
+      }
+
+      // Add image if it exists
       if (newCategory.image) {
         formData.append("image", newCategory.image);
+      }
+
+      // Log form data for debugging
+      console.log("Form data being sent:");
+      for (let [key, value] of formData.entries()) {
+        console.log(`${key}: ${value instanceof File ? value.name : value}`);
       }
 
       const config = {
@@ -151,10 +277,12 @@ const CategoriesSimple = () => {
       // Handle different response structures
       let newCategoryData = null;
 
-      if (response.data && response.data.data) {
-        newCategoryData = response.data.data;
-      } else if (response.data) {
+      if (response && response.data) {
         newCategoryData = response.data;
+        console.log("Response data:", newCategoryData);
+      } else if (response && response.success && response.data) {
+        newCategoryData = response.data;
+        console.log("Direct response data:", newCategoryData);
       } else {
         // If no valid data, create a temporary category object
         newCategoryData = {
@@ -163,7 +291,19 @@ const CategoriesSimple = () => {
           description: formData.get("description") || "",
           image: null,
         };
+        console.log("Created temporary category:", newCategoryData);
       }
+
+      // Ensure we have all required fields
+      if (!newCategoryData.name && formData.get("name")) {
+        newCategoryData.name = formData.get("name");
+      }
+
+      if (!newCategoryData.description && formData.get("description")) {
+        newCategoryData.description = formData.get("description");
+      }
+
+      console.log("Final category data to be added to state:", newCategoryData);
 
       console.log("Processed new category data:", newCategoryData);
 
@@ -179,8 +319,10 @@ const CategoriesSimple = () => {
       setShowAddModal(false);
 
       // Show success message
-      setSuccessMessage("Category added successfully!");
-      setTimeout(() => setSuccessMessage(null), 3000);
+      setSuccessMessage(
+        "Category added successfully! It has been saved to the database."
+      );
+      setTimeout(() => setSuccessMessage(null), 5000);
     } catch (err) {
       console.error("Error adding category:", err);
 
@@ -197,11 +339,11 @@ const CategoriesSimple = () => {
           "Category may have been added. Showing success message and refreshing data."
         );
 
-        // Create a temporary category object
+        // Create a temporary category object using the form values directly
         const tempCategory = {
           _id: `temp_${Date.now()}`,
-          name: formData.get("name"),
-          description: formData.get("description") || "",
+          name: newCategory.name,
+          description: newCategory.description || "",
           image: null,
         };
 
@@ -218,7 +360,7 @@ const CategoriesSimple = () => {
 
         // Show success message
         setSuccessMessage(
-          "Category added successfully! Refresh to see the latest data."
+          "Category may have been added to the database. The page will refresh to check for updates."
         );
         setTimeout(() => setSuccessMessage(null), 5000);
 
@@ -271,12 +413,34 @@ const CategoriesSimple = () => {
       setIsSubmitting(true);
       setFormError(null);
 
+      // Create FormData object for file upload
       const formData = new FormData();
-      formData.append("name", editCategory.name);
-      formData.append("description", editCategory.description);
 
+      // Add required fields with validation
+      if (!editCategory.name || editCategory.name.trim() === "") {
+        setFormError("Category name is required");
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Add name and description to form data
+      formData.append("name", editCategory.name.trim());
+
+      if (editCategory.description) {
+        formData.append("description", editCategory.description.trim());
+      } else {
+        formData.append("description", "");
+      }
+
+      // Add image if it exists
       if (editCategory.newImage) {
         formData.append("image", editCategory.newImage);
+      }
+
+      // Log form data for debugging
+      console.log("Edit form data being sent:");
+      for (let [key, value] of formData.entries()) {
+        console.log(`${key}: ${value instanceof File ? value.name : value}`);
       }
 
       const response = await categoriesAPI.update(editCategory._id, formData);
@@ -285,10 +449,12 @@ const CategoriesSimple = () => {
       // Handle different response structures
       let updatedCategoryData = null;
 
-      if (response.data && response.data.data) {
-        updatedCategoryData = response.data.data;
-      } else if (response.data) {
+      if (response && response.data) {
         updatedCategoryData = response.data;
+        console.log("Response data:", updatedCategoryData);
+      } else if (response && response.success && response.data) {
+        updatedCategoryData = response.data;
+        console.log("Direct response data:", updatedCategoryData);
       } else {
         // If no valid data, create an updated category object based on the form data
         updatedCategoryData = {
@@ -298,7 +464,24 @@ const CategoriesSimple = () => {
           // Keep the existing image if no new one was uploaded
           image: editCategory.image,
         };
+        console.log("Created temporary updated category:", updatedCategoryData);
       }
+
+      // Ensure we have all required fields
+      if (!updatedCategoryData.name && formData.get("name")) {
+        updatedCategoryData.name = formData.get("name");
+      }
+
+      if (!updatedCategoryData.description && formData.get("description")) {
+        updatedCategoryData.description = formData.get("description");
+      }
+
+      // Ensure we preserve the ID
+      if (!updatedCategoryData._id && editCategory._id) {
+        updatedCategoryData._id = editCategory._id;
+      }
+
+      console.log("Final updated category data:", updatedCategoryData);
 
       console.log("Processed updated category data:", updatedCategoryData);
 
@@ -314,8 +497,10 @@ const CategoriesSimple = () => {
       setShowEditModal(false);
 
       // Show success message
-      setSuccessMessage("Category updated successfully!");
-      setTimeout(() => setSuccessMessage(null), 3000);
+      setSuccessMessage(
+        "Category updated successfully! Changes have been saved to the database."
+      );
+      setTimeout(() => setSuccessMessage(null), 5000);
     } catch (err) {
       console.error("Error updating category:", err);
 
@@ -332,11 +517,11 @@ const CategoriesSimple = () => {
           "Category may have been updated. Showing success message and refreshing data."
         );
 
-        // Create an updated category object based on the form data
+        // Create an updated category object using the state values directly
         const updatedCategory = {
           ...editCategory,
-          name: formData.get("name"),
-          description: formData.get("description") || "",
+          name: editCategory.name,
+          description: editCategory.description || "",
           // Keep the existing image if no new one was uploaded
           image: editCategory.image,
         };
@@ -354,7 +539,7 @@ const CategoriesSimple = () => {
 
         // Show success message
         setSuccessMessage(
-          "Category updated successfully! Refresh to see the latest data."
+          "Category may have been updated in the database. The page will refresh to check for updates."
         );
         setTimeout(() => setSuccessMessage(null), 5000);
 
@@ -424,8 +609,10 @@ const CategoriesSimple = () => {
       setShowDeleteModal(false);
 
       // Show success message
-      setSuccessMessage("Category deleted successfully!");
-      setTimeout(() => setSuccessMessage(null), 3000);
+      setSuccessMessage(
+        "Category deleted successfully! It has been removed from the database."
+      );
+      setTimeout(() => setSuccessMessage(null), 5000);
     } catch (err) {
       console.error("Error deleting category:", err);
       setFormError(
@@ -501,7 +688,15 @@ const CategoriesSimple = () => {
           <Alert type="error" message={error} />
         ) : categories.length === 0 ? (
           <div className="text-center theme-text-secondary py-8">
-            No categories found. Click the "Add Category" button to create one.
+            <p className="mb-2">No categories found in the database.</p>
+            <p>
+              Click the "Add Category" button above to create your first
+              category.
+            </p>
+            <p className="mt-4 text-sm">
+              Categories you create will be saved to the database and displayed
+              here.
+            </p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -522,24 +717,41 @@ const CategoriesSimple = () => {
                     className="theme-bg-secondary rounded-lg overflow-hidden shadow-sm border theme-border"
                   >
                     <div className="h-48 overflow-hidden">
-                      {categoryImage ? (
-                        <img
-                          src={getImageUrl(categoryImage)}
-                          alt={categoryName}
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            console.log("Image load error for:", categoryImage);
-                            e.target.onerror = null;
-                            e.target.src = "/no-image.jpg";
-                          }}
-                        />
-                      ) : (
-                        <div className="w-full h-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
-                          <span className="text-xs theme-text-secondary">
-                            No Image
-                          </span>
-                        </div>
-                      )}
+                      <img
+                        src={getImageUrl(categoryImage)}
+                        alt={categoryName || "Category"}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          console.log("Image load error for:", categoryImage);
+                          console.log("Attempted URL:", e.target.src);
+                          e.target.onerror = null;
+
+                          // Try alternative URL formats before falling back to placeholder
+                          if (
+                            categoryImage &&
+                            categoryImage.startsWith("/uploads/")
+                          ) {
+                            const filename = categoryImage.split("/").pop();
+                            console.log(
+                              "Trying alternative URL with filename:",
+                              filename
+                            );
+                            e.target.src = `http://localhost:5000/uploads/${filename}`;
+
+                            // Add a second error handler for the alternative URL
+                            e.target.onerror = (e2) => {
+                              console.log("Alternative URL also failed");
+                              e2.target.onerror = null;
+                              e2.target.src =
+                                "https://placehold.co/300x300/e2e8f0/1e293b?text=No+Image";
+                            };
+                          } else {
+                            // Use a reliable placeholder service
+                            e.target.src =
+                              "https://placehold.co/300x300/e2e8f0/1e293b?text=No+Image";
+                          }
+                        }}
+                      />
                     </div>
                     <div className="p-4">
                       <div className="flex justify-between items-start">
@@ -600,7 +812,10 @@ const CategoriesSimple = () => {
                 );
               },
               <div className="col-span-3 text-center py-8 theme-text-secondary">
-                No valid categories found.
+                <p>No valid categories found in the database.</p>
+                <p className="mt-2">
+                  Please add categories using the "Add Category" button.
+                </p>
               </div>
             )}
           </div>
@@ -680,18 +895,34 @@ const CategoriesSimple = () => {
               file:bg-primary file:text-white
               hover:file:bg-primary-dark"
               onChange={handleImageChange}
-              required
               disabled={isSubmitting}
             />
-            {imagePreview && (
-              <div className="mt-2">
-                <img
-                  src={imagePreview}
-                  alt="Preview"
-                  className="h-32 w-32 object-cover rounded-md"
-                />
-              </div>
-            )}
+            <div className="mt-2">
+              <img
+                src={
+                  imagePreview ||
+                  "https://placehold.co/300x300/e2e8f0/1e293b?text=No+Image"
+                }
+                alt="Preview"
+                className="h-32 w-32 object-cover rounded-md"
+                onError={(e) => {
+                  console.log("Image preview load error");
+                  console.log("Attempted preview URL:", e.target.src);
+                  e.target.onerror = null;
+                  e.target.src =
+                    "https://placehold.co/300x300/e2e8f0/1e293b?text=No+Image";
+                }}
+              />
+              {imagePreview && (
+                <p className="mt-1 text-xs text-gray-500">
+                  {typeof imagePreview === "string"
+                    ? `Image path: ${imagePreview.substring(0, 30)}${
+                        imagePreview.length > 30 ? "..." : ""
+                      }`
+                    : "Image preview available"}
+                </p>
+              )}
+            </div>
           </div>
           <div className="flex justify-end space-x-4 mt-6">
             <button
@@ -799,23 +1030,54 @@ const CategoriesSimple = () => {
                 onChange={handleEditImageChange}
                 disabled={isSubmitting}
               />
-              {editImagePreview && (
-                <div className="mt-2">
-                  <img
-                    src={getImageUrl(editImagePreview)}
-                    alt="Preview"
-                    className="h-32 w-32 object-cover rounded-md"
-                    onError={(e) => {
+              <div className="mt-2">
+                <img
+                  src={
+                    editImagePreview
+                      ? getImageUrl(editImagePreview)
+                      : "https://placehold.co/300x300/e2e8f0/1e293b?text=No+Image"
+                  }
+                  alt="Preview"
+                  className="h-32 w-32 object-cover rounded-md"
+                  onError={(e) => {
+                    console.log("Edit image preview load error");
+                    console.log("Attempted edit preview URL:", e.target.src);
+                    console.log("Original edit image path:", editImagePreview);
+                    e.target.onerror = null;
+
+                    // Try alternative URL formats before falling back to placeholder
+                    if (
+                      editImagePreview &&
+                      editImagePreview.startsWith("/uploads/")
+                    ) {
+                      const filename = editImagePreview.split("/").pop();
                       console.log(
-                        "Edit image preview load error for:",
-                        editImagePreview
+                        "Trying alternative URL with filename:",
+                        filename
                       );
-                      e.target.onerror = null;
-                      e.target.src = "/no-image.jpg";
-                    }}
-                  />
-                </div>
-              )}
+                      e.target.src = `http://localhost:5000/uploads/${filename}`;
+
+                      // Add a second error handler for the alternative URL
+                      e.target.onerror = (e2) => {
+                        console.log("Alternative URL also failed");
+                        e2.target.onerror = null;
+                        e2.target.src =
+                          "https://placehold.co/300x300/e2e8f0/1e293b?text=No+Image";
+                      };
+                    } else {
+                      e.target.src =
+                        "https://placehold.co/300x300/e2e8f0/1e293b?text=No+Image";
+                    }
+                  }}
+                />
+                {editImagePreview && (
+                  <p className="mt-1 text-xs text-gray-500">
+                    {`Image path: ${editImagePreview.substring(0, 30)}${
+                      editImagePreview.length > 30 ? "..." : ""
+                    }`}
+                  </p>
+                )}
+              </div>
             </div>
 
             <div className="flex justify-end space-x-4 mt-6">

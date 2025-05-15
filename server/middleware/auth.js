@@ -8,6 +8,7 @@ exports.protect = async (req, res, next) => {
   console.log(`🔍 Auth check for ${req.method} ${req.originalUrl}`);
   console.log("Authorization header:", req.headers.authorization);
   console.log("Cookies:", req.cookies);
+  console.log("Request body adminToken:", req.body?.adminToken);
 
   try {
     // Get token from multiple sources
@@ -17,9 +18,9 @@ exports.protect = async (req, res, next) => {
     } else if (req.cookies?.adminToken) {
       token = req.cookies.adminToken;
       console.log("Token from cookies:", token);
-    } else if (req.query.token) {
-      token = req.query.token;
-      console.log("Token from query string:", token);
+    } else if (req.body?.adminToken) {
+      token = req.body.adminToken;
+      console.log("Token from request body:", token);
     }
 
     // Development mode bypass
@@ -40,8 +41,23 @@ exports.protect = async (req, res, next) => {
 
     // Verify token
     console.log("Verifying token...");
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    console.log("Token decoded:", decoded);
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+      console.log("Token decoded successfully:", decoded);
+    } catch (jwtError) {
+      console.error("JWT verification failed:", jwtError);
+      
+      // Clear invalid tokens from cookies
+      res.clearCookie('adminToken');
+      
+      return res.status(401).json({
+        success: false,
+        message: jwtError.name === 'TokenExpiredError' 
+          ? "Session expired. Please log in again."
+          : "Invalid token. Please log in again.",
+      });
+    }
 
     // Get user from token
     const user = await User.findById(decoded.id);
@@ -58,6 +74,13 @@ exports.protect = async (req, res, next) => {
     const isAdminRoute = req.originalUrl.includes('/admin') || 
                         req.originalUrl.includes('/api/admin');
     
+    console.log("Route check:", {
+      path: req.originalUrl,
+      isAdminRoute,
+      userRole: user.role,
+      isAdmin: user.role === 'admin'
+    });
+
     if (isAdminRoute && user.role !== 'admin') {
       console.log("Non-admin user attempting to access admin route");
       return res.status(403).json({
@@ -69,30 +92,32 @@ exports.protect = async (req, res, next) => {
     // Add user and token info to request
     req.user = user;
     req.token = token;
-    console.log("Authentication successful for user:", user.email);
+    console.log("Authentication successful for user:", {
+      email: user.email,
+      role: user.role,
+      id: user._id
+    });
+    
+    // Set a new cookie with the verified token and extended expiration
+    res.cookie('adminToken', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      path: '/',
+      maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    });
+    
+    // Send token in response header for client-side storage
+    res.setHeader('X-Auth-Token', token);
     
     next();
   } catch (err) {
     console.error("Auth middleware error:", err);
     
-    // Handle different types of errors
-    if (err.name === 'JsonWebTokenError') {
-      return res.status(401).json({
-        success: false,
-        message: "Invalid token. Please log in again.",
-      });
-    }
-    
-    if (err.name === 'TokenExpiredError') {
-      return res.status(401).json({
-        success: false,
-        message: "Token expired. Please log in again.",
-      });
-    }
-    
     return res.status(500).json({
       success: false,
       message: "Authentication error. Please try again.",
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
     });
   }
 };
@@ -110,7 +135,15 @@ exports.authorize = (...roles) => {
       return next();
     }
 
-    if (!req.user || !roles.includes(req.user.role)) {
+    if (!req.user) {
+      console.log("No user found in request");
+      return res.status(401).json({
+        success: false,
+        message: "Authentication required. Please log in.",
+      });
+    }
+
+    if (!roles.includes(req.user.role)) {
       console.log("Unauthorized role access attempt");
       return res.status(403).json({
         success: false,

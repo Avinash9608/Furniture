@@ -51,7 +51,7 @@ const CategorySchema = new mongoose.Schema({
   },
   image: {
     type: String,
-    default: "no-image.jpg",
+    default: "https://placehold.co/300x300/e2e8f0/1e293b?text=No+Image",
   },
   createdAt: {
     type: Date,

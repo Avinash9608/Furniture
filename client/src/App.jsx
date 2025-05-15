@@ -15,7 +15,7 @@ import Profile from "./pages/Profile";
 import MyOrders from "./pages/MyOrders";
 import OrderDetail from "./pages/OrderDetail";
 import MyPaymentRequests from "./pages/MyPaymentRequests";
-import AdminLogin from "./pages/admin/AdminLogin";
+import AdminLogin from "./pages/admin/AdminLoginNew";
 import AdminDashboard from "./pages/admin/Dashboard";
 import AdminProducts from "./pages/admin/Products";
 import AdminAddProduct from "./pages/admin/AddProduct";

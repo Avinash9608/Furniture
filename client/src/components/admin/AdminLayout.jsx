@@ -4,23 +4,25 @@ import { useAuth } from "../../context/AuthContext";
 
 const AdminLayout = ({ children, title }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { user, logout } = useAuth();
+  const { user, isAuthenticated, isAdmin, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Simple check for admin authentication using localStorage
-  useEffect(() => {
-    // Check localStorage directly
-    const localUser = localStorage.getItem("user")
-      ? JSON.parse(localStorage.getItem("user"))
-      : null;
-    const isLocalAdmin = localUser?.role === "admin";
-
-    // If not admin, redirect to login
-    if (!isLocalAdmin) {
-      navigate("/admin/login");
+  // Handle logout
+  const handleLogout = async () => {
+    try {
+      await logout();
+      navigate("/admin/login", { replace: true });
+    } catch (error) {
+      console.error("Logout error:", error);
+      navigate("/admin/login", { replace: true });
     }
-  }, [navigate]);
+  };
+
+  // If not authenticated as admin, the ProtectedRoute component will handle the redirect
+  if (!isAuthenticated || !isAdmin) {
+    return null;
+  }
 
   // Navigation items
   const navigation = [
@@ -211,16 +213,6 @@ const AdminLayout = ({ children, title }) => {
       ),
     },
   ];
-
-  // Handle logout
-  const handleLogout = async () => {
-    try {
-      await logout();
-      navigate("/admin/login");
-    } catch (error) {
-      console.error("Logout error:", error);
-    }
-  };
 
   // Check if a navigation item is active
   const isActive = (path) => {

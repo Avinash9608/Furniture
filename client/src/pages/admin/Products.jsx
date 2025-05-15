@@ -642,17 +642,7 @@ const AdminProducts = () => {
 
         console.log("Admin Products component mounted - fetching initial data");
 
-        // Try to load products directly first (this is the most reliable method)
-        const directSuccess = await loadProductsDirectly();
-
-        if (directSuccess) {
-          console.log("Successfully loaded products directly");
-          return; // Exit early if direct loading succeeded
-        }
-
-        console.log("Direct loading failed, falling back to regular flow");
-
-        // Fetch categories first
+        // Fetch categories first to ensure they're available for product processing
         console.log("Fetching categories first...");
         let fetchedCategories = [];
 
@@ -684,6 +674,35 @@ const AdminProducts = () => {
           console.error("Error fetching categories:", categoryError);
           fetchedCategories = getMockCategories();
         }
+
+        // Process categories to ensure they have all required fields
+        const processedCategories = fetchedCategories.map((category) => {
+          return {
+            ...category,
+            _id:
+              category._id ||
+              `temp_${Date.now()}_${Math.random()
+                .toString(36)
+                .substring(2, 9)}`,
+            name: category.name || category.displayName || "Unknown Category",
+            displayName:
+              category.displayName || category.name || "Unknown Category",
+          };
+        });
+
+        // Set categories immediately so they're available for product processing
+        setCategories(processedCategories);
+        console.log("Processed categories:", processedCategories);
+
+        // Try to load products directly (this is the most reliable method)
+        const directSuccess = await loadProductsDirectly();
+
+        if (directSuccess) {
+          console.log("Successfully loaded products directly");
+          return; // Exit early if direct loading succeeded
+        }
+
+        console.log("Direct loading failed, falling back to regular flow");
 
         // If no categories exist, create default ones
         if (fetchedCategories.length === 0) {
@@ -996,13 +1015,30 @@ const AdminProducts = () => {
     ];
   };
 
-  // Function to generate mock categories for testing
+  // Function to generate standard categories
   const getMockCategories = () => {
     return [
-      { _id: "category1", name: "Chairs" },
-      { _id: "category2", name: "Tables" },
-      { _id: "category3", name: "Sofa Beds" },
-      { _id: "category4", name: "Wardrobes" },
+      {
+        _id: "680c9486ab11e96a288ef6db",
+        name: "Chairs",
+        displayName: "Chairs",
+      },
+      {
+        _id: "680c9484ab11e96a288ef6da",
+        name: "Tables",
+        displayName: "Tables",
+      },
+      {
+        _id: "680c9481ab11e96a288ef6d9",
+        name: "Sofa Beds",
+        displayName: "Sofa Beds",
+      },
+      {
+        _id: "680c9489ab11e96a288ef6dc",
+        name: "Wardrobes",
+        displayName: "Wardrobes",
+      },
+      { _id: "680c948eab11e96a288ef6dd", name: "Beds", displayName: "Beds" },
     ];
   };
 
@@ -1220,21 +1256,52 @@ const AdminProducts = () => {
             >
               Category
             </label>
-            <select
-              id="category"
-              className="block w-full pl-3 pr-10 py-2 border theme-border rounded-md shadow-sm theme-bg-primary theme-text-primary focus:outline-none focus:ring-primary focus:border-primary"
-              value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
-            >
-              <option value="all">All Categories</option>
-              {categories &&
-                categories.length > 0 &&
-                categories.map((category) => (
-                  <option key={category._id} value={category._id}>
-                    {category.name}
-                  </option>
-                ))}
-            </select>
+            <div className="relative">
+              <select
+                id="category"
+                className="block w-full pl-3 pr-10 py-2 border theme-border rounded-md shadow-sm theme-bg-primary theme-text-primary focus:outline-none focus:ring-primary focus:border-primary"
+                value={categoryFilter}
+                onChange={(e) => setCategoryFilter(e.target.value)}
+              >
+                <option value="all">All Categories</option>
+                {categories &&
+                  categories.length > 0 &&
+                  categories.map((category) => {
+                    // Ensure category has a valid name and _id
+                    const categoryName =
+                      category.displayName ||
+                      category.name ||
+                      "Unknown Category";
+                    const categoryId =
+                      category._id ||
+                      `temp_${Date.now()}_${Math.random()
+                        .toString(36)
+                        .substring(2, 9)}`;
+
+                    return (
+                      <option key={categoryId} value={categoryId}>
+                        {categoryName}
+                      </option>
+                    );
+                  })}
+              </select>
+              <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                <svg
+                  className="h-5 w-5 text-gray-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M8 9l4-4 4 4m0 6l-4 4-4-4"
+                  ></path>
+                </svg>
+              </div>
+            </div>
           </div>
 
           {/* Stock Filter */}
@@ -1280,7 +1347,30 @@ const AdminProducts = () => {
                 <span>
                   {" "}
                   in category "
-                  {categories.find((c) => c._id === categoryFilter)?.name}"
+                  {(() => {
+                    // Find the category by ID
+                    const category = categories.find(
+                      (c) => c._id === categoryFilter
+                    );
+                    if (category) {
+                      return category.displayName || category.name;
+                    }
+
+                    // If not found, check if it's a known category ID
+                    const categoryMap = {
+                      "680c9481ab11e96a288ef6d9": "Sofa Beds",
+                      "680c9484ab11e96a288ef6da": "Tables",
+                      "680c9486ab11e96a288ef6db": "Chairs",
+                      "680c9489ab11e96a288ef6dc": "Wardrobes",
+                      "680c948eab11e96a288ef6dd": "Beds",
+                    };
+
+                    return (
+                      categoryMap[categoryFilter] ||
+                      `Category ${categoryFilter.substring(0, 6)}`
+                    );
+                  })()}
+                  "
                 </span>
               )}
               {stockFilter !== "all" && (
@@ -1417,50 +1507,116 @@ const AdminProducts = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="px-2 py-1 text-xs font-medium rounded-full theme-bg-secondary border theme-border">
-                        {(() => {
-                          // Handle different category formats
-                          if (!product.category) {
-                            return "Uncategorized";
-                          }
+                      {(() => {
+                        // Get category name
+                        let categoryName = "Uncategorized";
+                        let categoryColor = "gray";
 
-                          if (
-                            typeof product.category === "object" &&
-                            product.category.name
-                          ) {
-                            return product.category.name;
-                          }
+                        // Standard category colors
+                        const categoryColors = {
+                          "Sofa Beds": "indigo",
+                          Tables: "blue",
+                          Chairs: "green",
+                          Wardrobes: "purple",
+                          Beds: "pink",
+                        };
 
-                          if (typeof product.category === "string") {
-                            // Try to find category by ID
-                            const foundCategory = categories.find(
-                              (c) =>
-                                c._id === product.category ||
-                                c.id === product.category
-                            );
-                            if (foundCategory) {
-                              return foundCategory.name;
-                            }
-                            // If not found, try to extract a meaningful name from the ID
+                        // Handle different category formats
+                        if (!product.category) {
+                          categoryName = "Uncategorized";
+                        } else if (typeof product.category === "object") {
+                          // Use displayName first, then name, then fallback
+                          categoryName =
+                            product.category.displayName ||
+                            product.category.name ||
+                            "Unknown Category";
+                        } else if (typeof product.category === "string") {
+                          // Try to find category by ID in our categories list
+                          const foundCategory = categories.find(
+                            (c) =>
+                              c._id === product.category ||
+                              c.id === product.category
+                          );
+
+                          if (foundCategory) {
+                            categoryName =
+                              foundCategory.displayName || foundCategory.name;
+                          } else {
                             // Check if it's a MongoDB ObjectId (24 hex chars)
                             if (
                               product.category.length === 24 &&
                               /^[0-9a-f]+$/.test(product.category)
                             ) {
-                              return `Category ${product.category.substring(
-                                product.category.length - 6
-                              )}`;
-                            }
-                            // Otherwise try to make a readable name from the ID
-                            return `Category ${product.category
-                              .replace(/[^a-zA-Z0-9]/g, " ")
-                              .trim()}`;
-                          }
+                              // Try to map known category IDs to names
+                              const categoryMap = {
+                                "680c9481ab11e96a288ef6d9": "Sofa Beds",
+                                "680c9484ab11e96a288ef6da": "Tables",
+                                "680c9486ab11e96a288ef6db": "Chairs",
+                                "680c9489ab11e96a288ef6dc": "Wardrobes",
+                                "680c948eab11e96a288ef6dd": "Beds",
+                              };
 
-                          // Fallback
-                          return "Unknown Category";
-                        })()}
-                      </span>
+                              if (categoryMap[product.category]) {
+                                categoryName = categoryMap[product.category];
+                              } else {
+                                categoryName = `Category ${product.category.substring(
+                                  product.category.length - 6
+                                )}`;
+                              }
+                            } else {
+                              categoryName = `Category ${product.category
+                                .replace(/[^a-zA-Z0-9]/g, " ")
+                                .trim()}`;
+                            }
+                          }
+                        }
+
+                        // Determine color based on category name
+                        if (categoryColors[categoryName]) {
+                          categoryColor = categoryColors[categoryName];
+                        } else {
+                          // Generate a consistent color based on the category name
+                          const nameHash = categoryName
+                            .split("")
+                            .reduce((acc, char) => acc + char.charCodeAt(0), 0);
+                          const colors = [
+                            "blue",
+                            "green",
+                            "indigo",
+                            "purple",
+                            "pink",
+                            "yellow",
+                            "red",
+                            "orange",
+                          ];
+                          categoryColor = colors[nameHash % colors.length];
+                        }
+
+                        const colorClasses = {
+                          blue: "bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700",
+                          green:
+                            "bg-green-100 text-green-800 border-green-300 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700",
+                          indigo:
+                            "bg-indigo-100 text-indigo-800 border-indigo-300 dark:bg-indigo-900/30 dark:text-indigo-300 dark:border-indigo-700",
+                          purple:
+                            "bg-purple-100 text-purple-800 border-purple-300 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-700",
+                          pink: "bg-pink-100 text-pink-800 border-pink-300 dark:bg-pink-900/30 dark:text-pink-300 dark:border-pink-700",
+                          yellow:
+                            "bg-yellow-100 text-yellow-800 border-yellow-300 dark:bg-yellow-900/30 dark:text-yellow-300 dark:border-yellow-700",
+                          red: "bg-red-100 text-red-800 border-red-300 dark:bg-red-900/30 dark:text-red-300 dark:border-red-700",
+                          orange:
+                            "bg-orange-100 text-orange-800 border-orange-300 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-700",
+                          gray: "bg-gray-100 text-gray-800 border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700",
+                        };
+
+                        return (
+                          <span
+                            className={`px-2 py-1 text-xs font-medium rounded-full border ${colorClasses[categoryColor]}`}
+                          >
+                            {categoryName}
+                          </span>
+                        );
+                      })()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm theme-text-primary">

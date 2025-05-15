@@ -18,15 +18,12 @@ const storage = multer.diskStorage({
   },
   filename: function (req, file, cb) {
     const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    cb(
-      null,
-      "images-" + uniqueSuffix + path.extname(file.originalname)
-    );
+    cb(null, "images-" + uniqueSuffix + path.extname(file.originalname));
   },
 });
 
 // Create upload middleware with file filter and limits
-const upload = multer({ 
+const upload = multer({
   storage: storage,
   limits: {
     fileSize: 5 * 1024 * 1024, // 5MB file size limit
@@ -34,10 +31,10 @@ const upload = multer({
   fileFilter: (req, file, cb) => {
     // Accept images only
     if (!file.originalname.match(/\.(jpg|jpeg|png|gif)$/)) {
-      return cb(new Error('Only image files are allowed!'), false);
+      return cb(new Error("Only image files are allowed!"), false);
     }
     cb(null, true);
-  }
+  },
 });
 
 // Ensure uploads directory exists
@@ -84,18 +81,20 @@ const corsOptions = {
 
     // List of allowed origins
     const allowedOrigins = [
-      'http://localhost:3000',
-      'http://localhost:5000',
-      'https://furniture-q3nb.onrender.com',
-      'https://furniture-admin.onrender.com',
+      "http://localhost:3000",
+      "http://localhost:5000",
+      "https://furniture-q3nb.onrender.com",
+      "https://furniture-admin.onrender.com",
       process.env.FRONTEND_URL, // Add this if you have a custom domain
     ].filter(Boolean); // Remove any undefined values
 
     // Check if the origin is allowed
-    if (allowedOrigins.includes(origin) || 
-        origin.match(/^https?:\/\/localhost(:\d+)?$/) ||
-        origin.match(/\.onrender\.com$/) ||
-        origin.match(/\.vercel\.app$/)) {
+    if (
+      allowedOrigins.includes(origin) ||
+      origin.match(/^https?:\/\/localhost(:\d+)?$/) ||
+      origin.match(/\.onrender\.com$/) ||
+      origin.match(/\.vercel\.app$/)
+    ) {
       callback(null, true);
     } else {
       console.warn(`Origin ${origin} not allowed by CORS`);
@@ -103,19 +102,19 @@ const corsOptions = {
     }
   },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
   allowedHeaders: [
-    'Content-Type',
-    'Authorization',
-    'X-Requested-With',
-    'Accept',
-    'Origin',
-    'Access-Control-Allow-Headers',
-    'Access-Control-Request-Method',
-    'Access-Control-Request-Headers'
+    "Content-Type",
+    "Authorization",
+    "X-Requested-With",
+    "Accept",
+    "Origin",
+    "Access-Control-Allow-Headers",
+    "Access-Control-Request-Method",
+    "Access-Control-Request-Headers",
   ],
-  exposedHeaders: ['Content-Range', 'X-Content-Range'],
-  maxAge: 86400 // Cache preflight requests for 24 hours
+  exposedHeaders: ["Content-Range", "X-Content-Range"],
+  maxAge: 86400, // Cache preflight requests for 24 hours
 };
 
 // Apply CORS middleware
@@ -136,22 +135,74 @@ const apiPrefixFix = require("./middleware/apiPrefixFix");
 app.use(apiPrefixFix);
 
 // Static Files
-// Serve uploaded files
-app.use("/uploads", express.static(path.join(__dirname, "uploads"), {
-  setHeaders: (res, path) => {
-    res.set({
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Headers': 'Origin, X-Requested-With, Content-Type, Accept',
-      'Cache-Control': 'public, max-age=31557600', // Cache for 1 year
-    });
+// Serve uploaded files with enhanced logging and error handling
+app.use(
+  "/uploads",
+  (req, res, next) => {
+    console.log(`Uploads request received: ${req.url}`);
+    next();
+  },
+  express.static(path.join(__dirname, "uploads"), {
+    setHeaders: (res, filePath) => {
+      console.log(`Serving file: ${filePath}`);
+      res.set({
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Headers":
+          "Origin, X-Requested-With, Content-Type, Accept",
+        "Cache-Control": "public, max-age=31557600", // Cache for 1 year
+      });
+    },
+    fallthrough: false, // Return 404 for files that don't exist
+  }),
+  (err, req, res, next) => {
+    if (err.status === 404) {
+      console.error(`File not found: ${req.url}`);
+      // Return a default image instead of 404
+      res.redirect("https://placehold.co/300x300/e2e8f0/1e293b?text=No+Image");
+    } else {
+      console.error(`Error serving file: ${req.url}`, err);
+      next(err);
+    }
   }
-}));
+);
 
 // Add CORS headers for image files
 app.use("/uploads", (req, res, next) => {
   res.header("Access-Control-Allow-Origin", "*");
-  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+  res.header(
+    "Access-Control-Allow-Headers",
+    "Origin, X-Requested-With, Content-Type, Accept"
+  );
   next();
+});
+
+// Add a special route to check if uploads directory exists and list files
+app.get("/api/check-uploads", (req, res) => {
+  try {
+    const uploadsDir = path.join(__dirname, "uploads");
+    if (fs.existsSync(uploadsDir)) {
+      const files = fs.readdirSync(uploadsDir);
+      res.json({
+        success: true,
+        message: "Uploads directory exists",
+        directory: uploadsDir,
+        files: files,
+        count: files.length,
+      });
+    } else {
+      res.json({
+        success: false,
+        message: "Uploads directory does not exist",
+        directory: uploadsDir,
+      });
+    }
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Error checking uploads directory",
+      error: error.message,
+    });
+  }
 });
 
 // Production static files
@@ -279,8 +330,8 @@ app.post("/api/api/contact", contactController.createContact);
 // Direct API routes for products
 app.get("/api/direct/products", getAllProducts);
 app.get("/api/direct/products/:id", getProductById);
-app.post("/api/direct/products", upload.array('images'), createProduct);
-app.put("/api/direct/products/:id", upload.array('images'), updateProduct);
+app.post("/api/direct/products", upload.array("images", 5), createProduct);
+app.put("/api/direct/products/:id", upload.array("images", 5), updateProduct);
 app.delete("/api/direct/products/:id", deleteProduct);
 
 // Special route for products page - handle both /products and /api/products
@@ -486,9 +537,33 @@ app.get("/api/direct-product/:id", async (req, res) => {
 // Direct API routes for categories
 app.get("/api/direct/categories", getAllCategories);
 app.get("/api/direct/categories/:id", getCategoryById);
-app.post("/api/direct/categories", createCategory);
-app.put("/api/direct/categories/:id", updateCategory);
+app.post("/api/direct/categories", upload.single("image"), createCategory);
+app.put("/api/direct/categories/:id", upload.single("image"), updateCategory);
 app.delete("/api/direct/categories/:id", deleteCategory);
+
+// Additional category routes for better compatibility
+app.get("/categories", getAllCategories);
+app.get("/api/categories", getAllCategories);
+app.get("/categories/:id", getCategoryById);
+app.get("/api/categories/:id", getCategoryById);
+app.post("/categories", upload.single("image"), createCategory);
+app.post("/api/categories", upload.single("image"), createCategory);
+app.put("/categories/:id", upload.single("image"), updateCategory);
+app.put("/api/categories/:id", upload.single("image"), updateCategory);
+app.delete("/categories/:id", deleteCategory);
+app.delete("/api/categories/:id", deleteCategory);
+
+// Admin category routes
+app.get("/admin/categories", getAllCategories);
+app.get("/api/admin/categories", getAllCategories);
+app.get("/admin/categories/:id", getCategoryById);
+app.get("/api/admin/categories/:id", getCategoryById);
+app.post("/admin/categories", upload.single("image"), createCategory);
+app.post("/api/admin/categories", upload.single("image"), createCategory);
+app.put("/admin/categories/:id", upload.single("image"), updateCategory);
+app.put("/api/admin/categories/:id", upload.single("image"), updateCategory);
+app.delete("/admin/categories/:id", deleteCategory);
+app.delete("/api/admin/categories/:id", deleteCategory);
 
 // Direct admin login routes
 app.post("/api/auth/admin/direct-login", loginAdmin);
@@ -515,6 +590,26 @@ console.log("- GET /api/direct/categories/:id");
 console.log("- POST /api/direct/categories");
 console.log("- PUT /api/direct/categories/:id");
 console.log("- DELETE /api/direct/categories/:id");
+console.log("- GET /categories");
+console.log("- GET /api/categories");
+console.log("- GET /categories/:id");
+console.log("- GET /api/categories/:id");
+console.log("- POST /categories");
+console.log("- POST /api/categories");
+console.log("- PUT /categories/:id");
+console.log("- PUT /api/categories/:id");
+console.log("- DELETE /categories/:id");
+console.log("- DELETE /api/categories/:id");
+console.log("- GET /admin/categories");
+console.log("- GET /api/admin/categories");
+console.log("- GET /admin/categories/:id");
+console.log("- GET /api/admin/categories/:id");
+console.log("- POST /admin/categories");
+console.log("- POST /api/admin/categories");
+console.log("- PUT /admin/categories/:id");
+console.log("- PUT /api/admin/categories/:id");
+console.log("- DELETE /admin/categories/:id");
+console.log("- DELETE /api/admin/categories/:id");
 console.log("Contact form routes:");
 console.log("- POST /contact");
 console.log("- POST /api/contact");

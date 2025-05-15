@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import FileUpload from "../FileUpload";
 import Button from "../Button";
 import { validateProductForm } from "../../utils/validation";
-import { getAssetUrl, fixImageUrls } from '../../utils/apiUrlHelper';
 
 const ProductForm = ({
   initialData = {},
@@ -11,6 +10,21 @@ const ProductForm = ({
   isSubmitting = false,
   submitError = null,
 }) => {
+  // Ensure categories is always an array and has proper structure
+  const validCategories = Array.isArray(categories)
+    ? categories.map((category) => {
+        // Ensure each category has a name and _id
+        return {
+          ...category,
+          _id:
+            category._id ||
+            `temp_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+          name: category.name || category.displayName || "Unknown Category",
+          displayName:
+            category.displayName || category.name || "Unknown Category",
+        };
+      })
+    : [];
   // Initialize form state
   const [formData, setFormData] = useState({
     name: "",
@@ -33,9 +47,7 @@ const ProductForm = ({
   // Form validation state
   const [errors, setErrors] = useState({});
   const [images, setImages] = useState([]);
-  const [imageError, setImageError] = useState(null);
   const [touched, setTouched] = useState({});
-  const [imagePreviews, setImagePreviews] = useState([]);
 
   // Set initial data when it changes
   useEffect(() => {
@@ -54,77 +66,34 @@ const ProductForm = ({
         );
       }
 
-      const processedData = {
-        ...initialData,
-        // Fix image URLs to ensure they work in production
-        images: initialData.images ? fixImageUrls(initialData.images) : []
-      };
-
       setFormData({
-        name: processedData.name || "",
-        description: processedData.description || "",
-        price: processedData.price || "",
-        discountPrice: processedData.discountPrice || "",
+        name: initialData.name || "",
+        description: initialData.description || "",
+        price: initialData.price || "",
+        discountPrice: initialData.discountPrice || "",
         discountPercentage: discountPercentage,
-        category: processedData.category?._id || processedData.category || "",
-        stock: processedData.stock || "",
-        featured: processedData.featured || false,
-        material: processedData.material || "",
-        color: processedData.color || "",
+        category: initialData.category?._id || initialData.category || "",
+        stock: initialData.stock || "",
+        featured: initialData.featured || false,
+        material: initialData.material || "",
+        color: initialData.color || "",
         dimensions: {
-          length: processedData.dimensions?.length || "",
-          width: processedData.dimensions?.width || "",
-          height: processedData.dimensions?.height || "",
+          length: initialData.dimensions?.length || "",
+          width: initialData.dimensions?.width || "",
+          height: initialData.dimensions?.height || "",
         },
       });
 
-      // Handle image previews with error handling
-      if (processedData.images && processedData.images.length > 0) {
-        const previews = processedData.images.map(img => {
-          if (typeof img === 'string') {
-            // Try the direct URL first
-            const directUrl = getAssetUrl(img);
-            // Fallback to production URL if needed
-            const fallbackUrl = `https://furniture-q3nb.onrender.com${img.startsWith('/') ? '' : '/'}${img}`;
-            return { url: directUrl, fallback: fallbackUrl };
-          }
-          return { url: getAssetUrl(img), fallback: null };
-        });
-        setImagePreviews(previews.map(p => p.url));
-      }
-
-      // Handle images with error handling
-      if (processedData.images && processedData.images.length > 0) {
-        const processedImages = processedData.images.map(img => {
-          if (typeof img === 'string') {
-            const directUrl = getAssetUrl(img);
-            const fallbackUrl = `https://furniture-q3nb.onrender.com${img.startsWith('/') ? '' : '/'}${img}`;
-            return {
-              preview: directUrl,
-              fallback: fallbackUrl,
-              name: img.split('/').pop(),
-              url: img
-            };
-          }
-          return img;
-        });
-        setImages(processedImages);
+      // Set images if available
+      if (initialData.images && initialData.images.length > 0) {
+        setImages(
+          initialData.images.map((img) =>
+            typeof img === "string" ? img : img.url
+          )
+        );
       }
     }
   }, [initialData]);
-
-  // Handle image error and try fallback
-  const handleImageError = (index, e) => {
-    const img = images[index];
-    if (img && img.fallback && e.target.src !== img.fallback) {
-      console.log(`Trying fallback URL for image ${index}:`, img.fallback);
-      e.target.src = img.fallback;
-    } else {
-      console.error(`Failed to load image ${index}:`, e.target.src);
-      // You could set a default placeholder image here
-      e.target.src = 'https://placehold.co/300x300/gray/white?text=Image+Not+Found';
-    }
-  };
 
   // Handle form input changes
   const handleChange = (e) => {
@@ -171,16 +140,12 @@ const ProductForm = ({
     }
   };
 
-  // Handle image change
+  // Handle image upload
   const handleImageChange = (newImages) => {
     setImages(newImages);
-    setImageError(null);
-    
-    // Update form data with the new images
-    setFormData(prev => ({
-      ...prev,
-      images: newImages.map(img => img.file || img)
-    }));
+    if (errors.images) {
+      setErrors((prev) => ({ ...prev, images: null }));
+    }
   };
 
   // Validate form on submit
@@ -190,47 +155,10 @@ const ProductForm = ({
       images: images,
     };
 
-    // Required fields validation
-    const errors = {};
-    
-    if (!productData.name?.trim()) {
-      errors.name = 'Product name is required';
-    }
-    
-    if (!productData.description?.trim()) {
-      errors.description = 'Product description is required';
-    }
-    
-    if (!productData.price || isNaN(productData.price) || productData.price <= 0) {
-      errors.price = 'Valid price is required';
-    }
-    
-    if (!productData.category) {
-      errors.category = 'Category is required';
-    }
-    
-    if (!productData.stock || isNaN(productData.stock) || productData.stock < 0) {
-      errors.stock = 'Valid stock quantity is required';
-    }
+    const { isValid, errors: validationErrors } =
+      validateProductForm(productData);
 
-    // Validate dimensions if any are provided
-    if (productData.dimensions) {
-      const { length, width, height } = productData.dimensions;
-      if ((length && isNaN(length)) || (width && isNaN(width)) || (height && isNaN(height))) {
-        errors.dimensions = 'Dimensions must be valid numbers';
-      }
-    }
-
-    // Validate discount price if provided
-    if (productData.discountPrice) {
-      if (isNaN(productData.discountPrice) || productData.discountPrice <= 0) {
-        errors.discountPrice = 'Discount price must be a valid number';
-      } else if (productData.discountPrice >= productData.price) {
-        errors.discountPrice = 'Discount price must be less than regular price';
-      }
-    }
-
-    setErrors(errors);
+    setErrors(validationErrors);
     setTouched(
       Object.keys(formData).reduce((acc, key) => {
         acc[key] = true;
@@ -238,85 +166,69 @@ const ProductForm = ({
       }, {})
     );
 
-    return Object.keys(errors).length === 0;
+    return isValid;
   };
 
   // Handle form submission
   const handleSubmit = (e) => {
     e.preventDefault();
 
-    if (!validateForm()) {
-      console.log('Form validation failed:', errors);
-      return;
-    }
+    if (!validateForm()) return;
 
-    // Create FormData for submission
+    // Create FormData object
     const formDataToSubmit = new FormData();
 
-    try {
-      // Add authentication token
-      const token = localStorage.getItem('token') || localStorage.getItem('adminToken');
-      if (!token) {
-        setErrors(prev => ({
-          ...prev,
-          submit: 'Authentication required. Please log in again.'
-        }));
-        return;
-      }
+    // Add basic fields
+    formDataToSubmit.append("name", formData.name);
+    formDataToSubmit.append("description", formData.description);
+    formDataToSubmit.append("price", formData.price);
+    formDataToSubmit.append("stock", formData.stock);
+    formDataToSubmit.append("category", formData.category);
+    formDataToSubmit.append("featured", formData.featured);
 
-      // Log token for debugging
-      console.log('Using authentication token:', token ? 'Token exists' : 'No token');
+    // Add optional fields if they exist
+    if (formData.material)
+      formDataToSubmit.append("material", formData.material);
+    if (formData.color) formDataToSubmit.append("color", formData.color);
+    if (formData.discountPrice)
+      formDataToSubmit.append("discountPrice", formData.discountPrice);
 
-      // Add basic fields
-      formDataToSubmit.append('name', formData.name.trim());
-      formDataToSubmit.append('description', formData.description.trim());
-      formDataToSubmit.append('price', formData.price);
-      formDataToSubmit.append('stock', formData.stock);
-      formDataToSubmit.append('category', formData.category);
-      formDataToSubmit.append('featured', formData.featured);
-
-      // Add optional fields if they exist
-      if (formData.material) formDataToSubmit.append('material', formData.material.trim());
-      if (formData.color) formDataToSubmit.append('color', formData.color.trim());
-      if (formData.discountPrice) formDataToSubmit.append('discountPrice', formData.discountPrice);
-
-      // Add dimensions if any are provided
-      const dimensions = {};
-      if (formData.dimensions.length) dimensions.length = Number(formData.dimensions.length);
-      if (formData.dimensions.width) dimensions.width = Number(formData.dimensions.width);
-      if (formData.dimensions.height) dimensions.height = Number(formData.dimensions.height);
-      
-      if (Object.keys(dimensions).length > 0) {
-        formDataToSubmit.append('dimensions', JSON.stringify(dimensions));
-      }
-
-      // Add images
-      if (images && images.length > 0) {
-        images.forEach((image, index) => {
-          if (image instanceof File) {
-            formDataToSubmit.append('images', image);
-          } else if (image.file instanceof File) {
-            formDataToSubmit.append('images', image.file);
-          }
-        });
-      }
-
-      // Log the FormData contents for debugging
-      console.log('FormData contents:');
-      for (let pair of formDataToSubmit.entries()) {
-        console.log(pair[0], typeof pair[1], pair[1]);
-      }
-
-      // Submit the form with authentication token
-      onSubmit(formDataToSubmit, token);
-
-    } catch (error) {
-      console.error('Error preparing form data:', error);
-      setErrors(prev => ({
-        ...prev,
-        submit: 'Error preparing form data: ' + error.message
-      }));
+    // Add dimensions if they exist
+    if (formData.dimensions) {
+      formDataToSubmit.append(
+        "dimensions",
+        JSON.stringify(formData.dimensions)
+      );
     }
+
+    // Add images
+    if (images && images.length > 0) {
+      console.log("Processing images for upload:", images);
+      images.forEach((image, index) => {
+        if (image.file) {
+          console.log(`Appending image file ${index}:`, image.file.name);
+          formDataToSubmit.append("images", image.file);
+        } else if (typeof image === "string") {
+          console.log(`Appending image URL ${index}:`, image);
+          formDataToSubmit.append("imageUrls", image);
+        } else if (image instanceof File) {
+          console.log(`Appending direct File object ${index}:`, image.name);
+          formDataToSubmit.append("images", image);
+        } else {
+          console.warn(`Skipping image ${index} - invalid format:`, image);
+        }
+      });
+    } else {
+      console.log("No images to upload");
+    }
+
+    // Log FormData contents for debugging
+    console.log("Submitting form with data:");
+    for (let pair of formDataToSubmit.entries()) {
+      console.log(pair[0], pair[1]);
+    }
+
+    onSubmit(formDataToSubmit);
   };
 
   return (
@@ -375,11 +287,15 @@ const ProductForm = ({
                     bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100`}
                 >
                   <option value="">Select a category</option>
-                  <option value="680c9481ab11e96a288ef6d9">Sofa Beds</option>
-                  <option value="680c9484ab11e96a288ef6da">Tables</option>
-                  <option value="680c9486ab11e96a288ef6db">Chairs</option>
-                  <option value="680c9489ab11e96a288ef6dc">Wardrobes</option>
-                  <option value="680c948eab11e96a288ef6dd">Beds</option>
+                  {validCategories.length > 0 ? (
+                    validCategories.map((category) => (
+                      <option key={category._id} value={category._id}>
+                        {category.displayName || category.name}
+                      </option>
+                    ))
+                  ) : (
+                    <option disabled>No categories available</option>
+                  )}
                 </select>
               </div>
             </label>
@@ -699,56 +615,16 @@ const ProductForm = ({
         <h3 className="text-base sm:text-lg font-medium text-gray-900 dark:text-gray-100 mb-3 sm:mb-4">
           Product Images
         </h3>
-        <div className="sm:col-span-2">
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Product Images
-            <FileUpload
-              multiple
-              maxFiles={5}
-              maxSize={5}
-              accept="image/*"
-              value={images}
-              onChange={handleImageChange}
-              error={imageError || errors.images}
-              helperText="Upload up to 5 product images (5MB max each)"
-              className="mt-1"
-            />
-          </label>
-          {errors.images && touched.images && (
-            <p className="mt-1 text-xs sm:text-sm text-red-500 dark:text-red-400">
-              {errors.images}
-            </p>
-          )}
-
-          {/* Image Preview */}
-          {imagePreviews.map((preview, index) => (
-            <div key={index} className="relative">
-              <img
-                src={preview}
-                alt={`Preview ${index + 1}`}
-                className="w-24 h-24 object-cover rounded-lg"
-                onError={(e) => handleImageError(index, e)}
-              />
-              <button
-                type="button"
-                onClick={() => {
-                  const newImages = [...imagePreviews];
-                  newImages.splice(index, 1);
-                  setImagePreviews(newImages);
-                  
-                  // Also remove from images array
-                  const newImagesArray = [...images];
-                  newImagesArray.splice(index, 1);
-                  setImages(newImagesArray);
-                }}
-                className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1"
-              >
-                <span className="sr-only">Remove image</span>
-                ×
-              </button>
-            </div>
-          ))}
-        </div>
+        <FileUpload
+          multiple
+          maxFiles={5}
+          maxSize={5}
+          accept="image/*"
+          value={images}
+          onChange={handleImageChange}
+          error={errors.images}
+          helperText="Upload up to 5 product images (5MB max each)"
+        />
       </div>
 
       {/* Submit Error */}

@@ -58,169 +58,43 @@ const AddProduct = () => {
     },
   ];
 
-  // Fetch categories
+  // Remove the authentication check useEffect since ProtectedRoute handles it
   useEffect(() => {
+    // Only fetch categories when component mounts
     const fetchCategories = async () => {
       try {
         setLoading(true);
-        setError(null);
+        const response = await axios.get("/api/categories");
+        console.log("Categories API response:", response.data);
 
-        // Define standard categories to use as absolute fallback
-        const standardCategories = [
-          {
-            _id: "standard_sofa_beds",
-            name: "Sofa Beds",
-            displayName: "Sofa Beds",
-            description: "Comfortable sofa beds for your living room",
-            isStandard: true,
-          },
-          {
-            _id: "standard_tables",
-            name: "Tables",
-            displayName: "Tables",
-            description: "Stylish tables for your home",
-            isStandard: true,
-          },
-          {
-            _id: "standard_chairs",
-            name: "Chairs",
-            displayName: "Chairs",
-            description: "Ergonomic chairs for comfort",
-            isStandard: true,
-          },
-          {
-            _id: "standard_wardrobes",
-            name: "Wardrobes",
-            displayName: "Wardrobes",
-            description: "Spacious wardrobes for storage",
-            isStandard: true,
-          },
-          {
-            _id: "standard_beds",
-            name: "Beds",
-            displayName: "Beds",
-            description: "Comfortable beds for a good night's sleep",
-            isStandard: true,
-          },
-        ];
-
-        // Determine if we're in development or production
-        const isDevelopment =
-          window.location.hostname === "localhost" ||
-          window.location.hostname === "127.0.0.1";
-
-        const baseUrl = isDevelopment
-          ? "http://localhost:5000"
-          : window.location.origin;
-
-        console.log(
-          `Environment: ${isDevelopment ? "Development" : "Production"}`
-        );
-        console.log(`Base URL: ${baseUrl}`);
-
-        // Simple fetch function with timeout
-        const fetchWithTimeout = async (url, timeout = 10000) => {
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), timeout);
-
-          try {
-            console.log(`Fetching from ${url}...`);
-            const response = await fetch(url, {
-              signal: controller.signal,
-            });
-            clearTimeout(timeoutId);
-            return response;
-          } catch (error) {
-            clearTimeout(timeoutId);
-            console.error(`Error fetching from ${url}:`, error);
-            throw error;
-          }
-        };
-
-        // Try to fetch from mock categories endpoint first (most reliable)
-        try {
-          console.log("Trying mock categories endpoint...");
-          const mockResponse = await fetchWithTimeout(
-            `${baseUrl}/api/mock/categories`,
-            10000
-          );
-
-          if (mockResponse.ok) {
-            const mockData = await mockResponse.json();
-            console.log("Mock categories endpoint successful:", mockData);
-
-            if (Array.isArray(mockData) && mockData.length > 0) {
-              // Add displayName property
-              const categoriesWithDisplay = mockData.map((category) => ({
-                ...category,
-                displayName: category.name,
-              }));
-
-              // Save to localStorage for future use
-              localStorage.setItem(
-                "furniture_categories",
-                JSON.stringify(categoriesWithDisplay)
-              );
-
-              // Use these categories
-              setCategories(categoriesWithDisplay);
-              setLoading(false);
-              return;
-            }
-          } else {
-            console.warn(
-              `Mock endpoint returned status ${mockResponse.status}`
-            );
-          }
-        } catch (mockError) {
-          console.error("Error with mock endpoint:", mockError);
+        // Handle different response formats
+        if (
+          response.data &&
+          response.data.data &&
+          Array.isArray(response.data.data)
+        ) {
+          // Format: { success: true, data: [...] }
+          setCategories(response.data.data);
+        } else if (Array.isArray(response.data)) {
+          // Format: Direct array
+          setCategories(response.data);
+        } else {
+          console.warn("Unexpected categories response format:", response.data);
+          // Fallback to standard categories
+          setCategories(standardCategories);
         }
-
-        // Try localStorage as a fallback
-        try {
-          console.log("Trying localStorage for cached categories...");
-          const cachedCategories = localStorage.getItem("furniture_categories");
-
-          if (cachedCategories) {
-            const parsedCategories = JSON.parse(cachedCategories);
-
-            if (
-              Array.isArray(parsedCategories) &&
-              parsedCategories.length > 0
-            ) {
-              console.log("Using cached categories from localStorage");
-              setCategories(parsedCategories);
-              setLoading(false);
-              return;
-            }
-          }
-        } catch (cacheError) {
-          console.error("Error using cached categories:", cacheError);
-        }
-
-        // If all else fails, use standard categories
-        console.log(
-          "All category fetching methods failed, using standard categories"
-        );
-        setCategories(standardCategories);
-
-        // Show a message that we're using standard categories
-        setError(
-          "Using standard categories. Products will be saved with proper category associations."
-        );
       } catch (error) {
-        console.error("Unexpected error in category fetching:", error);
-
-        // Use standard categories as last resort
+        console.error("Error fetching categories:", error);
+        setError("Failed to load categories. Using default categories.");
+        // Use hardcoded categories as fallback
         setCategories(standardCategories);
-        setError("Using standard categories due to an unexpected error.");
       } finally {
         setLoading(false);
       }
     };
 
     fetchCategories();
-  }, []);
+  }, []); // Only run on mount
 
   // Handle form submission
   const handleSubmit = async (formData) => {
@@ -230,108 +104,69 @@ const AddProduct = () => {
 
       console.log("Starting product submission...");
 
-      // Get the token first
-      const token = localStorage.getItem('adminToken');
+      // Get the token from multiple sources
+      const token =
+        localStorage.getItem("adminToken") ||
+        sessionStorage.getItem("adminToken");
       if (!token) {
-        throw new Error('Admin authentication required. Please log in as an administrator.');
+        throw new Error(
+          "Admin authentication required. Please log in as an administrator."
+        );
       }
 
-      // Create FormData for submission
-      const formDataToSubmit = new FormData();
-
-      // Add basic fields with proper type conversion and validation
-      const stringFields = ['name', 'description', 'material', 'color'];
-      const numberFields = ['price', 'stock', 'discountPrice'];
-
-      // Add string fields
-      stringFields.forEach(field => {
-        if (formData.get(field)) {
-          const value = formData.get(field).trim();
-          console.log(`Adding ${field}:`, value);
-          formDataToSubmit.append(field, value);
-        }
-      });
-
-      // Add number fields
-      numberFields.forEach(field => {
-        if (formData.get(field)) {
-          const value = Number(formData.get(field));
-          if (!isNaN(value)) {
-            console.log(`Adding ${field}:`, value);
-            formDataToSubmit.append(field, value);
-          }
-        }
-      });
-
-      // Add category
-      const category = formData.get('category');
-      if (category) {
-        console.log("Adding category:", category);
-        formDataToSubmit.append("category", category);
+      // Verify user is admin
+      const userData =
+        localStorage.getItem("user") || sessionStorage.getItem("user");
+      const user = userData ? JSON.parse(userData) : null;
+      if (!user || user.role !== "admin") {
+        throw new Error(
+          "Admin privileges required. Please log in as an administrator."
+        );
       }
 
-      // Add featured flag
-      formDataToSubmit.append("featured", formData.get("featured") === "true");
-
-      // Add dimensions
-      const dimensionsData = formData.get('dimensions');
-      if (dimensionsData) {
-        try {
-          const dimensions = JSON.parse(dimensionsData);
-          if (Object.keys(dimensions).length > 0) {
-            console.log("Adding dimensions:", dimensions);
-            formDataToSubmit.append("dimensions", JSON.stringify(dimensions));
-          }
-        } catch (e) {
-          console.warn("Error parsing dimensions:", e);
-        }
-      }
-
-      // Add images
-      const imageFiles = formData.getAll('images');
-      if (imageFiles && imageFiles.length > 0) {
-        console.log(`Processing ${imageFiles.length} images`);
-        imageFiles.forEach((image, index) => {
-          if (image instanceof File) {
-            console.log(`Adding image file ${index}:`, image.name);
-            formDataToSubmit.append("images", image);
-          }
-        });
-      }
+      // Add admin token to FormData
+      formData.append("adminToken", token);
 
       // Log all form data being sent
-      console.log('FormData entries:');
-      for (let pair of formDataToSubmit.entries()) {
+      console.log("FormData entries:");
+      for (let pair of formData.entries()) {
         console.log(pair[0], pair[1]);
       }
 
       // Create the product using the API
-      console.log('Sending product creation request...');
-      const response = await productsAPI.create(formDataToSubmit);
-      console.log('Product created successfully:', response);
+      console.log("Sending product creation request...");
+      const response = await productsAPI.create(formData);
+      console.log("Product created successfully:", response);
 
       // Navigate to products page with success message
       navigate("/admin/products", {
-        state: { successMessage: "Product added successfully!" }
+        state: { successMessage: "Product added successfully!" },
       });
     } catch (error) {
       console.error("Error creating product:", error);
-      
-      // Handle different types of errors
+
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        // Authentication error - redirect to login
+        sessionStorage.setItem("adminRedirectPath", window.location.pathname);
+        navigate("/admin/login");
+        return;
+      }
+
+      // Handle other types of errors
       let errorMessage = "Failed to create product. Please try again.";
-      
+
       if (error.response) {
-        // The server responded with an error
-        errorMessage = error.response.data?.message || error.response.statusText || errorMessage;
-        console.error('Server error response:', error.response.data);
+        errorMessage =
+          error.response.data?.message ||
+          error.response.statusText ||
+          errorMessage;
       } else if (error.request) {
-        // The request was made but no response was received
-        errorMessage = "Network error: Could not reach the server. Please check your connection.";
+        errorMessage =
+          "Network error: Could not reach the server. Please check your connection.";
       } else if (error.message) {
-        // Something else went wrong
         errorMessage = error.message;
       }
-      
+
       setSubmitError(errorMessage);
     } finally {
       setIsSubmitting(false);

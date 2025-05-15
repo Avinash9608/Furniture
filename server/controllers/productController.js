@@ -44,9 +44,17 @@ const createProduct = async (req, res) => {
   res.setHeader("Content-Type", "application/json");
 
   try {
+    // Verify admin authentication
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: "Admin authentication required. Please log in as an administrator.",
+      });
+    }
+
     // Validate required fields
     if (!req.body.name || !req.body.price || !req.body.category) {
-      return res.status(200).json({
+      return res.status(400).json({
         success: false,
         message: "Please provide name, price, and category",
       });
@@ -263,6 +271,7 @@ const createProduct = async (req, res) => {
       color: color,
       createdAt: new Date(),
       updatedAt: new Date(),
+      createdBy: req.user._id // Add the admin user who created the product
     };
 
     // Only add dimensions if it's valid

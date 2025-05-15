@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useAuth } from "../../context/AuthContext";
 import Button from "../../components/Button";
@@ -12,95 +12,54 @@ const Login = () => {
   });
 
   const [formErrors, setFormErrors] = useState({});
-  const { login, isAuthenticated, error, clearError } = useAuth();
+  const { adminLogin, isAuthenticated, isAdmin, error, clearError } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
 
-  // Get redirect path from URL query params
-  const redirectPath =
-    new URLSearchParams(location.search).get("redirect") || "/admin/dashboard";
-
-  // Redirect if already authenticated
+  // Check if already authenticated as admin
   useEffect(() => {
-    if (isAuthenticated) {
-      navigate(redirectPath);
+    if (isAuthenticated && isAdmin) {
+      navigate('/admin/dashboard', { replace: true });
     }
-  }, [isAuthenticated, navigate, redirectPath]);
-
-  // Handle input change
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData({
-      ...formData,
-      [name]: value,
-    });
-
-    // Clear error for this field
-    if (formErrors[name]) {
-      setFormErrors({
-        ...formErrors,
-        [name]: "",
-      });
-    }
-  };
-
-  // Validate form
-  const validateForm = () => {
-    const errors = {};
-
-    if (!formData.email.trim()) {
-      errors.email = "Email is required";
-    } else if (!/^\S+@\S+\.\S+$/.test(formData.email)) {
-      errors.email = "Please enter a valid email address";
-    }
-
-    if (!formData.password) {
-      errors.password = "Password is required";
-    }
-
-    setFormErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
+  }, [isAuthenticated, isAdmin, navigate]);
 
   // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    // Clear any previous errors
     clearError();
+    setFormErrors({});
 
-    // Validate form
-    if (!validateForm()) {
+    // Basic validation
+    if (!formData.email || !formData.password) {
+      setFormErrors({
+        submit: "Please fill in all fields"
+      });
       return;
     }
 
     try {
-      console.log("Attempting admin login with:", formData.email);
-
-      // Attempt admin login
-      const response = await adminLogin(formData.email, formData.password);
-
-      // Verify admin token was set
-      const adminToken = localStorage.getItem('adminToken');
-      if (!adminToken) {
-        throw new Error('Admin token not set after login');
-      }
-
-      // Verify user role
-      const user = JSON.parse(localStorage.getItem('user'));
-      if (!user || user.role !== 'admin') {
-        throw new Error('Invalid admin credentials');
-      }
-
-      console.log("Admin login successful, redirecting to:", redirectPath);
-      navigate(redirectPath);
-    } catch (error) {
-      console.error("Admin login error:", error);
-      setFormErrors(prev => ({
-        ...prev,
-        submit: error.message || 'Login failed. Please try again.'
-      }));
+      // Attempt login
+      await adminLogin(formData.email, formData.password);
+      
+      // If successful, navigate to dashboard
+      navigate('/admin/dashboard', { replace: true });
+    } catch (err) {
+      console.error('Login error:', err);
+      setFormErrors({
+        submit: err.message || 'Login failed. Please try again.'
+      });
     }
+  };
+
+  // Handle input change
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+    // Clear errors when user types
+    setFormErrors({});
+    clearError();
   };
 
   return (
@@ -127,11 +86,14 @@ const Login = () => {
           transition={{ duration: 0.5, delay: 0.1 }}
           className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10"
         >
-          {error && (
+          {(error || formErrors.submit) && (
             <Alert
               type="error"
-              message={error}
-              onClose={clearError}
+              message={error || formErrors.submit}
+              onClose={() => {
+                clearError();
+                setFormErrors({});
+              }}
               className="mb-4"
             />
           )}
@@ -150,17 +112,11 @@ const Login = () => {
                   name="email"
                   type="email"
                   autoComplete="email"
+                  required
                   value={formData.email}
                   onChange={handleChange}
-                  className={`appearance-none block w-full px-3 py-2 border ${
-                    formErrors.email ? "border-red-500" : "border-gray-300"
-                  } rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm`}
+                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
                 />
-                {formErrors.email && (
-                  <p className="mt-2 text-sm text-red-600">
-                    {formErrors.email}
-                  </p>
-                )}
               </div>
             </div>
 
@@ -177,65 +133,25 @@ const Login = () => {
                   name="password"
                   type="password"
                   autoComplete="current-password"
+                  required
                   value={formData.password}
                   onChange={handleChange}
-                  className={`appearance-none block w-full px-3 py-2 border ${
-                    formErrors.password ? "border-red-500" : "border-gray-300"
-                  } rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm`}
+                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
                 />
-                {formErrors.password && (
-                  <p className="mt-2 text-sm text-red-600">
-                    {formErrors.password}
-                  </p>
-                )}
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <input
-                  id="remember-me"
-                  name="remember-me"
-                  type="checkbox"
-                  className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
-                />
-                <label
-                  htmlFor="remember-me"
-                  className="ml-2 block text-sm text-gray-900"
-                >
-                  Remember me
-                </label>
-              </div>
-
-              <div className="text-sm">
-                <a
-                  href="#"
-                  className="font-medium text-primary hover:text-primary-dark"
-                >
-                  Forgot your password?
-                </a>
               </div>
             </div>
 
             <div>
-              <Button type="submit" fullWidth>
+              <Button
+                type="submit"
+                fullWidth
+                disabled={isAuthenticated}
+                className="w-full"
+              >
                 Sign in
               </Button>
             </div>
           </form>
-
-          <div className="mt-6">
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-300" />
-              </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white text-gray-500">
-                  Admin access only
-                </span>
-              </div>
-            </div>
-          </div>
         </motion.div>
       </div>
     </div>
