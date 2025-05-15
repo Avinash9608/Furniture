@@ -27,30 +27,44 @@ const getBaseURL = () => {
 const api = axios.create({
   baseURL: getBaseURL(),
   timeout: 60000, // Increased timeout to 60 seconds for production
-  withCredentials: false, // Must be false to work with wildcard CORS
+  withCredentials: true, // Enable credentials for all requests
 });
 
 // Add request interceptor to handle auth token
 api.interceptors.request.use(
   (config) => {
-    // Try to get admin token first
+    // Get both tokens
     const adminToken = localStorage.getItem('adminToken');
+    const token = localStorage.getItem('token');
     
-    // For admin endpoints, ensure we have admin token
-    if (config.url.includes('/admin/')) {
-      if (!adminToken) {
-        console.error('Attempting to access admin endpoint without admin token');
-        throw new Error('Admin authentication required. Please log in as an administrator.');
+    // For admin endpoints, try multiple token sources
+    if (config.url.includes('/admin/') || config.url.includes('/api/admin/')) {
+      const effectiveToken = adminToken || token;
+      
+      if (!effectiveToken) {
+        console.error('No valid token found for admin endpoint');
+        throw new Error('Admin authentication required');
       }
-      console.log('Using admin token for admin endpoint');
-      config.headers['Authorization'] = `Bearer ${adminToken}`;
+      
+      // Add token to headers
+      config.headers['Authorization'] = `Bearer ${effectiveToken}`;
+      
+      // Add token to URL for query string fallback
+      const separator = config.url.includes('?') ? '&' : '?';
+      config.url = `${config.url}${separator}token=${effectiveToken}`;
+      
+      // Log the request for debugging
+      console.log('Admin request:', {
+        url: config.url,
+        method: config.method,
+        hasToken: !!effectiveToken
+      });
+      
       return config;
     }
 
-    // For non-admin endpoints, try regular token
-    const token = localStorage.getItem('token');
+    // For non-admin endpoints, use regular token
     if (token) {
-      console.log('Using regular token for non-admin endpoint');
       config.headers['Authorization'] = `Bearer ${token}`;
     }
 
@@ -66,19 +80,26 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
-    console.error('API Error Response:', error.response?.data || error.message);
+    console.error('API Error:', error.message);
+    console.error('Response:', error.response?.data);
     
-    if (error.response?.status === 401) {
-      console.error('Authentication error - clearing tokens and redirecting to login');
+    // Handle authentication errors
+    if (error.response?.status === 401 || error.response?.status === 403) {
+      console.error('Authentication error - clearing tokens');
+      
       // Clear all tokens
       localStorage.removeItem('token');
       localStorage.removeItem('adminToken');
       localStorage.removeItem('user');
-      // Redirect to admin login for admin endpoints
-      if (error.config.url.includes('/admin/')) {
-        window.location.href = '/admin/login';
+      
+      // Redirect based on the endpoint type
+      const isAdminEndpoint = error.config.url.includes('/admin/') || 
+                             error.config.url.includes('/api/admin/');
+      
+      if (isAdminEndpoint) {
+        window.location.href = '/admin/login?error=session_expired';
       } else {
-        window.location.href = '/login';
+        window.location.href = '/login?error=session_expired';
       }
     }
     
