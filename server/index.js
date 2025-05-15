@@ -87,22 +87,35 @@ const corsOptions = {
       'http://localhost:3000',
       'http://localhost:5000',
       'https://furniture-q3nb.onrender.com',
-      'https://furniture-admin.onrender.com'
-    ];
+      'https://furniture-admin.onrender.com',
+      process.env.FRONTEND_URL, // Add this if you have a custom domain
+    ].filter(Boolean); // Remove any undefined values
 
     // Check if the origin is allowed
-    if (allowedOrigins.indexOf(origin) !== -1 || origin.match(/^https?:\/\/localhost(:\d+)?$/)) {
+    if (allowedOrigins.includes(origin) || 
+        origin.match(/^https?:\/\/localhost(:\d+)?$/) ||
+        origin.match(/\.onrender\.com$/) ||
+        origin.match(/\.vercel\.app$/)) {
       callback(null, true);
     } else {
       console.warn(`Origin ${origin} not allowed by CORS`);
-      callback(new Error('Not allowed by CORS'));
+      callback(null, true); // Allow all origins in production for now
     }
   },
-  credentials: true, // Allow credentials
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'X-Requested-With',
+    'Accept',
+    'Origin',
+    'Access-Control-Allow-Headers',
+    'Access-Control-Request-Method',
+    'Access-Control-Request-Headers'
+  ],
   exposedHeaders: ['Content-Range', 'X-Content-Range'],
-  maxAge: 600 // Cache preflight requests for 10 minutes
+  maxAge: 86400 // Cache preflight requests for 24 hours
 };
 
 // Apply CORS middleware

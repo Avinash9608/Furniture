@@ -7,155 +7,110 @@
 
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
-const { findOneDocument } = require('../utils/directDbConnection');
+const { MongoClient } = require('mongodb');
+
+// Get MongoDB URI from environment variables
+const getMongoURI = () => process.env.MONGO_URI;
 
 // @desc    Login admin user with direct MongoDB access
 // @route   POST /api/auth/admin/login
 // @access  Public
 exports.loginAdmin = async (req, res) => {
+  console.log('Admin login attempt');
+  
+  const { email, password } = req.body;
+
+  // Validate input
+  if (!email || !password) {
+    return res.status(400).json({
+      success: false,
+      message: 'Please provide email and password'
+    });
+  }
+
+  let client;
   try {
-    console.log('Direct admin login attempt');
-    const { email, password } = req.body;
+    // Connect to MongoDB
+    client = await MongoClient.connect(getMongoURI(), {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+      connectTimeoutMS: 30000
+    });
 
-    // Validate email & password
-    if (!email || !password) {
-      return res.status(400).json({
-        success: false,
-        message: 'Please provide email and password'
-      });
-    }
+    console.log('Connected to MongoDB for admin login');
 
-    // Get admin credentials from environment variables
-    const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'avinashmadhukar4@gmail.com';
-    const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '123456';
-    const ADMIN_NAME = process.env.ADMIN_NAME || 'Admin User';
+    // Get database name from connection string
+    const dbName = getMongoURI().split('/').pop().split('?')[0];
+    const db = client.db(dbName);
 
-    console.log('Checking admin credentials...');
-    console.log('Expected admin email:', ADMIN_EMAIL);
-    console.log('Provided email:', email);
+    // Find user by email
+    const user = await db.collection('users').findOne({ 
+      email: email.toLowerCase(),
+      role: 'admin'
+    });
 
-    // Compare with environment variable credentials
-    if (email === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
-      console.log('Admin credentials validated successfully');
-
-      // Create a JWT token
-      const token = jwt.sign(
-        { id: 'admin-user-id', role: 'admin' },
-        process.env.JWT_SECRET || 'fallback_jwt_secret',
-        { expiresIn: process.env.JWT_EXPIRE || '30d' }
-      );
-
-      // Return success response
-      return res.status(200).json({
-        success: true,
-        token,
-        user: {
-          _id: 'admin-user-id',
-          name: ADMIN_NAME,
-          email: ADMIN_EMAIL,
-          role: 'admin'
-        }
-      });
-    }
-
-    // If not matching environment variables, try to find in database
-    try {
-      console.log('Checking database for admin user');
-      const user = await findOneDocument('users', { email });
-
-      if (!user) {
-        console.log('User not found in database');
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid credentials'
-        });
-      }
-
-      // Check if user is admin
-      if (user.role !== 'admin') {
-        console.log('User is not an admin');
-        return res.status(401).json({
-          success: false,
-          message: 'Not authorized as admin'
-        });
-      }
-
-      // Check password
-      const isMatch = await bcrypt.compare(password, user.password);
-
-      if (!isMatch) {
-        console.log('Password does not match');
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid credentials'
-        });
-      }
-
-      console.log('Admin user found in database and password matches');
-
-      // Create a JWT token
-      const token = jwt.sign(
-        { id: user._id.toString(), role: user.role },
-        process.env.JWT_SECRET || 'fallback_jwt_secret',
-        { expiresIn: process.env.JWT_EXPIRE || '30d' }
-      );
-
-      // Return success response
-      return res.status(200).json({
-        success: true,
-        token,
-        user: {
-          _id: user._id.toString(),
-          name: user.name,
-          email: user.email,
-          role: user.role
-        }
-      });
-    } catch (dbError) {
-      console.error('Error checking database for admin user:', dbError);
-      
-      // If database check fails, fall back to environment variables
-      if (email === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
-        console.log('Falling back to environment variables after database error');
-        
-        // Create a JWT token
-        const token = jwt.sign(
-          { id: 'admin-user-id', role: 'admin' },
-          process.env.JWT_SECRET || 'fallback_jwt_secret',
-          { expiresIn: process.env.JWT_EXPIRE || '30d' }
-        );
-        
-        // Return success response
-        return res.status(200).json({
-          success: true,
-          token,
-          user: {
-            _id: 'admin-user-id',
-            name: ADMIN_NAME,
-            email: ADMIN_EMAIL,
-            role: 'admin'
-          }
-        });
-      }
-      
-      // If not matching environment variables, return error
+    if (!user) {
+      console.log('Admin user not found:', email);
       return res.status(401).json({
         success: false,
         message: 'Invalid credentials'
       });
     }
+
+    // Check password
+    const isMatch = await bcrypt.compare(password, user.password);
+
+    if (!isMatch) {
+      console.log('Invalid password for admin:', email);
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid credentials'
+      });
+    }
+
+    // Create token
+    const token = jwt.sign(
+      { id: user._id, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: '1d' }
+    );
+
+    console.log('Admin login successful:', email);
+
+    // Set cookie options
+    const cookieOptions = {
+      expires: new Date(Date.now() + 24 * 60 * 60 * 1000), // 1 day
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
+    };
+
+    // Send response with cookie
+    res
+      .status(200)
+      .cookie('adminToken', token, cookieOptions)
+      .json({
+        success: true,
+        token,
+        user: {
+          id: user._id,
+          name: user.name,
+          email: user.email,
+          role: user.role
+        }
+      });
+
   } catch (error) {
     console.error('Admin login error:', error);
-    console.error('Admin login error details:', {
-      name: error.name,
-      code: error.code,
-      message: error.message,
-      stack: error.stack
-    });
-    
-    return res.status(500).json({
+    res.status(500).json({
       success: false,
-      message: 'Server error during admin login'
+      message: 'Error logging in',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
+  } finally {
+    if (client) {
+      await client.close();
+      console.log('MongoDB connection closed');
+    }
   }
 };
