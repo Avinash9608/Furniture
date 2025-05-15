@@ -255,7 +255,7 @@ const ProductForm = ({
 
     try {
       // Add authentication token
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('token') || localStorage.getItem('adminToken');
       if (!token) {
         setErrors(prev => ({
           ...prev,
@@ -263,6 +263,9 @@ const ProductForm = ({
         }));
         return;
       }
+
+      // Log token for debugging
+      console.log('Using authentication token:', token ? 'Token exists' : 'No token');
 
       // Add basic fields
       formDataToSubmit.append('name', formData.name.trim());
@@ -298,7 +301,7 @@ const ProductForm = ({
         });
       }
 
-      // Log the FormData contents
+      // Log the FormData contents for debugging
       console.log('FormData contents:');
       for (let pair of formDataToSubmit.entries()) {
         console.log(pair[0], typeof pair[1], pair[1]);
@@ -306,6 +309,7 @@ const ProductForm = ({
 
       // Submit the form with authentication token
       onSubmit(formDataToSubmit, token);
+
     } catch (error) {
       console.error('Error preparing form data:', error);
       setErrors(prev => ({

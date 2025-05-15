@@ -10,25 +10,14 @@
  * @returns {string} The base URL for API calls
  */
 export const getApiBaseUrl = () => {
-  // Get the current hostname and origin
   const hostname = window.location.hostname;
-  const origin = window.location.origin;
-
-  // Check if we're on Render's domain
-  if (hostname.includes("render.com") || hostname === "furniture-q3nb.onrender.com") {
-    console.log("Using Render production API URL");
-    return `${origin}/api`;
+  const isProduction = hostname.includes('render.com') || process.env.NODE_ENV === 'production';
+  
+  if (isProduction) {
+    return 'https://furniture-q3nb.onrender.com/api';
   }
-
-  // In development, use localhost:5000
-  if (hostname === "localhost" || hostname === "127.0.0.1") {
-    console.log("Using development API URL");
-    return "http://localhost:5000/api";
-  }
-
-  // In other production environments, use relative path
-  console.log("Using relative API URL");
-  return "/api";
+  
+  return 'http://localhost:5000/api';
 };
 
 /**
@@ -51,20 +40,13 @@ export const getApiUrl = (endpoint) => {
  */
 export const getAssetsBaseUrl = () => {
   const hostname = window.location.hostname;
-  const origin = window.location.origin;
-
-  // Always use HTTPS in production
-  if (hostname.includes("render.com") || hostname === "furniture-q3nb.onrender.com") {
-    return "https://furniture-q3nb.onrender.com";  // Always use the full production URL
+  const isProduction = hostname.includes('render.com') || process.env.NODE_ENV === 'production';
+  
+  if (isProduction) {
+    return 'https://furniture-q3nb.onrender.com';
   }
-
-  // In development, use localhost:5000
-  if (hostname === "localhost" || hostname === "127.0.0.1") {
-    return "http://localhost:5000";
-  }
-
-  // In other production environments, use the current origin with HTTPS
-  return origin.replace('http:', 'https:');
+  
+  return 'http://localhost:5000';
 };
 
 /**
@@ -113,23 +95,30 @@ export const getAssetUrl = (asset) => {
 };
 
 /**
- * Fix image URLs to ensure they work in both development and production
- * @param {string[]} urls - Array of image URLs to fix
+ * Fix image URLs to ensure they work in production
+ * @param {string[]} images - Array of image URLs to fix
  * @returns {string[]} Array of fixed image URLs
  */
-export const fixImageUrls = (urls) => {
-  if (!Array.isArray(urls)) return [];
+export const fixImageUrls = (images) => {
+  if (!images) return [];
   
-  return urls.map(url => {
-    if (!url) return '';
+  const baseUrl = getAssetsBaseUrl();
+  
+  return images.map(img => {
+    if (typeof img !== 'string') return img;
     
-    // If it's an object
-    if (typeof url === 'object') {
-      return getAssetUrl(url);
+    // If the image URL is already absolute, return it as is
+    if (img.startsWith('http://') || img.startsWith('https://')) {
+      return img;
     }
     
-    // If it's a string
-    return getAssetUrl(url);
+    // If the image path starts with a slash, append it to the base URL
+    if (img.startsWith('/')) {
+      return `${baseUrl}${img}`;
+    }
+    
+    // Otherwise, add a slash between base URL and image path
+    return `${baseUrl}/${img}`;
   });
 };
 
