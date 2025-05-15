@@ -10,10 +10,40 @@ const PaymentInstructions = ({ paymentMethod }) => {
     const fetchPaymentSettings = async () => {
       try {
         setLoading(true);
+        console.log("Fetching payment settings for payment instructions");
         const response = await paymentSettingsAPI.get();
-        setPaymentSettings(response.data);
+
+        // Handle different response formats
+        if (response && response.success && response.data) {
+          console.log("Payment settings fetched successfully:", response.data);
+          setPaymentSettings(response.data);
+        } else if (response && response.data) {
+          console.log(
+            "Payment settings fetched with legacy format:",
+            response.data
+          );
+          setPaymentSettings(response.data);
+        } else {
+          console.error("Invalid payment settings response format:", response);
+          // Set default payment settings as fallback
+          setPaymentSettings({
+            accountNumber: "42585534295",
+            ifscCode: "SBIN0030442",
+            accountHolder: "Avinash Kumar",
+            bankName: "State Bank of India",
+            isActive: true,
+          });
+        }
       } catch (err) {
         console.error("Error fetching payment settings:", err);
+        // Set default payment settings as fallback
+        setPaymentSettings({
+          accountNumber: "42585534295",
+          ifscCode: "SBIN0030442",
+          accountHolder: "Avinash Kumar",
+          bankName: "State Bank of India",
+          isActive: true,
+        });
       } finally {
         setLoading(false);
       }

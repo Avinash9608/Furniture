@@ -26,17 +26,54 @@ const PaymentSettings = () => {
       console.log("Fetching payment settings...");
       const response = await paymentSettingsAPI.getAll();
       console.log("Payment settings response:", response);
-      if (response && response.data) {
+
+      // Handle different response formats
+      if (response && response.success && response.data) {
+        console.log("Payment settings fetched successfully:", response.data);
+        setSettings(response.data);
+      } else if (response && response.data) {
+        console.log(
+          "Payment settings fetched with legacy format:",
+          response.data
+        );
         setSettings(response.data);
       } else {
+        console.error("Invalid payment settings response format:", response);
         setError("Invalid response format from server");
-        console.error("Invalid response format:", response);
+
+        // Set default payment settings as fallback
+        setSettings([
+          {
+            accountNumber: "42585534295",
+            ifscCode: "SBIN0030442",
+            accountHolder: "Avinash Kumar",
+            bankName: "State Bank of India",
+            isActive: true,
+            _id: "default-settings",
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          },
+        ]);
       }
     } catch (err) {
       console.error("Error fetching payment settings:", err);
       setError(
         err.response?.data?.message || "Failed to load payment settings"
       );
+
+      // Set default payment settings as fallback
+      setSettings([
+        {
+          accountNumber: "42585534295",
+          ifscCode: "SBIN0030442",
+          accountHolder: "Avinash Kumar",
+          bankName: "State Bank of India",
+          isActive: true,
+          _id: "default-settings",
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+      ]);
     } finally {
       setLoading(false);
     }

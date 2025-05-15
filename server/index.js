@@ -309,6 +309,12 @@ const {
   deleteCategory,
 } = require("./controllers/directCategories");
 
+// Import direct payment settings controller
+const {
+  getPaymentSettings,
+  getAllPaymentSettings: getAllPaymentSettingsDirect,
+} = require("./controllers/directPaymentSettings");
+
 // Import direct admin auth controller
 const { loginAdmin } = require("./controllers/directAdminAuth");
 
@@ -565,6 +571,18 @@ app.put("/api/admin/categories/:id", upload.single("image"), updateCategory);
 app.delete("/admin/categories/:id", deleteCategory);
 app.delete("/api/admin/categories/:id", deleteCategory);
 
+// Direct API routes for payment settings
+app.get("/api/direct/payment-settings", getPaymentSettings);
+app.get("/api/direct/payment-settings/all", getAllPaymentSettingsDirect);
+
+// Additional payment settings routes for better compatibility
+app.get("/payment-settings", getPaymentSettings);
+app.get("/api/payment-settings", getPaymentSettings);
+app.get("/payment-settings/all", getAllPaymentSettingsDirect);
+app.get("/api/payment-settings/all", getAllPaymentSettingsDirect);
+app.get("/admin/payment-settings", getAllPaymentSettingsDirect);
+app.get("/api/admin/payment-settings", getAllPaymentSettingsDirect);
+
 // Direct admin login routes
 app.post("/api/auth/admin/direct-login", loginAdmin);
 app.post("/api/auth/admin/login", loginAdmin); // Also handle regular admin login route
@@ -610,6 +628,16 @@ console.log("- PUT /admin/categories/:id");
 console.log("- PUT /api/admin/categories/:id");
 console.log("- DELETE /admin/categories/:id");
 console.log("- DELETE /api/admin/categories/:id");
+
+console.log("Payment Settings routes:");
+console.log("- GET /api/direct/payment-settings");
+console.log("- GET /api/direct/payment-settings/all");
+console.log("- GET /payment-settings");
+console.log("- GET /api/payment-settings");
+console.log("- GET /payment-settings/all");
+console.log("- GET /api/payment-settings/all");
+console.log("- GET /admin/payment-settings");
+console.log("- GET /api/admin/payment-settings");
 console.log("Contact form routes:");
 console.log("- POST /contact");
 console.log("- POST /api/contact");
