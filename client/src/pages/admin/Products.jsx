@@ -14,6 +14,19 @@ import Loading from "../../components/Loading";
 import Alert from "../../components/Alert";
 import Modal from "../../components/Modal";
 
+const getImageUrl = (imagePath) => {
+  if (!imagePath) return 'https://placehold.co/300x300/gray/white?text=No+Image';
+  
+  // If it's already a full URL, return it as is
+  if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+    return imagePath;
+  }
+  
+  // Otherwise, prepend the API base URL
+  const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+  return `${baseUrl}${imagePath}`;
+};
+
 const AdminProducts = () => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -1464,37 +1477,25 @@ const AdminProducts = () => {
                     transition={{ duration: 0.3 }}
                     className="hover:theme-bg-secondary transition-colors duration-150"
                   >
-                    {/* <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="w-16 h-16 rounded-md overflow-hidden">
-                        <img
-                          src={product.images[0]}
-                          alt={product.name}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                    </td> */}
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="w-16 h-16 rounded-md overflow-hidden">
+                      <div className="flex space-x-2 overflow-x-auto" style={{ maxWidth: '200px' }}>
                         {product.images && product.images.length > 0 ? (
-                          <img
-                            src={
-                              product.images[0].startsWith("http")
-                                ? product.images[0]
-                                : `${
-                                    import.meta.env.VITE_API_BASE_URL ||
-                                    "http://localhost:5000"
-                                  }${product.images[0]}`
-                            }
-                            alt={product.name}
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                              e.target.onerror = null;
-                              e.target.src =
-                                "https://placehold.co/300x300/gray/white?text=No+Image";
-                            }}
-                          />
+                          product.images.map((imageUrl, index) => (
+                            <div key={index} className="flex-shrink-0 w-16 h-16 rounded-md overflow-hidden">
+                              <img
+                                src={getImageUrl(imageUrl)}
+                                alt={`${product.name} - Image ${index + 1}`}
+                                className="w-full h-full object-cover hover:opacity-75 transition-opacity duration-150"
+                                onError={(e) => {
+                                  console.log('Image load error:', e.target.src);
+                                  e.target.onerror = null;
+                                  e.target.src = "https://placehold.co/300x300/gray/white?text=No+Image";
+                                }}
+                              />
+                            </div>
+                          ))
                         ) : (
-                          <div className="w-full h-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+                          <div className="w-16 h-16 bg-gray-200 dark:bg-gray-700 flex items-center justify-center rounded-md">
                             <span className="text-xs theme-text-secondary">
                               No Image
                             </span>
