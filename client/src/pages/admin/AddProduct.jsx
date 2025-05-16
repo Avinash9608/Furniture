@@ -134,7 +134,48 @@ const AddProduct = () => {
         console.log(pair[0], pair[1]);
       }
 
-      // Try the enhanced product creation API first
+      // Try direct bypass endpoint first
+      try {
+        console.log("Trying direct bypass endpoint...");
+
+        // Get the base URL
+        const baseUrl =
+          window.location.hostname === "localhost"
+            ? "http://localhost:5000"
+            : window.location.origin;
+
+        // Make the request directly to the bypass endpoint
+        const bypassResponse = await fetch(`${baseUrl}/api/bypass/product`, {
+          method: "POST",
+          body: formData,
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        // Check if the request was successful
+        if (bypassResponse.ok) {
+          const data = await bypassResponse.json();
+          console.log(
+            "Product created successfully with bypass endpoint:",
+            data
+          );
+
+          // Navigate to products page with success message
+          navigate("/admin/products", {
+            state: { successMessage: "Product added successfully!" },
+          });
+          return;
+        } else {
+          console.error("Bypass endpoint failed:", await bypassResponse.text());
+          // Continue to next approach
+        }
+      } catch (bypassError) {
+        console.error("Error with bypass endpoint:", bypassError);
+        // Continue to next approach
+      }
+
+      // Try the enhanced product creation API next
       try {
         console.log("Trying enhanced product creation API...");
         const response = await createProductEnhanced(formData);

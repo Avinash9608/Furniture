@@ -577,7 +577,13 @@ exports.createProduct = async (req, res) => {
     });
 
     // Verify required fields
-    const requiredFields = ["name", "description", "price", "category", "stock"];
+    const requiredFields = [
+      "name",
+      "description",
+      "price",
+      "category",
+      "stock",
+    ];
     const missingFields = [];
 
     requiredFields.forEach((field) => {
@@ -590,7 +596,9 @@ exports.createProduct = async (req, res) => {
       console.log("Missing required fields:", missingFields);
       return res.status(400).json({
         success: false,
-        message: `Please provide the following required fields: ${missingFields.join(", ")}`,
+        message: `Please provide the following required fields: ${missingFields.join(
+          ", "
+        )}`,
       });
     }
 
@@ -602,13 +610,35 @@ exports.createProduct = async (req, res) => {
       images = req.files.map((file) => `/uploads/${file.filename}`);
       console.log("Uploaded image paths:", images);
     }
-    
+
     if (req.body.imageUrls) {
-      const imageUrls = Array.isArray(req.body.imageUrls) 
-        ? req.body.imageUrls 
+      const imageUrls = Array.isArray(req.body.imageUrls)
+        ? req.body.imageUrls
         : [req.body.imageUrls];
       images = [...images, ...imageUrls];
       console.log("Combined image paths:", images);
+    }
+
+    // Process category - handle offline categories
+    let categoryValue = req.body.category;
+    let categoryName = req.body.categoryName || "";
+
+    // If it's an offline category, extract the name
+    if (
+      categoryValue &&
+      typeof categoryValue === "string" &&
+      categoryValue.startsWith("offline_")
+    ) {
+      console.log(`Detected offline category: ${categoryValue}`);
+
+      // Extract category name from the offline ID if not provided
+      if (!categoryName) {
+        categoryName = categoryValue.replace("offline_", "");
+        // Capitalize first letter
+        categoryName =
+          categoryName.charAt(0).toUpperCase() + categoryName.slice(1);
+        console.log(`Extracted category name: ${categoryName}`);
+      }
     }
 
     // Create product data object with proper type conversion
@@ -616,10 +646,11 @@ exports.createProduct = async (req, res) => {
       name: req.body.name,
       description: req.body.description,
       price: Number(req.body.price),
-      category: req.body.category,
+      category: categoryValue,
+      categoryName: categoryName, // Add the category name
       stock: Number(req.body.stock),
       featured: req.body.featured === "true",
-      images: images.length > 0 ? images : undefined
+      images: images.length > 0 ? images : undefined,
     };
 
     // Handle optional fields with proper type conversion
@@ -639,7 +670,7 @@ exports.createProduct = async (req, res) => {
     if (req.body.dimensions) {
       try {
         let dimensionsData = {};
-        
+
         if (typeof req.body.dimensions === "string") {
           try {
             dimensionsData = JSON.parse(req.body.dimensions);
@@ -652,7 +683,7 @@ exports.createProduct = async (req, res) => {
         }
 
         const dimensionsObj = {};
-        
+
         // Only add valid numeric dimensions
         if (dimensionsData.length) {
           const length = Number(dimensionsData.length);
@@ -660,14 +691,14 @@ exports.createProduct = async (req, res) => {
             dimensionsObj.length = length;
           }
         }
-        
+
         if (dimensionsData.width) {
           const width = Number(dimensionsData.width);
           if (!isNaN(width) && width >= 0) {
             dimensionsObj.width = width;
           }
         }
-        
+
         if (dimensionsData.height) {
           const height = Number(dimensionsData.height);
           if (!isNaN(height) && height >= 0) {
@@ -696,7 +727,7 @@ exports.createProduct = async (req, res) => {
       dimensions: product.dimensions,
       material: product.material,
       color: product.color,
-      images: product.images
+      images: product.images,
     });
 
     res.status(201).json({

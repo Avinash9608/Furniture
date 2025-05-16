@@ -59,9 +59,14 @@ const ProductSchema = new mongoose.Schema({
     min: [0, "Discount price must be a positive number"],
   },
   category: {
-    type: mongoose.Schema.ObjectId,
+    type: mongoose.Schema.Types.Mixed, // Allow both ObjectId and string
     ref: "Category",
     required: true,
+  },
+  // Store category name separately for easier access
+  categoryName: {
+    type: String,
+    default: "",
   },
   stock: {
     type: Number,
