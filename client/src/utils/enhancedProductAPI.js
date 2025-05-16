@@ -65,6 +65,9 @@ export const createProduct = async (formData) => {
 
   // Define endpoints to try in order
   const endpoints = [
+    "/api/emergency/product",
+    "/emergency/product",
+    "/admin/emergency/product",
     "/api/direct-mongo/product",
     "/direct-mongo/product",
     "/admin/direct-mongo/product",

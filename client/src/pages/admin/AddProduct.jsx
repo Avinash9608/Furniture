@@ -134,7 +134,54 @@ const AddProduct = () => {
         console.log(pair[0], pair[1]);
       }
 
-      // Try direct MongoDB endpoint first (no Mongoose)
+      // Try emergency endpoint first (2-minute timeout)
+      try {
+        console.log("Trying emergency endpoint with 2-minute timeout...");
+
+        // Get the base URL
+        const baseUrl =
+          window.location.hostname === "localhost"
+            ? "http://localhost:5000"
+            : window.location.origin;
+
+        // Make the request directly to the emergency endpoint
+        const emergencyResponse = await fetch(
+          `${baseUrl}/api/emergency/product`,
+          {
+            method: "POST",
+            body: formData,
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        // Check if the request was successful
+        if (emergencyResponse.ok) {
+          const data = await emergencyResponse.json();
+          console.log(
+            "Product created successfully with emergency endpoint:",
+            data
+          );
+
+          // Navigate to products page with success message
+          navigate("/admin/products", {
+            state: { successMessage: "Product added successfully!" },
+          });
+          return;
+        } else {
+          console.error(
+            "Emergency endpoint failed:",
+            await emergencyResponse.text()
+          );
+          // Continue to next approach
+        }
+      } catch (emergencyError) {
+        console.error("Error with emergency endpoint:", emergencyError);
+        // Continue to next approach
+      }
+
+      // Try direct MongoDB endpoint next (no Mongoose)
       try {
         console.log("Trying direct MongoDB endpoint (no Mongoose)...");
 

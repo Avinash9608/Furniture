@@ -330,6 +330,11 @@ const {
   createProduct: createProductDirectMongo,
 } = require("./controllers/directMongoProductCreation");
 
+// Import emergency product creation controller
+const {
+  createProduct: createProductEmergency,
+} = require("./controllers/emergencyProductCreation");
+
 // Import direct admin auth controller
 const { loginAdmin } = require("./controllers/directAdminAuth");
 
@@ -400,6 +405,23 @@ app.post(
   "/admin/direct-mongo/product",
   upload.array("images", 10),
   createProductDirectMongo
+);
+
+// Emergency product creation endpoints with extremely high timeouts
+app.post(
+  "/api/emergency/product",
+  upload.array("images", 10),
+  createProductEmergency
+);
+app.post(
+  "/emergency/product",
+  upload.array("images", 10),
+  createProductEmergency
+);
+app.post(
+  "/admin/emergency/product",
+  upload.array("images", 10),
+  createProductEmergency
 );
 
 // Special route for products page - handle both /products and /api/products
@@ -673,6 +695,9 @@ console.log("- POST /admin/bypass/product (Bypass)");
 console.log("- POST /api/direct-mongo/product (Direct MongoDB)");
 console.log("- POST /direct-mongo/product (Direct MongoDB)");
 console.log("- POST /admin/direct-mongo/product (Direct MongoDB)");
+console.log("- POST /api/emergency/product (Emergency - 2min timeout)");
+console.log("- POST /emergency/product (Emergency - 2min timeout)");
+console.log("- POST /admin/emergency/product (Emergency - 2min timeout)");
 console.log("Category routes:");
 console.log("- GET /api/direct/categories");
 console.log("- GET /api/direct/categories/:id");
