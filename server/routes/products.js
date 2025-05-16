@@ -9,28 +9,18 @@ const {
   createProductReview,
 } = require("../controllers/products");
 const { protect, authorize } = require("../middleware/auth");
-const { upload } = require("../middleware/upload");
+const upload = require("../middleware/upload");
 
 // Public routes
-router.route("/").get(getProducts);
-router.route("/:id").get(getProduct);
+router.get("/", getProducts);
+router.get("/:id", getProduct);
 
-// Protected routes
-router.use(protect); // Apply protection middleware to all routes below
+// Admin routes for product management
+router.post("/", protect, authorize("admin"), upload.array("images", 5), createProduct);
+router.put("/:id", protect, authorize("admin"), upload.array("images", 5), updateProduct);
+router.delete("/:id", protect, authorize("admin"), deleteProduct);
 
-// Admin only routes
-router.use(authorize("admin")); // Apply admin authorization to all routes below
-
-router
-  .route("/")
-  .post(upload.array("images", 5), createProduct); // Allow up to 5 images
-
-router
-  .route("/:id")
-  .put(upload.array("images", 5), updateProduct)
-  .delete(deleteProduct);
-
-// Review routes
-router.route("/:id/reviews").post(createProductReview);
+// Review route
+router.post("/:id/reviews", protect, createProductReview);
 
 module.exports = router;

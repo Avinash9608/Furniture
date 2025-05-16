@@ -138,20 +138,20 @@ const AddProduct = () => {
         <h1 className="text-2xl font-bold mb-6">Add New Product</h1>
 
         {error && (
-          <Alert
-            type="error"
-            message={error}
+              <Alert
+                type="error"
+                message={error}
             className="mb-6"
-            onClose={() => setError(null)}
+                onClose={() => setError(null)}
           />
         )}
 
-        <ProductForm
-          categories={categories}
-          onSubmit={handleSubmit}
-          isSubmitting={isSubmitting}
-          submitError={submitError}
-        />
+              <ProductForm
+                categories={categories}
+                onSubmit={handleSubmit}
+                isSubmitting={isSubmitting}
+                submitError={submitError}
+              />
       </div>
     </AdminLayout>
   );

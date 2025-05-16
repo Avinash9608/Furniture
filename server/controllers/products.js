@@ -595,13 +595,10 @@ exports.createProduct = async (req, res) => {
       images = req.files.map(file => `/uploads/${file.filename}`);
     }
 
-    // Create slug from name
-    const slug = slugify(req.body.name, { lower: true });
-
     // Create product data object
     const productData = {
       name: req.body.name,
-      slug,
+      slug: req.body.name.toLowerCase().replace(/ /g, '-'),
       description: req.body.description,
       price: parseFloat(req.body.price),
       category: req.body.category,
