@@ -1,47 +1,51 @@
 /**
- * Mongoose plugin to set timeouts on all queries
- * This helps prevent the "Operation buffering timed out after 10000ms" error
+ * Mongoose plugin to add timeout handling to all operations
  */
-
 module.exports = function timeoutPlugin(schema, options = {}) {
-  // Default timeout is 60 seconds (60000ms)
-  const defaultTimeout = options.timeout || 60000;
+  // Default timeout of 30 seconds
+  const timeout = options.timeout || 30000;
 
-  // Add maxTimeMS to all query methods
-  const queryMethods = [
-    "find",
-    "findOne",
-    "findById",
-    "countDocuments",
-    "count",
-    "distinct",
-  ];
+  // Add timeout to save operations
+  schema.pre('save', function(next) {
+    const timeoutId = setTimeout(() => {
+      next(new Error('Operation timed out'));
+    }, timeout);
 
-  queryMethods.forEach((method) => {
-    schema.pre(method, function () {
-      this.maxTimeMS(defaultTimeout);
-      this.lean(); // Use lean for better performance
+    // Clear timeout if operation completes
+    this.$locals.timeoutId = timeoutId;
+    next();
+  });
+
+  schema.post('save', function() {
+    if (this.$locals.timeoutId) {
+      clearTimeout(this.$locals.timeoutId);
+    }
+  });
+
+  // Add timeout to all queries
+  ['find', 'findOne', 'findOneAndUpdate', 'findOneAndDelete', 'update', 'updateOne', 'updateMany', 'delete', 'deleteOne', 'deleteMany'].forEach(method => {
+    schema.pre(method, function() {
+      this.maxTimeMS(timeout);
     });
   });
 
-  // Add timeout to aggregate
-  schema.pre("aggregate", function () {
-    this.options.maxTimeMS = defaultTimeout;
+  // Add timeout handling to all operations
+  schema.pre(/.*/, function(next) {
+    if (this.op) {
+      const timeoutId = setTimeout(() => {
+        next(new Error(`Operation ${this.op} timed out after ${timeout}ms`));
+      }, timeout);
+
+      // Clear timeout if operation completes
+      this.$locals.timeoutId = timeoutId;
+    }
+    next();
   });
 
-  // Add timeout to save operations
-  schema.pre("save", function (next) {
-    // Set a timeout for the save operation
-    this.$maxTimeMS = defaultTimeout;
-
-    // Set write concern options for better performance
-    this.$wc = {
-      w: 1, // Write acknowledgment from primary only
-      j: false, // Don't wait for journal commit
-      wtimeout: defaultTimeout, // Write timeout
-    };
-
-    next();
+  schema.post(/.*/, function() {
+    if (this.$locals && this.$locals.timeoutId) {
+      clearTimeout(this.$locals.timeoutId);
+    }
   });
 
   // Add error handling to all queries
