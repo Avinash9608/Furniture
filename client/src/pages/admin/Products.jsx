@@ -17,12 +17,24 @@ import Modal from "../../components/Modal";
 const getImageUrl = (imagePath) => {
   if (!imagePath) return 'https://placehold.co/300x300/gray/white?text=No+Image';
   
-  // If it's already a full URL, return it as is
+  // If it's already a full URL (including Cloudinary), return it as is
   if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
     return imagePath;
   }
   
-  // Otherwise, prepend the API base URL
+  // If it's a relative path starting with /uploads, prepend the API base URL
+  if (imagePath.startsWith('/uploads/')) {
+    const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+    return `${baseUrl}${imagePath}`;
+  }
+  
+  // If it's just a filename, assume it's in the uploads directory
+  if (!imagePath.startsWith('/')) {
+    const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+    return `${baseUrl}/uploads/${imagePath}`;
+  }
+  
+  // For any other case, return the path as is with base URL
   const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
   return `${baseUrl}${imagePath}`;
 };
@@ -991,7 +1003,10 @@ const AdminProducts = () => {
         price: 12999,
         stock: 25,
         category: { _id: "category1", name: "Chairs" },
-        images: ["https://placehold.co/300x300/gray/white?text=Chair"],
+        images: [
+          "https://placehold.co/300x300/gray/white?text=No+Image",
+          "https://placehold.co/300x300/gray/white?text=Chair+View+2"
+        ],
       },
       {
         _id: "product2",
@@ -1007,7 +1022,11 @@ const AdminProducts = () => {
         price: 49999,
         stock: 5,
         category: { _id: "category3", name: "Sofa Beds" },
-        images: ["https://placehold.co/300x300/gray/white?text=Sofa"],
+        images: [
+          "https://placehold.co/300x300/gray/white?text=No+Image",
+          "https://placehold.co/300x300/gray/white?text=Sofa+Side+View",
+          "https://placehold.co/300x300/gray/white?text=Sofa+Front"
+        ],
       },
       {
         _id: "product4",
@@ -1015,7 +1034,7 @@ const AdminProducts = () => {
         price: 34999,
         stock: 0,
         category: { _id: "category4", name: "Wardrobes" },
-        images: ["https://placehold.co/300x300/gray/white?text=Wardrobe"],
+        images: ["https://placehold.co/300x300/gray/white?text=No+Image"],
       },
       {
         _id: "product5",
@@ -1023,7 +1042,10 @@ const AdminProducts = () => {
         price: 39999,
         stock: 8,
         category: { _id: "category2", name: "Tables" },
-        images: ["https://placehold.co/300x300/gray/white?text=DiningSet"],
+        images: [
+          "https://placehold.co/300x300/gray/white?text=Dining+Set",
+          "https://placehold.co/300x300/gray/white?text=No+Image"
+        ],
       },
     ];
   };
