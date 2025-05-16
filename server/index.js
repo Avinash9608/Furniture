@@ -325,6 +325,11 @@ const {
   createProduct: createProductBypass,
 } = require("./controllers/bypassProductCreation");
 
+// Import direct MongoDB product creation controller (no Mongoose)
+const {
+  createProduct: createProductDirectMongo,
+} = require("./controllers/directMongoProductCreation");
+
 // Import direct admin auth controller
 const { loginAdmin } = require("./controllers/directAdminAuth");
 
@@ -378,6 +383,23 @@ app.post(
   "/admin/bypass/product",
   upload.array("images", 10),
   createProductBypass
+);
+
+// Direct MongoDB product creation endpoints (no Mongoose)
+app.post(
+  "/api/direct-mongo/product",
+  upload.array("images", 10),
+  createProductDirectMongo
+);
+app.post(
+  "/direct-mongo/product",
+  upload.array("images", 10),
+  createProductDirectMongo
+);
+app.post(
+  "/admin/direct-mongo/product",
+  upload.array("images", 10),
+  createProductDirectMongo
 );
 
 // Special route for products page - handle both /products and /api/products
@@ -648,6 +670,9 @@ console.log("- POST /admin/product-create (Enhanced)");
 console.log("- POST /api/bypass/product (Bypass)");
 console.log("- POST /bypass/product (Bypass)");
 console.log("- POST /admin/bypass/product (Bypass)");
+console.log("- POST /api/direct-mongo/product (Direct MongoDB)");
+console.log("- POST /direct-mongo/product (Direct MongoDB)");
+console.log("- POST /admin/direct-mongo/product (Direct MongoDB)");
 console.log("Category routes:");
 console.log("- GET /api/direct/categories");
 console.log("- GET /api/direct/categories/:id");

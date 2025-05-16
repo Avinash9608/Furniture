@@ -134,7 +134,54 @@ const AddProduct = () => {
         console.log(pair[0], pair[1]);
       }
 
-      // Try direct bypass endpoint first
+      // Try direct MongoDB endpoint first (no Mongoose)
+      try {
+        console.log("Trying direct MongoDB endpoint (no Mongoose)...");
+
+        // Get the base URL
+        const baseUrl =
+          window.location.hostname === "localhost"
+            ? "http://localhost:5000"
+            : window.location.origin;
+
+        // Make the request directly to the direct MongoDB endpoint
+        const directMongoResponse = await fetch(
+          `${baseUrl}/api/direct-mongo/product`,
+          {
+            method: "POST",
+            body: formData,
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        // Check if the request was successful
+        if (directMongoResponse.ok) {
+          const data = await directMongoResponse.json();
+          console.log(
+            "Product created successfully with direct MongoDB endpoint:",
+            data
+          );
+
+          // Navigate to products page with success message
+          navigate("/admin/products", {
+            state: { successMessage: "Product added successfully!" },
+          });
+          return;
+        } else {
+          console.error(
+            "Direct MongoDB endpoint failed:",
+            await directMongoResponse.text()
+          );
+          // Continue to next approach
+        }
+      } catch (directMongoError) {
+        console.error("Error with direct MongoDB endpoint:", directMongoError);
+        // Continue to next approach
+      }
+
+      // Try direct bypass endpoint next
       try {
         console.log("Trying direct bypass endpoint...");
 
