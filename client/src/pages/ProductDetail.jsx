@@ -8,6 +8,7 @@ import Loading from "../components/Loading";
 import Alert from "../components/Alert";
 import Button from "../components/Button";
 import ProductCard from "../components/ProductCard";
+import ProductImage from "../components/ProductImage";
 import ProductDetailFallback from "../components/ProductDetailFallback";
 import ReviewForm from "../components/ReviewForm";
 import ReviewsList from "../components/ReviewsList";
@@ -366,24 +367,26 @@ const ProductDetail = () => {
                       onMouseEnter={handleImageMouseEnter}
                       onMouseLeave={handleImageMouseLeave}
                     >
-                      {/* Main Product Image with defensive coding */}
-                      <img
-                        src={
+                      {/* Main Product Image with enhanced component */}
+                      <ProductImage
+                        product={
                           product &&
                           product.images &&
                           Array.isArray(product.images) &&
                           product.images.length > 0 &&
                           selectedImage < product.images.length
                             ? getAssetUrl(product.images[selectedImage])
-                            : "https://placehold.co/800x600/gray/white?text=Product"
+                            : null
                         }
                         alt={(product && product.name) || "Product"}
-                        className="w-full h-full object-cover transition-transform duration-200"
+                        className="transition-transform duration-200"
+                        size="large"
+                        lazy={false}
                         onError={(e) => {
-                          console.log("Image load error:", e.target.src);
-                          e.target.onerror = null;
-                          e.target.src =
-                            "https://placehold.co/800x600/gray/white?text=Image+Not+Found";
+                          console.log(
+                            "ProductDetail main image error:",
+                            e.target.src
+                          );
                         }}
                       />
 
@@ -446,20 +449,18 @@ const ProductDetail = () => {
                               whileHover={{ scale: 1.05 }}
                               whileTap={{ scale: 0.95 }}
                             >
-                              <img
-                                src={getAssetUrl(image)}
+                              <ProductImage
+                                product={getAssetUrl(image)}
                                 alt={`${
                                   (product && product.name) || "Product"
                                 } - Image ${index + 1}`}
-                                className="w-full h-full object-cover"
+                                size="small"
+                                lazy={true}
                                 onError={(e) => {
                                   console.log(
                                     "Thumbnail load error:",
                                     e.target.src
                                   );
-                                  e.target.onerror = null;
-                                  e.target.src =
-                                    "https://placehold.co/100x100/gray/white?text=Image+Not+Found";
                                 }}
                               />
                             </motion.div>
