@@ -315,6 +315,11 @@ const {
   getAllPaymentSettings: getAllPaymentSettingsDirect,
 } = require("./controllers/directPaymentSettings");
 
+// Import enhanced direct product creation controller
+const {
+  createProduct: createProductEnhanced,
+} = require("./controllers/directProductCreation");
+
 // Import direct admin auth controller
 const { loginAdmin } = require("./controllers/directAdminAuth");
 
@@ -339,6 +344,23 @@ app.get("/api/direct/products/:id", getProductById);
 app.post("/api/direct/products", upload.array("images", 5), createProduct);
 app.put("/api/direct/products/:id", upload.array("images", 5), updateProduct);
 app.delete("/api/direct/products/:id", deleteProduct);
+
+// Enhanced direct product creation endpoints with better error handling
+app.post(
+  "/api/direct/product-create",
+  upload.array("images", 10),
+  createProductEnhanced
+);
+app.post(
+  "/api/product-create",
+  upload.array("images", 10),
+  createProductEnhanced
+);
+app.post(
+  "/admin/product-create",
+  upload.array("images", 10),
+  createProductEnhanced
+);
 
 // Special route for products page - handle both /products and /api/products
 app.get("/products", getAllProducts);
@@ -602,6 +624,9 @@ console.log("- GET /api/direct/products/:id");
 console.log("- POST /api/direct/products");
 console.log("- PUT /api/direct/products/:id");
 console.log("- DELETE /api/direct/products/:id");
+console.log("- POST /api/direct/product-create (Enhanced)");
+console.log("- POST /api/product-create (Enhanced)");
+console.log("- POST /admin/product-create (Enhanced)");
 console.log("Category routes:");
 console.log("- GET /api/direct/categories");
 console.log("- GET /api/direct/categories/:id");

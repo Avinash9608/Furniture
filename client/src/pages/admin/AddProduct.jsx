@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { productsAPI, categoriesAPI } from "../../utils/api";
 import { adminProductsAPI, adminCategoriesAPI } from "../../utils/adminAPI";
+import { createProduct as createProductEnhanced } from "../../utils/enhancedProductAPI";
 import AdminLayout from "../../components/admin/AdminLayout";
 import ProductForm from "../../components/admin/ProductForm";
 import Loading from "../../components/Loading";
@@ -96,13 +97,13 @@ const AddProduct = () => {
     fetchCategories();
   }, []); // Only run on mount
 
-  // Handle form submission
+  // Handle form submission with enhanced error handling
   const handleSubmit = async (formData) => {
     try {
       setIsSubmitting(true);
       setSubmitError(null);
 
-      console.log("Starting product submission...");
+      console.log("Starting product submission with enhanced API...");
 
       // Get the token from multiple sources
       const token =
@@ -133,10 +134,39 @@ const AddProduct = () => {
         console.log(pair[0], pair[1]);
       }
 
-      // Create the product using the API
-      console.log("Sending product creation request...");
+      // Try the enhanced product creation API first
+      try {
+        console.log("Trying enhanced product creation API...");
+        const response = await createProductEnhanced(formData);
+        console.log(
+          "Product created successfully with enhanced API:",
+          response
+        );
+
+        // Navigate to products page with success message
+        navigate("/admin/products", {
+          state: { successMessage: "Product added successfully!" },
+        });
+        return;
+      } catch (enhancedError) {
+        console.error("Enhanced API failed:", enhancedError);
+
+        // If the error is authentication-related, don't try the fallback
+        if (
+          enhancedError.response?.status === 401 ||
+          enhancedError.response?.status === 403
+        ) {
+          throw enhancedError;
+        }
+
+        // Otherwise, try the regular API as fallback
+        console.log("Falling back to regular product creation API...");
+      }
+
+      // Fallback to the regular product creation API
+      console.log("Sending product creation request to regular API...");
       const response = await productsAPI.create(formData);
-      console.log("Product created successfully:", response);
+      console.log("Product created successfully with regular API:", response);
 
       // Navigate to products page with success message
       navigate("/admin/products", {
@@ -168,6 +198,9 @@ const AddProduct = () => {
       }
 
       setSubmitError(errorMessage);
+
+      // Scroll to top to show error
+      window.scrollTo({ top: 0, behavior: "smooth" });
     } finally {
       setIsSubmitting(false);
     }
