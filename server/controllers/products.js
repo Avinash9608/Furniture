@@ -573,9 +573,11 @@ exports.getProduct = async (req, res) => {
 // @access  Private/Admin
 exports.createProduct = async (req, res) => {
   try {
+    // Log incoming request
     console.log("Creating product with data:", {
       body: req.body,
-      files: req.files ? req.files.length : 0
+      files: req.files?.length || 0,
+      user: req.user?._id
     });
 
     // Validate required fields
@@ -583,6 +585,7 @@ exports.createProduct = async (req, res) => {
     const missingFields = requiredFields.filter(field => !req.body[field]);
 
     if (missingFields.length > 0) {
+      console.log("Missing required fields:", missingFields);
       return res.status(400).json({
         success: false,
         message: `Missing required fields: ${missingFields.join(", ")}`
@@ -593,12 +596,13 @@ exports.createProduct = async (req, res) => {
     let images = [];
     if (req.files && req.files.length > 0) {
       images = req.files.map(file => `/uploads/${file.filename}`);
+      console.log("Processed images:", images);
     }
 
     // Create product data object
     const productData = {
       name: req.body.name,
-      slug: req.body.name.toLowerCase().replace(/ /g, '-'),
+      slug: req.body.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
       description: req.body.description,
       price: parseFloat(req.body.price),
       category: req.body.category,
@@ -609,16 +613,17 @@ exports.createProduct = async (req, res) => {
       color: req.body.color || "",
       dimensions: req.body.dimensions ? JSON.parse(req.body.dimensions) : {},
       discountPrice: req.body.discountPrice ? parseFloat(req.body.discountPrice) : undefined,
+      createdBy: req.user._id,
       createdAt: new Date(),
       updatedAt: new Date()
     };
 
-    console.log("Saving product with data:", productData);
+    console.log("Attempting to save product with data:", productData);
 
     // Create product in database
     const product = await Product.create(productData);
 
-    console.log("Product created successfully:", product);
+    console.log("Product created successfully:", product._id);
 
     // Return success response
     return res.status(201).json({
@@ -628,9 +633,27 @@ exports.createProduct = async (req, res) => {
 
   } catch (error) {
     console.error("Error creating product:", error);
+    
+    // Handle specific error types
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({
+        success: false,
+        message: "Validation Error",
+        errors: Object.values(error.errors).map(err => err.message)
+      });
+    }
+
+    if (error.name === 'MongoError' && error.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        message: "A product with this name already exists"
+      });
+    }
+
     return res.status(500).json({
       success: false,
-      message: error.message || "Error creating product"
+      message: "Error creating product",
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };

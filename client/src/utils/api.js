@@ -164,56 +164,37 @@ api.interceptors.response.use(
 const productsAPI = {
   create: async (formData) => {
     try {
-      // Verify admin token exists
+      // Get admin token
       const adminToken = localStorage.getItem("adminToken");
       if (!adminToken) {
-        throw new Error("Admin authentication required. Please log in as an administrator.");
+        throw new Error("Admin authentication required");
       }
 
-      // Log the request details for debugging
-      console.log("Creating product with FormData");
-      console.log("FormData entries:");
+      // Log form data for debugging
+      console.log("Creating product with form data:");
       for (let pair of formData.entries()) {
-        console.log(pair[0], typeof pair[1], pair[1]);
+        console.log(pair[0] + ": " + pair[1]);
       }
 
+      // Set up request config
       const config = {
         headers: {
-          "Content-Type": "multipart/form-data",
           Authorization: `Bearer ${adminToken}`,
+          // Don't set Content-Type for FormData
         },
       };
 
-      // Try multiple endpoints in sequence until one works
-      const endpoints = [
-        "/api/direct/products",
-        "/api/products",
-        "/products"
-      ];
+      // Make the API call
+      const response = await api.post("/api/products", formData, config);
 
-      let response = null;
-      let error = null;
-
-      for (const endpoint of endpoints) {
-        try {
-          console.log(`Attempting to create product using ${endpoint}`);
-          response = await api.post(endpoint, formData, config);
-
-          if (response?.data?.success) {
-            console.log(`Product created successfully using ${endpoint}:`, response.data);
-            return response.data;
-          }
-        } catch (err) {
-          console.error(`Error with ${endpoint}:`, err);
-          error = err;
-          continue;
-        }
+      if (response && response.data) {
+        console.log("Product created successfully:", response.data);
+        return response.data;
       }
 
-      // If we get here, all endpoints failed
-      throw error || new Error("Failed to create product");
+      throw new Error("Invalid response from server");
     } catch (error) {
-      console.error("Error creating product:", error);
+      console.error("Error creating product:", error.response || error);
       throw error;
     }
   },
