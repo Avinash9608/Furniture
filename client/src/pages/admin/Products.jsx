@@ -15,28 +15,41 @@ import Alert from "../../components/Alert";
 import Modal from "../../components/Modal";
 
 const getImageUrl = (imagePath) => {
-  if (!imagePath) return 'https://placehold.co/300x300/gray/white?text=No+Image';
+  if (!imagePath) {
+    console.log('No image path provided, using placeholder');
+    return 'https://placehold.co/300x300/gray/white?text=No+Image';
+  }
+  
+  // Log the image path for debugging
+  console.log('Processing image path:', imagePath);
   
   // If it's already a full URL (including Cloudinary), return it as is
   if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+    console.log('Using full URL:', imagePath);
     return imagePath;
   }
   
   // If it's a relative path starting with /uploads, prepend the API base URL
   if (imagePath.startsWith('/uploads/')) {
     const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
-    return `${baseUrl}${imagePath}`;
+    const fullUrl = `${baseUrl}${imagePath}`;
+    console.log('Constructed uploads URL:', fullUrl);
+    return fullUrl;
   }
   
   // If it's just a filename, assume it's in the uploads directory
   if (!imagePath.startsWith('/')) {
     const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
-    return `${baseUrl}/uploads/${imagePath}`;
+    const fullUrl = `${baseUrl}/uploads/${imagePath}`;
+    console.log('Constructed filename URL:', fullUrl);
+    return fullUrl;
   }
   
   // For any other case, return the path as is with base URL
   const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
-  return `${baseUrl}${imagePath}`;
+  const fullUrl = `${baseUrl}${imagePath}`;
+  console.log('Constructed fallback URL:', fullUrl);
+  return fullUrl;
 };
 
 const AdminProducts = () => {
@@ -396,7 +409,6 @@ const AdminProducts = () => {
             setFilteredProducts(mockResponse.data);
             setSuccessMessage("Using sample data from server");
             setError("Could not load real data. Using sample data instead.");
-            return true;
           }
         } catch (mockError) {
           console.error("Mock endpoint failed:", mockError);
@@ -509,7 +521,6 @@ const AdminProducts = () => {
             setFilteredProducts(mockResponse.data);
             setSuccessMessage("Using sample data from server");
             setError("Could not load real data. Using sample data instead.");
-            return;
           }
         } catch (mockError) {
           console.error("Mock endpoint failed:", mockError);
@@ -1509,9 +1520,20 @@ const AdminProducts = () => {
                                 alt={`${product.name} - Image ${index + 1}`}
                                 className="w-full h-full object-cover hover:opacity-75 transition-opacity duration-150"
                                 onError={(e) => {
-                                  console.log('Image load error:', e.target.src);
+                                  console.error('Image load error:', {
+                                    originalSrc: e.target.src,
+                                    productName: product.name,
+                                    imageIndex: index
+                                  });
                                   e.target.onerror = null;
                                   e.target.src = "https://placehold.co/300x300/gray/white?text=No+Image";
+                                }}
+                                onLoad={(e) => {
+                                  console.log('Image loaded successfully:', {
+                                    src: e.target.src,
+                                    productName: product.name,
+                                    imageIndex: index
+                                  });
                                 }}
                               />
                             </div>
