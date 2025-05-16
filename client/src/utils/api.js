@@ -7,30 +7,26 @@ const getBaseURL = () => {
   const origin = window.location.origin;
 
   // Check if we're on Render's domain
-  if (
-    hostname.includes("render.com") ||
-    hostname === "furniture-q3nb.onrender.com"
-  ) {
+  if (hostname.includes("render.com") || hostname === "furniture-q3nb.onrender.com") {
     console.log("Using Render production API URL");
-    return `${origin}/api`;
+    return origin; // Use the same origin for API calls in production
   }
 
   // In development, use localhost:5000
   if (hostname === "localhost" || hostname === "127.0.0.1") {
     console.log("Using development API URL");
-    return "http://localhost:5000/api";
+    return "http://localhost:5000";
   }
 
   // In other production environments, use relative path
   console.log("Using relative API URL");
-  return "/api";
+  return "";
 };
 
 // Helper function to properly format image URLs
 const getImageUrl = (imagePath) => {
   // Default placeholder image (from a reliable source)
-  const defaultImage =
-    "https://placehold.co/300x300/e2e8f0/1e293b?text=No+Image";
+  const defaultImage = "https://placehold.co/300x300/e2e8f0/1e293b?text=No+Image";
 
   // If no image path provided, return default
   if (!imagePath || imagePath === "no-image.jpg") {
@@ -44,58 +40,45 @@ const getImageUrl = (imagePath) => {
     return imagePath;
   }
 
+  const baseURL = getBaseURL();
+  const hostname = window.location.hostname;
+
   // If it's a relative path starting with /uploads
   if (imagePath.startsWith("/uploads/")) {
-    const hostname = window.location.hostname;
-    let imageUrl;
-
     // In development
     if (hostname === "localhost" || hostname === "127.0.0.1") {
-      imageUrl = `http://localhost:5000${imagePath}`;
+      const imageUrl = `http://localhost:5000${imagePath}`;
       console.log("Development image URL:", imageUrl);
       return imageUrl;
     }
 
     // In production on Render
-    if (
-      hostname.includes("render.com") ||
-      hostname === "furniture-q3nb.onrender.com"
-    ) {
-      imageUrl = `https://furniture-q3nb.onrender.com${imagePath}`;
+    if (hostname.includes("render.com") || hostname === "furniture-q3nb.onrender.com") {
+      const imageUrl = `${window.location.origin}${imagePath}`;
       console.log("Production image URL:", imageUrl);
       return imageUrl;
     }
 
     // Other production environments
-    console.log("Using relative image path as is:", imagePath);
     return imagePath;
   }
 
   // If it's a relative path not starting with /uploads, add /uploads/
   if (!imagePath.startsWith("/") && !imagePath.includes("/")) {
-    const fixedPath = `/uploads/${imagePath}`;
-    console.log("Fixed relative path by adding /uploads/:", fixedPath);
-
-    // Now process the fixed path
-    return getImageUrl(fixedPath);
+    return getImageUrl(`/uploads/${imagePath}`);
   }
 
-  // If it doesn't match any pattern, return default image
-  console.log(
-    "Image path doesn't match any pattern, returning default:",
-    imagePath
-  );
   return defaultImage;
 };
 
 // Create axios instance with base URL
 const api = axios.create({
   baseURL: getBaseURL(),
-  timeout: 60000, // Increased timeout to 60 seconds for production
-  withCredentials: true, // Enable credentials for all requests
+  timeout: 30000, // 30 second timeout
+  withCredentials: true,
 });
 
-// Add request interceptor to handle auth token
+// Add request interceptor to handle auth token and retries
 api.interceptors.request.use(
   (config) => {
     // Get both tokens
@@ -108,41 +91,30 @@ api.interceptors.request.use(
 
       if (!effectiveToken) {
         console.error("No valid token found for admin endpoint");
-        throw new Error(
-          "Admin authentication required. Please log in as an administrator."
-        );
+        throw new Error("Admin authentication required. Please log in as an administrator.");
       }
 
       // Add token to headers
       config.headers["Authorization"] = `Bearer ${effectiveToken}`;
-
-      // Add token to cookies if not already set
-      if (!document.cookie.includes("adminToken=")) {
-        document.cookie = `adminToken=${effectiveToken}; path=/; secure; samesite=strict`;
-      }
-
-      // If it's a FormData request, ensure proper headers
-      if (config.data instanceof FormData) {
-        // Remove Content-Type header to let browser set it with boundary
-        delete config.headers["Content-Type"];
-      }
-
-      // Log the request for debugging
-      console.log("Admin request:", {
-        url: config.url,
-        method: config.method,
-        hasToken: !!effectiveToken,
-        isFormData: config.data instanceof FormData,
-        headers: config.headers,
-      });
-
-      return config;
     }
 
     // For non-admin endpoints, use regular token
-    if (token) {
+    if (token && !config.headers["Authorization"]) {
       config.headers["Authorization"] = `Bearer ${token}`;
     }
+
+    // If it's a FormData request, ensure proper headers
+    if (config.data instanceof FormData) {
+      delete config.headers["Content-Type"]; // Let browser set the content type with boundary
+    }
+
+    // Log the request for debugging
+    console.log("API Request:", {
+      url: config.url,
+      method: config.method,
+      hasToken: !!config.headers["Authorization"],
+      isFormData: config.data instanceof FormData,
+    });
 
     return config;
   },
@@ -152,7 +124,7 @@ api.interceptors.request.use(
   }
 );
 
-// Add response interceptor for error handling
+// Add response interceptor for error handling and retries
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
@@ -162,34 +134,25 @@ api.interceptors.response.use(
     // Handle authentication errors
     if (error.response?.status === 401 || error.response?.status === 403) {
       console.error("Authentication error - clearing tokens");
-
-      // Clear all tokens
       localStorage.removeItem("token");
       localStorage.removeItem("adminToken");
       localStorage.removeItem("user");
 
-      // Clear cookies
-      document.cookie =
-        "adminToken=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;";
+      const errorMessage = error.response?.data?.message || "Authentication failed. Please log in again.";
+      const isAdminEndpoint = error.config.url.includes("/admin/") || error.config.url.includes("/api/admin/");
 
-      // Get the error message from the response
-      const errorMessage =
-        error.response?.data?.message ||
-        "Authentication failed. Please log in again.";
+      window.location.href = `${isAdminEndpoint ? "/admin" : ""}/login?error=${encodeURIComponent(errorMessage)}`;
+      return Promise.reject(error);
+    }
 
-      // Redirect based on the endpoint type
-      const isAdminEndpoint =
-        error.config.url.includes("/admin/") ||
-        error.config.url.includes("/api/admin/");
-
-      if (isAdminEndpoint) {
-        window.location.href = `/admin/login?error=${encodeURIComponent(
-          errorMessage
-        )}`;
-      } else {
-        window.location.href = `/login?error=${encodeURIComponent(
-          errorMessage
-        )}`;
+    // Retry the request if it's a network error or 500 error
+    if (error.code === "ECONNABORTED" || error.response?.status === 500) {
+      const config = error.config;
+      
+      // Only retry once
+      if (!config._retry) {
+        config._retry = true;
+        return api(config);
       }
     }
 
