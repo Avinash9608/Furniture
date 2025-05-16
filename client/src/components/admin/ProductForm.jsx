@@ -184,6 +184,23 @@ const ProductForm = ({
     formDataToSubmit.append("price", formData.price);
     formDataToSubmit.append("stock", formData.stock);
     formDataToSubmit.append("category", formData.category);
+
+    // Add category name if it's an offline category
+    if (formData.category && formData.category.startsWith("offline_")) {
+      const categoryObj = validCategories.find(
+        (cat) => cat._id === formData.category
+      );
+      if (categoryObj) {
+        formDataToSubmit.append(
+          "categoryName",
+          categoryObj.name || categoryObj.displayName
+        );
+        console.log(
+          `Adding categoryName: ${categoryObj.name || categoryObj.displayName}`
+        );
+      }
+    }
+
     formDataToSubmit.append("featured", formData.featured);
 
     // Add optional fields if they exist
