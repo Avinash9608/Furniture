@@ -1,4 +1,5 @@
 const express = require("express");
+const router = express.Router();
 const {
   getProducts,
   getProduct,
@@ -7,34 +8,29 @@ const {
   deleteProduct,
   createProductReview,
 } = require("../controllers/products");
-
-const router = express.Router();
-
 const { protect, authorize } = require("../middleware/auth");
-const upload = require("../middleware/upload");
+const { upload } = require("../middleware/upload");
 
-// Force bypass auth in development mode
-const bypassAuth = true;
-console.log("Products Routes - Bypass Auth:", bypassAuth);
+// Public routes
+router.route("/").get(getProducts);
+router.route("/:id").get(getProduct);
 
-// Create middleware arrays based on environment
-const userMiddleware = bypassAuth ? [] : [protect];
-const adminMiddleware = bypassAuth
-  ? [upload.array("images", 5)]
-  : [protect, authorize("admin"), upload.array("images", 5)];
+// Protected routes
+router.use(protect); // Apply protection middleware to all routes below
 
-// Define routes with conditional middleware
+// Admin only routes
+router.use(authorize("admin")); // Apply admin authorization to all routes below
+
 router
   .route("/")
-  .get(getProducts)
-  .post(...adminMiddleware, createProduct);
+  .post(upload.array("images", 5), createProduct); // Allow up to 5 images
 
 router
   .route("/:id")
-  .get(getProduct)
-  .put(...adminMiddleware, updateProduct)
-  .delete(...adminMiddleware, deleteProduct);
+  .put(upload.array("images", 5), updateProduct)
+  .delete(deleteProduct);
 
-router.route("/:id/reviews").post(...userMiddleware, createProductReview);
+// Review routes
+router.route("/:id/reviews").post(createProductReview);
 
 module.exports = router;
