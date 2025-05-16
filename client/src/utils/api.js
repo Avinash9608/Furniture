@@ -23,52 +23,18 @@ const getBaseURL = () => {
   return "";
 };
 
-// Helper function to properly format image URLs
-const getImageUrl = (imagePath) => {
-  // Default placeholder image (from a reliable source)
-  const defaultImage = "https://placehold.co/300x300/e2e8f0/1e293b?text=No+Image";
-
-  // If no image path provided, return default
-  if (!imagePath || imagePath === "no-image.jpg") {
-    console.log("No image path or using no-image.jpg, returning default image");
-    return defaultImage;
-  }
-
+// Helper function to get the full image URL
+export const getImageUrl = (imagePath) => {
+  if (!imagePath) return 'https://placehold.co/300x300/gray/white?text=No+Image';
+  
   // If it's already a full URL, return it as is
-  if (imagePath.startsWith("http://") || imagePath.startsWith("https://")) {
-    console.log("Image is already a full URL:", imagePath);
+  if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
     return imagePath;
   }
-
-  const baseURL = getBaseURL();
-  const hostname = window.location.hostname;
-
-  // If it's a relative path starting with /uploads
-  if (imagePath.startsWith("/uploads/")) {
-    // In development
-    if (hostname === "localhost" || hostname === "127.0.0.1") {
-      const imageUrl = `http://localhost:5000${imagePath}`;
-      console.log("Development image URL:", imageUrl);
-      return imageUrl;
-    }
-
-    // In production on Render
-    if (hostname.includes("render.com") || hostname === "furniture-q3nb.onrender.com") {
-      const imageUrl = `${window.location.origin}${imagePath}`;
-      console.log("Production image URL:", imageUrl);
-      return imageUrl;
-    }
-
-    // Other production environments
-    return imagePath;
-  }
-
-  // If it's a relative path not starting with /uploads, add /uploads/
-  if (!imagePath.startsWith("/") && !imagePath.includes("/")) {
-    return getImageUrl(`/uploads/${imagePath}`);
-  }
-
-  return defaultImage;
+  
+  // Otherwise, prepend the API base URL
+  const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+  return `${baseUrl}${imagePath}`;
 };
 
 // Create axios instance with base URL

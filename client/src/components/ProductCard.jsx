@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { formatPrice, calculateDiscountPercentage } from "../utils/format";
 import { getProductImage, handleImageError } from "../utils/defaultImages";
+import { getImageUrl } from '../utils/api';
 
 // Helper function to safely get product data
 const safeProduct = (product) => {
@@ -24,6 +25,8 @@ const safeProduct = (product) => {
       typeof product.discountPrice === "number" ? product.discountPrice : null,
     category: product.category || { name: "Uncategorized" },
     images: Array.isArray(product.images) ? product.images : [],
+    stock: product.stock || 0,
+    ratings: product.ratings || null,
   };
 };
 
@@ -31,14 +34,22 @@ const ProductCard = ({ product }) => {
   // Use the safe product helper to ensure we have valid data
   const safe = safeProduct(product);
 
+  // Get the first image or use a placeholder
+  const imageUrl = safe.images && safe.images.length > 0 
+    ? getImageUrl(safe.images[0])
+    : 'https://placehold.co/300x300/gray/white?text=No+Image';
+
   return (
     <motion.div whileHover={{ y: -5 }} className="card group">
       <div className="relative overflow-hidden h-64">
         <img
-          src={getProductImage(safe)}
+          src={imageUrl}
           alt={safe.name}
           className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-          onError={handleImageError}
+          onError={(e) => {
+            e.target.onerror = null;
+            e.target.src = 'https://placehold.co/300x300/gray/white?text=Error+Loading+Image';
+          }}
         />
         <div className="absolute top-2 right-2 theme-bg-primary rounded-full p-2 shadow-md opacity-0 group-hover:opacity-100 transition-opacity duration-300">
           <svg
@@ -133,6 +144,21 @@ const ProductCard = ({ product }) => {
             View Details
           </Link>
         </div>
+        <div className="mt-1 flex justify-between items-center">
+          <span className={`text-sm ${safe.stock > 0 ? 'text-green-600' : 'text-red-600'}`}>
+            {safe.stock > 0 ? 'In Stock' : 'Out of Stock'}
+          </span>
+        </div>
+        {safe.ratings && (
+          <div className="mt-1 flex justify-between items-center">
+            <div className="flex items-center">
+              <span className="text-yellow-400">★</span>
+              <span className="ml-1 text-sm text-gray-600 dark:text-gray-400">
+                {safe.ratings.toFixed(1)}
+              </span>
+            </div>
+          </div>
+        )}
       </div>
     </motion.div>
   );

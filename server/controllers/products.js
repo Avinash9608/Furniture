@@ -594,7 +594,13 @@ exports.createProduct = async (req, res) => {
     // Process images
     let images = [];
     if (req.files && req.files.length > 0) {
-      images = req.files.map(file => `/uploads/${file.filename}`);
+      images = req.files.map(file => {
+        // Get just the filename from the full path
+        const filename = file.filename || path.basename(file.path);
+        
+        // Store only the relative path
+        return `/uploads/${filename}`;
+      });
       console.log("Processed images:", images);
     }
 
@@ -641,6 +647,7 @@ exports.createProduct = async (req, res) => {
     let product;
     try {
       // Try direct MongoDB connection first
+      const { MongoClient } = require('mongodb');
       const uri = process.env.MONGO_URI;
       const client = new MongoClient(uri, {
         useNewUrlParser: true,
