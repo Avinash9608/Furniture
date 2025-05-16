@@ -898,8 +898,7 @@ export {
   ordersAPI,
   paymentRequestsAPI,
   contactAPI,
-  getBaseURL,
-  getImageUrl,
+  getBaseURL
 };
 
 export default api;

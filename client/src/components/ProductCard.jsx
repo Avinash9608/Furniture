@@ -3,7 +3,20 @@ import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { formatPrice, calculateDiscountPercentage } from "../utils/format";
 import { getProductImage, handleImageError } from "../utils/defaultImages";
-import { getImageUrl } from '../utils/api';
+
+// Helper function to get the full image URL
+const getImageUrl = (imagePath) => {
+  if (!imagePath) return 'https://placehold.co/300x300/gray/white?text=No+Image';
+  
+  // If it's already a full URL, return it as is
+  if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+    return imagePath;
+  }
+  
+  // Otherwise, prepend the API base URL
+  const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+  return `${baseUrl}${imagePath}`;
+};
 
 // Helper function to safely get product data
 const safeProduct = (product) => {
