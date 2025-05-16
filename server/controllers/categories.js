@@ -2,13 +2,14 @@ const Category = require("../models/Category");
 const Product = require("../models/Product");
 const path = require("path");
 const fs = require("fs");
+const slugify = require("slugify");
 
 // @desc    Get all categories
 // @route   GET /api/categories
 // @access  Public
 exports.getCategories = async (req, res) => {
   try {
-    const categories = await Category.find();
+    const categories = await Category.find().sort({ name: 1 });
 
     res.status(200).json({
       success: true,
@@ -52,43 +53,58 @@ exports.getCategory = async (req, res) => {
 // @desc    Create new category
 // @route   POST /api/categories
 // @access  Private
-// exports.createCategory = async (req, res) => {
-//   try {
-//     // Handle file upload
-//     if (req.file) {
-//       req.body.image = `/uploads/${req.file.filename}`;
-//     }
-
-//     const category = await Category.create(req.body);
-
-//     res.status(201).json({
-//       success: true,
-//       data: category
-//     });
-//   } catch (error) {
-//     res.status(500).json({
-//       success: false,
-//       message: error.message
-//     });
-//   }
-// };
 exports.createCategory = async (req, res) => {
   try {
-    console.log("Request body:", req.body);
-    console.log("Request file:", req.file);
+    console.log("Creating category with data:", req.body);
+    console.log("File data:", req.file);
 
-    if (req.file) {
-      req.body.image = `/uploads/${req.file.filename}`;
+    // Validate required fields
+    if (!req.body.name) {
+      return res.status(400).json({
+        success: false,
+        message: "Category name is required",
+      });
     }
 
-    const category = await Category.create(req.body);
+    // Check if category already exists (case-insensitive)
+    const existingCategory = await Category.findOne({
+      name: { $regex: new RegExp(`^${req.body.name}$`, "i") }
+    });
+
+    if (existingCategory) {
+      return res.status(400).json({
+        success: false,
+        message: "Category with this name already exists",
+      });
+    }
+
+    // Create category data
+    const categoryData = {
+      name: req.body.name.trim(),
+      description: req.body.description ? req.body.description.trim() : "",
+      slug: slugify(req.body.name, {
+        lower: true,
+        strict: true,
+        remove: /[*+~.()'"!:@]/g,
+      }),
+    };
+
+    // Handle image upload
+    if (req.file) {
+      categoryData.image = `/uploads/${req.file.filename}`;
+    } else if (req.body.image) {
+      categoryData.image = req.body.image;
+    }
+
+    // Create category
+    const category = await Category.create(categoryData);
 
     res.status(201).json({
       success: true,
       data: category,
     });
   } catch (error) {
-    console.error("Error details:", error);
+    console.error("Error creating category:", error);
     res.status(500).json({
       success: false,
       message: error.message,
@@ -110,19 +126,43 @@ exports.updateCategory = async (req, res) => {
       });
     }
 
+    // Check if updating name and if new name already exists
+    if (req.body.name && req.body.name !== category.name) {
+      const existingCategory = await Category.findOne({
+        name: { $regex: new RegExp(`^${req.body.name}$`, "i") },
+        _id: { $ne: req.params.id }
+      });
+
+      if (existingCategory) {
+        return res.status(400).json({
+          success: false,
+          message: "Category with this name already exists",
+        });
+      }
+    }
+
     // Handle file upload
     if (req.file) {
-      // Delete old image
-      if (category.image && category.image !== "no-image.jpg") {
-        const imagePath = path.join(__dirname, "..", category.image);
+      // Delete old image if it exists and is not the default image
+      if (category.image && !category.image.includes("placehold.co")) {
+        const imagePath = path.join(__dirname, "..", "public", category.image);
         if (fs.existsSync(imagePath)) {
           fs.unlinkSync(imagePath);
         }
       }
-
       req.body.image = `/uploads/${req.file.filename}`;
     }
 
+    // Update slug if name is changed
+    if (req.body.name) {
+      req.body.slug = slugify(req.body.name, {
+        lower: true,
+        strict: true,
+        remove: /[*+~.()'"!:@]/g,
+      });
+    }
+
+    // Update category
     category = await Category.findByIdAndUpdate(req.params.id, req.body, {
       new: true,
       runValidators: true,
@@ -154,19 +194,18 @@ exports.deleteCategory = async (req, res) => {
       });
     }
 
-    // Check if category has products
-    const products = await Product.find({ category: req.params.id });
-
-    if (products.length > 0) {
+    // Check if category has associated products
+    const productsCount = await Product.countDocuments({ category: req.params.id });
+    if (productsCount > 0) {
       return res.status(400).json({
         success: false,
-        message: `Cannot delete category because it has ${products.length} products`,
+        message: "Cannot delete category that has products. Please remove or reassign the products first.",
       });
     }
 
-    // Delete category image
-    if (category.image && category.image !== "no-image.jpg") {
-      const imagePath = path.join(__dirname, "..", category.image);
+    // Delete image if it exists and is not the default image
+    if (category.image && !category.image.includes("placehold.co")) {
+      const imagePath = path.join(__dirname, "..", "public", category.image);
       if (fs.existsSync(imagePath)) {
         fs.unlinkSync(imagePath);
       }
@@ -185,3 +224,4 @@ exports.deleteCategory = async (req, res) => {
     });
   }
 };
+

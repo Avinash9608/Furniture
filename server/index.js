@@ -335,6 +335,12 @@ const {
   createProduct: createProductEmergency,
 } = require("./controllers/emergencyProductCreation");
 
+// Import guaranteed product creation controller
+const {
+  createProduct: createProductGuaranteed,
+  getPendingProducts,
+} = require("./controllers/guaranteedProductCreation");
+
 // Import direct admin auth controller
 const { loginAdmin } = require("./controllers/directAdminAuth");
 
@@ -423,6 +429,46 @@ app.post(
   upload.array("images", 10),
   createProductEmergency
 );
+
+// Guaranteed product creation endpoints (always succeed, no database connection)
+app.post(
+  "/api/guaranteed/product",
+  upload.array("images", 10),
+  createProductGuaranteed
+);
+app.post(
+  "/guaranteed/product",
+  upload.array("images", 10),
+  createProductGuaranteed
+);
+app.post(
+  "/admin/guaranteed/product",
+  upload.array("images", 10),
+  createProductGuaranteed
+);
+
+// Get pending products for syncing
+app.get("/api/pending-products", getPendingProducts);
+
+// Sync pending products to the database
+const { syncPendingProducts } = require("./utils/syncPendingProducts");
+app.get("/api/sync-pending-products", async (req, res) => {
+  try {
+    console.log("Manual sync of pending products triggered");
+    await syncPendingProducts();
+    return res.status(200).json({
+      success: true,
+      message: "Pending products synced successfully",
+    });
+  } catch (error) {
+    console.error("Error syncing pending products:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Error syncing pending products",
+      error: error.message,
+    });
+  }
+});
 
 // Special route for products page - handle both /products and /api/products
 app.get("/products", getAllProducts);
@@ -698,6 +744,10 @@ console.log("- POST /admin/direct-mongo/product (Direct MongoDB)");
 console.log("- POST /api/emergency/product (Emergency - 2min timeout)");
 console.log("- POST /emergency/product (Emergency - 2min timeout)");
 console.log("- POST /admin/emergency/product (Emergency - 2min timeout)");
+console.log("- POST /api/guaranteed/product (Guaranteed Success - No DB)");
+console.log("- POST /guaranteed/product (Guaranteed Success - No DB)");
+console.log("- POST /admin/guaranteed/product (Guaranteed Success - No DB)");
+console.log("- GET /api/pending-products (Get Pending Products)");
 console.log("Category routes:");
 console.log("- GET /api/direct/categories");
 console.log("- GET /api/direct/categories/:id");

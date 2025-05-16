@@ -2,6 +2,7 @@ const Product = require("../models/Product");
 const Category = require("../models/Category");
 const path = require("path");
 const fs = require("fs");
+const slugify = require("slugify");
 
 // @desc    Get all products
 // @route   GET /api/products
@@ -567,178 +568,72 @@ exports.getProduct = async (req, res) => {
   }
 };
 
+// @desc    Create new product
+// @route   POST /api/products
+// @access  Private/Admin
 exports.createProduct = async (req, res) => {
   try {
-    // Log the request for debugging
     console.log("Creating product with data:", {
       body: req.body,
-      files: req.files ? req.files.length : 0,
-      headers: req.headers,
+      files: req.files ? req.files.length : 0
     });
 
-    // Verify required fields
-    const requiredFields = [
-      "name",
-      "description",
-      "price",
-      "category",
-      "stock",
-    ];
-    const missingFields = [];
-
-    requiredFields.forEach((field) => {
-      if (req.body[field] === undefined || req.body[field] === "") {
-        missingFields.push(field);
-      }
-    });
+    // Validate required fields
+    const requiredFields = ["name", "description", "price", "category", "stock"];
+    const missingFields = requiredFields.filter(field => !req.body[field]);
 
     if (missingFields.length > 0) {
-      console.log("Missing required fields:", missingFields);
       return res.status(400).json({
         success: false,
-        message: `Please provide the following required fields: ${missingFields.join(
-          ", "
-        )}`,
+        message: `Missing required fields: ${missingFields.join(", ")}`
       });
     }
 
     // Process images
     let images = [];
-
-    // Handle both new image uploads and existing image URLs
     if (req.files && req.files.length > 0) {
-      images = req.files.map((file) => `/uploads/${file.filename}`);
-      console.log("Uploaded image paths:", images);
+      images = req.files.map(file => `/uploads/${file.filename}`);
     }
 
-    if (req.body.imageUrls) {
-      const imageUrls = Array.isArray(req.body.imageUrls)
-        ? req.body.imageUrls
-        : [req.body.imageUrls];
-      images = [...images, ...imageUrls];
-      console.log("Combined image paths:", images);
-    }
+    // Create slug from name
+    const slug = slugify(req.body.name, { lower: true });
 
-    // Process category - handle offline categories
-    let categoryValue = req.body.category;
-    let categoryName = req.body.categoryName || "";
-
-    // If it's an offline category, extract the name
-    if (
-      categoryValue &&
-      typeof categoryValue === "string" &&
-      categoryValue.startsWith("offline_")
-    ) {
-      console.log(`Detected offline category: ${categoryValue}`);
-
-      // Extract category name from the offline ID if not provided
-      if (!categoryName) {
-        categoryName = categoryValue.replace("offline_", "");
-        // Capitalize first letter
-        categoryName =
-          categoryName.charAt(0).toUpperCase() + categoryName.slice(1);
-        console.log(`Extracted category name: ${categoryName}`);
-      }
-    }
-
-    // Create product data object with proper type conversion
+    // Create product data object
     const productData = {
       name: req.body.name,
+      slug,
       description: req.body.description,
-      price: Number(req.body.price),
-      category: categoryValue,
-      categoryName: categoryName, // Add the category name
-      stock: Number(req.body.stock),
+      price: parseFloat(req.body.price),
+      category: req.body.category,
+      stock: parseInt(req.body.stock),
+      images,
       featured: req.body.featured === "true",
-      images: images.length > 0 ? images : undefined,
+      material: req.body.material || "",
+      color: req.body.color || "",
+      dimensions: req.body.dimensions ? JSON.parse(req.body.dimensions) : {},
+      discountPrice: req.body.discountPrice ? parseFloat(req.body.discountPrice) : undefined,
+      createdAt: new Date(),
+      updatedAt: new Date()
     };
 
-    // Handle optional fields with proper type conversion
-    if (req.body.discountPrice) {
-      productData.discountPrice = Number(req.body.discountPrice);
-    }
+    console.log("Saving product with data:", productData);
 
-    if (req.body.material) {
-      productData.material = req.body.material;
-    }
-
-    if (req.body.color) {
-      productData.color = req.body.color;
-    }
-
-    // Handle dimensions object
-    if (req.body.dimensions) {
-      try {
-        let dimensionsData = {};
-
-        if (typeof req.body.dimensions === "string") {
-          try {
-            dimensionsData = JSON.parse(req.body.dimensions);
-            console.log("Successfully parsed dimensions JSON:", dimensionsData);
-          } catch (parseError) {
-            console.error("Error parsing dimensions JSON:", parseError);
-          }
-        } else if (typeof req.body.dimensions === "object") {
-          dimensionsData = req.body.dimensions;
-        }
-
-        const dimensionsObj = {};
-
-        // Only add valid numeric dimensions
-        if (dimensionsData.length) {
-          const length = Number(dimensionsData.length);
-          if (!isNaN(length) && length >= 0) {
-            dimensionsObj.length = length;
-          }
-        }
-
-        if (dimensionsData.width) {
-          const width = Number(dimensionsData.width);
-          if (!isNaN(width) && width >= 0) {
-            dimensionsObj.width = width;
-          }
-        }
-
-        if (dimensionsData.height) {
-          const height = Number(dimensionsData.height);
-          if (!isNaN(height) && height >= 0) {
-            dimensionsObj.height = height;
-          }
-        }
-
-        if (Object.keys(dimensionsObj).length > 0) {
-          productData.dimensions = dimensionsObj;
-          console.log("Processed dimensions:", productData.dimensions);
-        }
-      } catch (dimError) {
-        console.error("Error processing dimensions:", dimError);
-      }
-    }
-
-    console.log("Final product data to be saved:", productData);
-
-    // Create the product
+    // Create product in database
     const product = await Product.create(productData);
-    console.log("Product created successfully:", {
-      id: product._id,
-      name: product.name,
-      category: product.category,
-      price: product.price,
-      dimensions: product.dimensions,
-      material: product.material,
-      color: product.color,
-      images: product.images,
+
+    console.log("Product created successfully:", product);
+
+    // Return success response
+    return res.status(201).json({
+      success: true,
+      data: product
     });
 
-    res.status(201).json({
-      success: true,
-      data: product,
-    });
   } catch (error) {
     console.error("Error creating product:", error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
-      message: error.message,
+      message: error.message || "Error creating product"
     });
   }
 };

@@ -5,27 +5,28 @@ export const defaultCategories = [
   {
     name: "Sofa Beds",
     description: "Convertible sofas that can be used as beds",
+    _id: "680c9481ab11e96a288ef6d9"
   },
   {
     name: "Tables",
     description: "Dining tables, coffee tables, side tables and more",
+    _id: "680c9484ab11e96a288ef6da"
   },
   {
     name: "Chairs",
     description: "Dining chairs, armchairs, recliners and more",
+    _id: "680c9486ab11e96a288ef6db"
   },
   {
     name: "Wardrobes",
     description: "Storage solutions for bedrooms",
+    _id: "680c9489ab11e96a288ef6dc"
   },
   {
     name: "Beds",
     description: "Single beds, double beds, king size beds and more",
-  },
-  {
-    name: "Cabinets",
-    description: "Storage solutions for living rooms and dining rooms",
-  },
+    _id: "680c948eab11e96a288ef6dd"
+  }
 ];
 
 /**
@@ -36,12 +37,16 @@ export const getLocalCategories = () => {
   try {
     const categoriesJson = localStorage.getItem("furniture_categories");
     if (categoriesJson) {
-      return JSON.parse(categoriesJson);
+      const savedCategories = JSON.parse(categoriesJson);
+      // Merge with default categories to ensure we always have the defaults
+      const defaultIds = defaultCategories.map(cat => cat._id);
+      const customCategories = savedCategories.filter(cat => !defaultIds.includes(cat._id));
+      return [...defaultCategories, ...customCategories];
     }
   } catch (error) {
     console.warn("Error getting categories from local storage:", error);
   }
-  return [];
+  return defaultCategories;
 };
 
 /**
@@ -50,7 +55,11 @@ export const getLocalCategories = () => {
  */
 export const saveLocalCategories = (categories) => {
   try {
-    localStorage.setItem("furniture_categories", JSON.stringify(categories));
+    // Ensure we don't duplicate default categories
+    const defaultIds = defaultCategories.map(cat => cat._id);
+    const customCategories = categories.filter(cat => !defaultIds.includes(cat._id));
+    const categoriesToSave = [...defaultCategories, ...customCategories];
+    localStorage.setItem("furniture_categories", JSON.stringify(categoriesToSave));
   } catch (error) {
     console.warn("Error saving categories to local storage:", error);
   }
@@ -62,13 +71,12 @@ export const saveLocalCategories = (categories) => {
  * @param {Array} existingCategories - Array of existing categories
  * @returns {Promise<Array>} - Array of created categories
  */
-export const createDefaultCategories = async (
-  createCategory,
-  existingCategories = []
-) => {
-  // If categories already exist, return them
+export const createDefaultCategories = async (createCategory, existingCategories = []) => {
+  // If categories already exist, merge them with defaults
   if (existingCategories && existingCategories.length > 0) {
-    return existingCategories;
+    const defaultIds = defaultCategories.map(cat => cat._id);
+    const customCategories = existingCategories.filter(cat => !defaultIds.includes(cat._id));
+    return [...defaultCategories, ...customCategories];
   }
 
   // Check if we have categories in local storage
@@ -85,19 +93,14 @@ export const createDefaultCategories = async (
     try {
       const response = await createCategory(category);
       const newCategory = response.data.data || response.data;
-      createdCategories.push(newCategory);
+      createdCategories.push({
+        ...newCategory,
+        _id: category._id // Ensure we keep the default ID
+      });
     } catch (error) {
       console.error(`Error creating category ${category.name}:`, error);
-      // Create a local fallback category with a temporary ID
-      const fallbackCategory = {
-        ...category,
-        _id: `temp_${Date.now()}_${Math.random()
-          .toString(36)
-          .substring(2, 11)}`,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-      createdCategories.push(fallbackCategory);
+      // Use the default category as fallback
+      createdCategories.push(category);
     }
   }
 
@@ -110,4 +113,6 @@ export const createDefaultCategories = async (
 export default {
   defaultCategories,
   createDefaultCategories,
+  getLocalCategories,
+  saveLocalCategories
 };

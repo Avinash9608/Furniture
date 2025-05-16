@@ -1,0 +1,24 @@
+{
+  "_id": "temp_1747405099102",
+  "name": "Dinner Set",
+  "slug": "dinner-set-1747405099102",
+  "description": "best one",
+  "price": 15000,
+  "discountPrice": 14250,
+  "category": "680c9484ab11e96a288ef6da",
+  "categoryName": "",
+  "stock": 2,
+  "images": [
+    "D:/DELTA PROJECT/Furniture/server/uploads/images-1747405099059-300642480.jpg"
+  ],
+  "featured": false,
+  "material": "Wood",
+  "color": "Black",
+  "dimensions": {
+    "length": 1200,
+    "width": 1000,
+    "height": 800
+  },
+  "createdAt": "2025-05-16T14:18:19.103Z",
+  "updatedAt": "2025-05-16T14:18:19.103Z"
+}

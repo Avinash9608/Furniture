@@ -1264,26 +1264,30 @@ const AdminProducts = () => {
                 onChange={(e) => setCategoryFilter(e.target.value)}
               >
                 <option value="all">All Categories</option>
+                {/* Default Categories First */}
+                <option value="680c9481ab11e96a288ef6d9">Sofa Beds</option>
+                <option value="680c9484ab11e96a288ef6da">Tables</option>
+                <option value="680c9486ab11e96a288ef6db">Chairs</option>
+                <option value="680c9489ab11e96a288ef6dc">Wardrobes</option>
+                {/* Custom Categories */}
                 {categories &&
-                  categories.length > 0 &&
-                  categories.map((category) => {
-                    // Ensure category has a valid name and _id
-                    const categoryName =
-                      category.displayName ||
-                      category.name ||
-                      "Unknown Category";
-                    const categoryId =
-                      category._id ||
-                      `temp_${Date.now()}_${Math.random()
-                        .toString(36)
-                        .substring(2, 9)}`;
+                  categories
+                    .filter(category => 
+                      // Filter out default categories that we already added
+                      !["680c9481ab11e96a288ef6d9", "680c9484ab11e96a288ef6da", 
+                        "680c9486ab11e96a288ef6db", "680c9489ab11e96a288ef6dc"]
+                        .includes(category._id)
+                    )
+                    .map((category) => {
+                      const categoryName = category.displayName || category.name || "Unknown Category";
+                      const categoryId = category._id || `temp_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 
-                    return (
-                      <option key={categoryId} value={categoryId}>
-                        {categoryName}
-                      </option>
-                    );
-                  })}
+                      return (
+                        <option key={categoryId} value={categoryId}>
+                          {categoryName}
+                        </option>
+                      );
+                    })}
               </select>
               <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
                 <svg

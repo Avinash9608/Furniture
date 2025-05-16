@@ -72,172 +72,97 @@ const EditProduct = () => {
           fetchedCategories = await createDefaultCategories(createCategory);
         }
 
-        // Filter out test categories and only keep the specific ones we want
-        const validCategoryNames = [
-          "Sofa Beds",
-          "Tables",
-          "Chairs",
-          "Wardrobes",
-        ];
-        fetchedCategories = fetchedCategories.filter((category) =>
-          validCategoryNames.includes(category.name)
-        );
+        // Process categories to ensure they have all required fields
+        fetchedCategories = fetchedCategories.map(category => ({
+          ...category,
+          _id: category._id || `temp_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+          name: category.name || "Unnamed Category",
+          description: category.description || ""
+        }));
 
-        console.log("Filtered categories for edit product:", fetchedCategories);
-
+        console.log("Processed categories:", fetchedCategories);
         setCategories(fetchedCategories);
+
       } catch (error) {
         console.error("Error fetching data:", error);
-        setError("Failed to load product details. Please try again later.");
+        setError("Failed to load product or categories. Please try again.");
       } finally {
         setLoading(false);
       }
     };
 
     fetchData();
-
-    // Set up global function to add a new category
-    window.addCategory = () => setShowCategoryModal(true);
-
-    // Clean up
-    return () => {
-      window.addCategory = undefined;
-    };
   }, [id]);
 
-  // Handle form submission
-  const handleSubmit = async (productData) => {
+  const handleSubmit = async (formData) => {
     try {
       setIsSubmitting(true);
       setSubmitError(null);
 
-      // Create FormData object for file upload
-      const formData = new FormData();
-
-      // Add product data to FormData
-      Object.keys(productData).forEach((key) => {
-        if (key === "images") {
-          // Handle images
-          productData.images.forEach((image) => {
-            if (image.file) {
-              // New image file
-              formData.append("images", image.file);
-            } else if (typeof image === "string") {
-              // Existing image URL
-              formData.append("existingImages", image);
-            }
-          });
-        } else if (key === "dimensions") {
-          // Handle dimensions object
-          formData.append("dimensions", JSON.stringify(productData.dimensions));
-        } else {
-          // Handle other fields
-          formData.append(key, productData[key]);
-        }
-      });
-
-      // Send request to update product
       const response = await productsAPI.update(id, formData);
-      console.log("Product updated successfully:", response);
 
-      // Redirect to products page with a slight delay to ensure UI updates
-      setTimeout(() => {
-        navigate("/admin/products", {
-          state: {
-            successMessage: "Product updated successfully!",
-          },
-        });
-      }, 500);
+      navigate("/admin/products", {
+        state: { successMessage: "Product updated successfully!" },
+      });
     } catch (error) {
       console.error("Error updating product:", error);
       setSubmitError(
-        error.response?.data?.message ||
-          "Failed to update product. Please try again."
+        error.response?.data?.message || "Failed to update product"
       );
-
-      // Scroll to top to show error
-      window.scrollTo({ top: 0, behavior: "smooth" });
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  if (loading) {
+    return (
+      <AdminLayout title="Edit Product">
+        <div className="flex justify-center items-center h-64">
+          <Loading size="large" />
+        </div>
+      </AdminLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <AdminLayout title="Edit Product">
+        <Alert type="error" message={error} />
+      </AdminLayout>
+    );
+  }
+
   return (
     <AdminLayout title="Edit Product">
-      <div className="px-4 sm:px-6 py-4 sm:py-6 dark:bg-gray-900">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-        >
-          {/* Back button */}
-          <button
-            onClick={() => navigate("/admin/products")}
-            className="flex items-center text-gray-600 dark:text-gray-400 hover:text-primary dark:hover:text-primary mb-6"
-          >
-            <svg
-              className="w-5 h-5 mr-1"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                d="M10 19l-7-7m0 0l7-7m-7 7h18"
-              ></path>
-            </svg>
-            Back to Products
-          </button>
+      {categorySuccess && (
+        <Alert
+          type="success"
+          message={categorySuccess}
+          onClose={() => setCategorySuccess(null)}
+          className="mb-4"
+        />
+      )}
 
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6 border border-gray-200 dark:border-gray-700">
-            <h1 className="text-2xl font-bold mb-6 text-gray-900 dark:text-gray-100">
-              Edit Product: {product?.name || ""}
-            </h1>
-
-            {error ? (
-              <Alert
-                type="error"
-                message={error}
-                onClose={() => setError(null)}
-              />
-            ) : loading ? (
-              <div className="flex justify-center py-8">
-                <Loading size="large" />
-              </div>
-            ) : (
-              <>
-                {/* Category success message */}
-                {categorySuccess && (
-                  <Alert
-                    type="success"
-                    message={categorySuccess}
-                    onClose={() => setCategorySuccess(null)}
-                    className="mb-4"
-                  />
-                )}
-
-                <ProductForm
-                  initialData={product}
-                  categories={categories}
-                  onSubmit={handleSubmit}
-                  isSubmitting={isSubmitting}
-                  submitError={submitError}
-                />
-              </>
-            )}
-          </div>
-        </motion.div>
+      <div className="mb-6 flex justify-between items-center">
+        <h1 className="text-2xl font-bold theme-text-primary">Edit Product</h1>
+        <Button onClick={() => setShowCategoryModal(true)}>
+          Add New Category
+        </Button>
       </div>
 
-      {/* Category Modal */}
+      <ProductForm
+        initialData={product}
+        categories={categories}
+        onSubmit={handleSubmit}
+        isSubmitting={isSubmitting}
+        submitError={submitError}
+      />
+
+      {/* Add Category Modal */}
       <Modal
         isOpen={showCategoryModal}
-        onClose={() => setShowCategoryModal(false)}
+        onClose={() => !isSubmittingCategory && setShowCategoryModal(false)}
         title="Add New Category"
-        size="md"
       >
         <CategoryForm
           onSubmit={async (categoryData) => {

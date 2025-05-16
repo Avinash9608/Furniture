@@ -204,26 +204,14 @@ const productsAPI = {
       // Verify admin token exists
       const adminToken = localStorage.getItem("adminToken");
       if (!adminToken) {
-        throw new Error(
-          "Admin authentication required. Please log in as an administrator."
-        );
+        throw new Error("Admin authentication required. Please log in as an administrator.");
       }
 
       // Log the request details for debugging
       console.log("Creating product with FormData");
-      console.log("Admin token exists:", !!adminToken);
       console.log("FormData entries:");
       for (let pair of formData.entries()) {
         console.log(pair[0], typeof pair[1], pair[1]);
-      }
-
-      // Get user data to verify admin role
-      const userData = localStorage.getItem("user");
-      const user = userData ? JSON.parse(userData) : null;
-      if (!user || user.role !== "admin") {
-        throw new Error(
-          "Admin privileges required. Please log in as an administrator."
-        );
       }
 
       const config = {
@@ -231,57 +219,38 @@ const productsAPI = {
           "Content-Type": "multipart/form-data",
           Authorization: `Bearer ${adminToken}`,
         },
-        withCredentials: true, // Enable credentials
       };
 
-      // Add admin token to FormData for additional security
-      formData.append("adminToken", adminToken);
-
       // Try multiple endpoints in sequence until one works
-      let response;
-      let error;
+      const endpoints = [
+        "/api/direct/products",
+        "/api/products",
+        "/products"
+      ];
 
-      try {
-        // First try the direct products endpoint which is most reliable
-        console.log(
-          "Attempting to create product using /api/direct/products endpoint"
-        );
-        response = await api.post("/direct/products", formData, config);
-      } catch (directError) {
-        console.error("Error with direct endpoint:", directError);
-        error = directError;
+      let response = null;
+      let error = null;
 
+      for (const endpoint of endpoints) {
         try {
-          // Then try the standard products endpoint
-          console.log("Attempting to create product using /products endpoint");
-          response = await api.post("/products", formData, config);
-        } catch (standardError) {
-          console.error("Error with standard endpoint:", standardError);
-          error = standardError;
+          console.log(`Attempting to create product using ${endpoint}`);
+          response = await api.post(endpoint, formData, config);
 
-          try {
-            // Finally try the admin products endpoint
-            console.log(
-              "Attempting to create product using /admin/products endpoint"
-            );
-            response = await api.post("/admin/products", formData, config);
-          } catch (adminError) {
-            console.error("Error with admin endpoint:", adminError);
-            error = adminError;
-
-            // If all endpoints fail, throw the last error
-            throw error;
+          if (response?.data?.success) {
+            console.log(`Product created successfully using ${endpoint}:`, response.data);
+            return response.data;
           }
+        } catch (err) {
+          console.error(`Error with ${endpoint}:`, err);
+          error = err;
+          continue;
         }
       }
 
-      console.log("Product creation response:", response.data);
-      return response.data;
+      // If we get here, all endpoints failed
+      throw error || new Error("Failed to create product");
     } catch (error) {
-      console.error(
-        "Error creating product:",
-        error.response?.data || error.message
-      );
+      console.error("Error creating product:", error);
       throw error;
     }
   },
@@ -1010,7 +979,7 @@ const contactAPI = {
   },
 };
 
-// Export the API instances and utilities
+// Export everything at the end of the file
 export {
   api,
   productsAPI,

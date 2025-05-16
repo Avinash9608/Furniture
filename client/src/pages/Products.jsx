@@ -9,6 +9,7 @@ import Button from "../components/Button";
 import { productsAPI, categoriesAPI } from "../utils/api";
 import { formatPrice } from "../utils/format";
 import { validateCategories } from "../utils/safeDataHandler";
+import { defaultCategories } from "../utils/defaultData";
 
 const Products = () => {
   const location = useLocation();
@@ -32,213 +33,59 @@ const Products = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [showFilters, setShowFilters] = useState(false);
 
-  // Fetch products and categories on component mount
+  // Fetch categories and products
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
         setError(null);
-        setSuccessMessage("");
-
-        console.log("Products component mounted - fetching initial data");
-
-        // Try to fetch products directly first
-        try {
-          // Determine if we're in development or production
-          const baseUrl = window.location.origin;
-          const isDevelopment = !baseUrl.includes("onrender.com");
-          const localServerUrl = "http://localhost:5000";
-          const deployedUrl = "https://furniture-q3nb.onrender.com";
-
-          // Use the appropriate URL based on environment
-          const directUrl = isDevelopment
-            ? `${localServerUrl}/api/direct/products`
-            : `${baseUrl}/api/direct/products`;
-
-          console.log("Trying direct products endpoint:", directUrl);
-
-          const directResponse = await axios.get(directUrl, { timeout: 30000 });
-
-          if (directResponse.data && directResponse.data.data) {
-            console.log(
-              "Direct products endpoint success:",
-              directResponse.data
-            );
-
-            // Filter out any invalid products
-            const validProducts = directResponse.data.data.filter(
-              (product) => product && typeof product === "object" && product._id
-            );
-
-            if (validProducts.length !== directResponse.data.data.length) {
-              console.warn(
-                `Filtered out ${
-                  directResponse.data.data.length - validProducts.length
-                } invalid products`
-              );
-            }
-
-            // Set the products
-            setProducts(validProducts);
-            setTotalPages(Math.ceil(directResponse.data.count / 12));
-
-            // Find the highest price for the price range filter
-            if (validProducts.length > 0) {
-              const highestPrice = Math.max(
-                ...validProducts.map((product) =>
-                  typeof product.price === "number" ? product.price : 0
-                )
-              );
-              setMaxPrice(highestPrice);
-              setPriceRange([0, highestPrice]);
-            }
-
-            // Set success message
-            setSuccessMessage(
-              `Found ${directResponse.data.count} products from source: ${
-                directResponse.data.source || "direct"
-              }`
-            );
-
-            // Set loading to false to prevent fetchProducts from overriding our data
-            setLoading(false);
-
-            // Skip the regular fetchProducts call
-            return;
-          }
-        } catch (directError) {
-          console.error("Direct products endpoint failed:", directError);
-          // Continue with normal flow
-        }
 
         // Fetch categories
         const categoriesResponse = await categoriesAPI.getAll();
-        console.log("Raw categories response:", categoriesResponse);
+        let fetchedCategories = [];
 
-        // Define the valid category names and their corresponding IDs
-        const categoryMapping = {
-          "680c9481ab11e96a288ef6d9": "Sofa Beds",
-          "680c9484ab11e96a288ef6da": "Tables",
-          "680c9486ab11e96a288ef6db": "Chairs",
-          "680c9489ab11e96a288ef6dc": "Wardrobes",
-        };
-
-        const validCategoryNames = Object.values(categoryMapping);
-
-        // First validate the categories to ensure they all have required properties
-        let validatedCategories = [];
-
-        try {
-          // Handle different response formats
-          if (
-            categoriesResponse.data &&
-            Array.isArray(categoriesResponse.data)
-          ) {
-            validatedCategories = validateCategories(
-              categoriesResponse.data,
-              categoryMapping
-            );
-          } else if (
-            categoriesResponse.data &&
-            categoriesResponse.data.data &&
-            Array.isArray(categoriesResponse.data.data)
-          ) {
-            validatedCategories = validateCategories(
-              categoriesResponse.data.data,
-              categoryMapping
-            );
-          } else if (Array.isArray(categoriesResponse)) {
-            validatedCategories = validateCategories(
-              categoriesResponse,
-              categoryMapping
-            );
-          } else {
-            console.error(
-              "Unexpected categories response format:",
-              categoriesResponse
-            );
-            // Create fallback categories from the mapping
-            validatedCategories = Object.entries(categoryMapping).map(
-              ([id, name]) => ({
-                _id: id,
-                name: name,
-                slug: name.toLowerCase().replace(/\s+/g, "-"),
-                description: `${name} collection`,
-              })
-            );
-          }
-        } catch (validationError) {
-          console.error("Error validating categories:", validationError);
-          // Create fallback categories from the mapping
-          validatedCategories = Object.entries(categoryMapping).map(
-            ([id, name]) => ({
-              _id: id,
-              name: name,
-              slug: name.toLowerCase().replace(/\s+/g, "-"),
-              description: `${name} collection`,
-            })
-          );
+        if (categoriesResponse.data && Array.isArray(categoriesResponse.data)) {
+          fetchedCategories = categoriesResponse.data;
+        } else if (
+          categoriesResponse.data &&
+          categoriesResponse.data.data &&
+          Array.isArray(categoriesResponse.data.data)
+        ) {
+          fetchedCategories = categoriesResponse.data.data;
         }
 
-        console.log("Validated categories:", validatedCategories);
-
-        // Then filter them by name if they have valid names
-        const filteredCategories = validatedCategories.filter(
-          (category) =>
-            category &&
-            category.name &&
-            (validCategoryNames.includes(category.name) ||
-              // Also include categories with MongoDB IDs that might not have proper names yet
-              (typeof category._id === "string" &&
-                category._id.length === 24 &&
-                /^[0-9a-f]+$/.test(category._id)))
-        );
-
-        console.log(
-          "Filtered categories for product page:",
-          filteredCategories
-        );
-        setCategories(filteredCategories);
-
-        // Only fetch products if we don't already have them from the direct endpoint
-        if (products.length === 0) {
-          console.log("No products loaded yet, fetching with filters...");
-          await fetchProducts();
-        } else {
-          console.log(
-            "Products already loaded from direct endpoint, skipping fetchProducts"
-          );
-          setLoading(false);
+        // If no categories exist, use default categories
+        if (fetchedCategories.length === 0) {
+          fetchedCategories = defaultCategories.map(category => ({
+            ...category,
+            _id: `default_${category.name.toLowerCase().replace(/\s+/g, '_')}`,
+            displayName: category.name
+          }));
         }
+
+        // Process categories to ensure they have all required fields
+        const processedCategories = fetchedCategories.map(category => ({
+          ...category,
+          _id: category._id || `temp_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+          name: category.name || "Unnamed Category",
+          displayName: category.displayName || category.name || "Unnamed Category",
+          description: category.description || ""
+        }));
+
+        setCategories(processedCategories);
+
+        // Fetch products
+        await fetchProducts();
       } catch (error) {
         console.error("Error fetching data:", error);
-        setError("Failed to load products. Please try again later.");
-
-        // Set fallback categories in case of error
-        const categoryMapping = {
-          "680c9481ab11e96a288ef6d9": "Sofa Beds",
-          "680c9484ab11e96a288ef6da": "Tables",
-          "680c9486ab11e96a288ef6db": "Chairs",
-          "680c9489ab11e96a288ef6dc": "Wardrobes",
-        };
-
-        // Create fallback categories with proper IDs
-        const fallbackCategories = Object.entries(categoryMapping).map(
-          ([id, name]) => ({
-            _id: id,
-            name: name,
-            slug: name.toLowerCase().replace(/\s+/g, "-"),
-            description: `${name} collection`,
-          })
-        );
-        setCategories(fallbackCategories);
+        setError("Failed to load data. Please try again.");
       } finally {
         setLoading(false);
       }
     };
 
     fetchData();
-  }, [location.search]);
+  }, []);
 
   // State for success message
   const [successMessage, setSuccessMessage] = useState("");

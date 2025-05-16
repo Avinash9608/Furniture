@@ -3,15 +3,18 @@ const Category = require("../models/Category");
 require("dotenv").config();
 
 // Connect to MongoDB
-mongoose
-  .connect(
-    process.env.MONGO_URI || "mongodb://localhost:27017/shyam_furnitures"
-  )
-  .then(() => console.log("MongoDB connected"))
-  .catch((err) => {
-    console.error("MongoDB connection error:", err);
+const connectDB = async () => {
+  try {
+    const conn = await mongoose.connect(process.env.MONGO_URI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    });
+    console.log(`MongoDB Connected: ${conn.connection.host}`);
+  } catch (error) {
+    console.error("Error connecting to MongoDB:", error);
     process.exit(1);
-  });
+  }
+};
 
 // Define the required categories
 const requiredCategories = [
@@ -27,12 +30,24 @@ const requiredCategories = [
     name: "Chairs",
     description: "Dining chairs, armchairs, recliners and more",
   },
-  { name: "Wardrobes", description: "Storage solutions for bedrooms" },
+  {
+    name: "Wardrobes",
+    description: "Storage solutions for bedrooms",
+  },
+  {
+    name: "Beds",
+    description: "Single beds, double beds, king size beds and more",
+  },
+  {
+    name: "Cabinets",
+    description: "Storage solutions for living rooms and dining rooms",
+  }
 ];
 
 // Update categories in the database
 const updateCategories = async () => {
   try {
+    await connectDB();
     console.log("Updating categories...");
 
     // First, get all existing categories
@@ -67,13 +82,13 @@ const updateCategories = async () => {
     }
 
     // Get the final list of categories
-    const updatedCategories = await Category.find({});
-    console.log("Updated categories:");
+    const updatedCategories = await Category.find({}).sort({ name: 1 });
+    console.log("\nUpdated categories:");
     updatedCategories.forEach((cat) => {
       console.log(`- ${cat.name} (${cat._id})`);
     });
 
-    console.log("Category update completed");
+    console.log("\nCategory update completed successfully");
     process.exit(0);
   } catch (error) {
     console.error("Error updating categories:", error);
@@ -81,5 +96,5 @@ const updateCategories = async () => {
   }
 };
 
-// Run the script
+// Run the update
 updateCategories();

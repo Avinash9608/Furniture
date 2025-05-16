@@ -27,20 +27,20 @@ const ProductForm = ({
     : [];
   // Initialize form state
   const [formData, setFormData] = useState({
-    name: "",
-    description: "",
-    price: "",
-    discountPrice: "",
-    discountPercentage: "",
-    category: "",
-    stock: "",
-    featured: false,
-    material: "",
-    color: "",
+    name: initialData?.name || "",
+    description: initialData?.description || "",
+    price: initialData?.price || "",
+    discountPrice: initialData?.discountPrice || "",
+    discountPercentage: initialData?.discountPercentage || "",
+    category: initialData?.category?._id || initialData?.category || "",
+    stock: initialData?.stock || "",
+    featured: initialData?.featured || false,
+    material: initialData?.material || "",
+    color: initialData?.color || "",
     dimensions: {
-      length: "",
-      width: "",
-      height: "",
+      length: initialData?.dimensions?.length || "",
+      width: initialData?.dimensions?.width || "",
+      height: initialData?.dimensions?.height || "",
     },
   });
 
@@ -286,7 +286,7 @@ const ProductForm = ({
             )}
           </div>
 
-          {/* Category - Always full width on mobile */}
+          {/* Category Selection */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Category <span className="text-red-500">*</span>
@@ -304,15 +304,24 @@ const ProductForm = ({
                     bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100`}
                 >
                   <option value="">Select a category</option>
-                  {validCategories.length > 0 ? (
-                    validCategories.map((category) => (
+                  {/* Default Categories First */}
+                  <option value="680c9481ab11e96a288ef6d9">Sofa Beds</option>
+                  <option value="680c9484ab11e96a288ef6da">Tables</option>
+                  <option value="680c9486ab11e96a288ef6db">Chairs</option>
+                  <option value="680c9489ab11e96a288ef6dc">Wardrobes</option>
+                  {/* Custom Categories */}
+                  {validCategories && validCategories
+                    .filter(category => 
+                      // Filter out default categories that we already added
+                      !["680c9481ab11e96a288ef6d9", "680c9484ab11e96a288ef6da", 
+                        "680c9486ab11e96a288ef6db", "680c9489ab11e96a288ef6dc"]
+                        .includes(category._id)
+                    )
+                    .map((category) => (
                       <option key={category._id} value={category._id}>
                         {category.displayName || category.name}
                       </option>
-                    ))
-                  ) : (
-                    <option disabled>No categories available</option>
-                  )}
+                    ))}
                 </select>
               </div>
             </label>
