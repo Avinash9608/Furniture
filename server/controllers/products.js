@@ -3,6 +3,7 @@ const Category = require("../models/Category");
 const path = require("path");
 const fs = require("fs");
 const slugify = require("slugify");
+const { MongoClient } = require('mongodb');
 
 // @desc    Get all products
 // @route   GET /api/products
@@ -133,7 +134,6 @@ exports.getProducts = async (req, res) => {
       // If Mongoose fails, try direct MongoDB connection
       console.log("Attempting direct MongoDB connection");
 
-      const { MongoClient, ObjectId } = require("mongodb");
       const uri = process.env.MONGO_URI;
 
       // Connection options
@@ -378,7 +378,6 @@ exports.getProduct = async (req, res) => {
     // If Mongoose fails, try direct MongoDB connection
     console.log("Attempting direct MongoDB connection for product");
 
-    const { MongoClient, ObjectId } = require("mongodb");
     const uri = process.env.MONGO_URI;
 
     // Connection options
@@ -641,28 +640,42 @@ exports.createProduct = async (req, res) => {
 
     let product;
     try {
-      // Try Mongoose first with timeout
-      product = await Promise.race([
-        Product.create(productData),
-        new Promise((_, reject) => 
-          setTimeout(() => reject(new Error("Mongoose operation timed out")), 10000)
-        )
-      ]);
-    } catch (mongooseError) {
-      console.log("Mongoose save failed, trying direct MongoDB connection:", mongooseError.message);
-      
-      // If Mongoose fails, try direct MongoDB connection
-      const { createProduct: directCreate } = require('../utils/directDbConnection');
-      const result = await directCreate(productData);
-      
-      if (result.success) {
-        // Fetch the created product
-        product = await Product.findById(result.productId);
-        if (!product) {
-          product = { _id: result.productId, ...productData };
-        }
+      // Try direct MongoDB connection first
+      const uri = process.env.MONGO_URI;
+      const client = new MongoClient(uri, {
+        useNewUrlParser: true,
+        useUnifiedTopology: true,
+        connectTimeoutMS: 30000,
+        socketTimeoutMS: 45000,
+        serverSelectionTimeoutMS: 30000
+      });
+
+      await client.connect();
+      console.log("Connected to MongoDB directly");
+
+      const dbName = uri.split('/').pop().split('?')[0];
+      const db = client.db(dbName);
+      const collection = db.collection('products');
+
+      const result = await collection.insertOne(productData);
+      console.log("Product inserted directly:", result.insertedId);
+
+      if (result.acknowledged) {
+        product = { _id: result.insertedId, ...productData };
       } else {
-        throw new Error("Failed to create product using direct connection");
+        throw new Error("Product insertion not acknowledged");
+      }
+
+      await client.close();
+    } catch (directError) {
+      console.log("Direct MongoDB insertion failed, trying Mongoose:", directError.message);
+      
+      // If direct connection fails, try Mongoose as fallback
+      try {
+        product = await Product.create(productData);
+      } catch (mongooseError) {
+        console.error("Both direct and Mongoose attempts failed:", mongooseError);
+        throw new Error("Failed to create product using both methods");
       }
     }
 
@@ -690,13 +703,6 @@ exports.createProduct = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "A product with this name already exists"
-      });
-    }
-
-    if (error.message === "Mongoose operation timed out") {
-      return res.status(500).json({
-        success: false,
-        message: "Database operation timed out. Please try again."
       });
     }
 
