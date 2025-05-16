@@ -599,10 +599,29 @@ exports.createProduct = async (req, res) => {
       console.log("Processed images:", images);
     }
 
+    // Generate slug from name
+    const slug = req.body.name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)/g, '') + 
+      '-' + Date.now().toString().slice(-4);
+
+    // Parse dimensions if provided
+    let dimensions = {};
+    if (req.body.dimensions) {
+      try {
+        dimensions = typeof req.body.dimensions === 'string' 
+          ? JSON.parse(req.body.dimensions)
+          : req.body.dimensions;
+      } catch (error) {
+        console.error("Error parsing dimensions:", error);
+      }
+    }
+
     // Create product data object
     const productData = {
       name: req.body.name,
-      slug: req.body.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
+      slug,
       description: req.body.description,
       price: parseFloat(req.body.price),
       category: req.body.category,
@@ -611,7 +630,7 @@ exports.createProduct = async (req, res) => {
       featured: req.body.featured === "true",
       material: req.body.material || "",
       color: req.body.color || "",
-      dimensions: req.body.dimensions ? JSON.parse(req.body.dimensions) : {},
+      dimensions,
       discountPrice: req.body.discountPrice ? parseFloat(req.body.discountPrice) : undefined,
       createdBy: req.user._id,
       createdAt: new Date(),
@@ -620,8 +639,13 @@ exports.createProduct = async (req, res) => {
 
     console.log("Attempting to save product with data:", productData);
 
-    // Create product in database
-    const product = await Product.create(productData);
+    // Create product in database with timeout handling
+    const product = await Promise.race([
+      Product.create(productData),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error("Database operation timed out")), 30000)
+      )
+    ]);
 
     console.log("Product created successfully:", product._id);
 
@@ -647,6 +671,13 @@ exports.createProduct = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "A product with this name already exists"
+      });
+    }
+
+    if (error.message === "Database operation timed out") {
+      return res.status(500).json({
+        success: false,
+        message: "Database operation timed out. Please try again."
       });
     }
 
