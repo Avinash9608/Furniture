@@ -7,6 +7,7 @@ exports.protect = async (req, res, next) => {
     console.log("🔍 Auth check for", req.method, req.originalUrl);
     
     let token;
+    let decoded;
     
     // Check Authorization header
     if (req.headers.authorization && req.headers.authorization.startsWith("Bearer")) {
@@ -36,7 +37,7 @@ exports.protect = async (req, res, next) => {
     try {
       // Verify token
       console.log("Verifying token...");
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
       console.log("Token decoded successfully:", decoded);
 
       // Find user with timeout handling
