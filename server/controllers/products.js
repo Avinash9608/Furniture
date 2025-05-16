@@ -639,13 +639,32 @@ exports.createProduct = async (req, res) => {
 
     console.log("Attempting to save product with data:", productData);
 
-    // Create product in database with timeout handling
-    const product = await Promise.race([
-      Product.create(productData),
-      new Promise((_, reject) => 
-        setTimeout(() => reject(new Error("Database operation timed out")), 30000)
-      )
-    ]);
+    let product;
+    try {
+      // Try Mongoose first with timeout
+      product = await Promise.race([
+        Product.create(productData),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error("Mongoose operation timed out")), 10000)
+        )
+      ]);
+    } catch (mongooseError) {
+      console.log("Mongoose save failed, trying direct MongoDB connection:", mongooseError.message);
+      
+      // If Mongoose fails, try direct MongoDB connection
+      const { createProduct: directCreate } = require('../utils/directDbConnection');
+      const result = await directCreate(productData);
+      
+      if (result.success) {
+        // Fetch the created product
+        product = await Product.findById(result.productId);
+        if (!product) {
+          product = { _id: result.productId, ...productData };
+        }
+      } else {
+        throw new Error("Failed to create product using direct connection");
+      }
+    }
 
     console.log("Product created successfully:", product._id);
 
@@ -674,7 +693,7 @@ exports.createProduct = async (req, res) => {
       });
     }
 
-    if (error.message === "Database operation timed out") {
+    if (error.message === "Mongoose operation timed out") {
       return res.status(500).json({
         success: false,
         message: "Database operation timed out. Please try again."
