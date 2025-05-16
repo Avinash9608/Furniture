@@ -1,4 +1,5 @@
 const express = require("express");
+const router = express.Router();
 const {
   getCategories,
   getCategory,
@@ -6,33 +7,26 @@ const {
   updateCategory,
   deleteCategory,
 } = require("../controllers/categories");
-
-const router = express.Router();
-
 const { protect, authorize } = require("../middleware/auth");
 const upload = require("../middleware/upload");
 
-// Check if we should bypass auth in development mode
-const bypassAuth =
-  process.env.NODE_ENV === "development" && process.env.BYPASS_AUTH === "true";
-console.log("Categories Routes - Bypass Auth:", bypassAuth);
+// Public routes
+router.route("/").get(getCategories);
+router.route("/:id").get(getCategory);
 
-// Create middleware arrays based on environment
-const adminMiddleware = bypassAuth
-  ? [upload.single("image")]
-  : [protect, authorize("admin"), upload.single("image")];
+// Protected routes
+router.use(protect);
 
-const adminDeleteMiddleware = bypassAuth ? [] : [protect, authorize("admin")];
+// Admin only routes
+router.use(authorize("admin"));
 
 router
   .route("/")
-  .get(getCategories)
-  .post(...adminMiddleware, createCategory);
+  .post(upload.single("image"), createCategory);
 
 router
   .route("/:id")
-  .get(getCategory)
-  .put(...adminMiddleware, updateCategory)
-  .delete(...adminDeleteMiddleware, deleteCategory);
+  .put(upload.single("image"), updateCategory)
+  .delete(deleteCategory);
 
 module.exports = router;

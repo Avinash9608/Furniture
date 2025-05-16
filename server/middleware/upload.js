@@ -12,7 +12,7 @@ if (!fs.existsSync(uploadsDir)) {
 // Configure multer for file upload
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, path.join(__dirname, "../uploads"));
+    cb(null, uploadsDir);
   },
   filename: function (req, file, cb) {
     // Create unique file name
@@ -31,11 +31,20 @@ const fileFilter = (req, file, cb) => {
   }
 };
 
-// Export the configured multer instance
-exports.upload = multer({
+// Create the multer instance
+const uploadMiddleware = multer({
   storage: storage,
   fileFilter: fileFilter,
   limits: {
     fileSize: 5 * 1024 * 1024, // 5MB max file size
   },
 });
+
+// Export both the middleware instance and common configurations
+module.exports = {
+  upload: uploadMiddleware,
+  single: (fieldName) => uploadMiddleware.single(fieldName),
+  array: (fieldName, maxCount) => uploadMiddleware.array(fieldName, maxCount),
+  fields: (fields) => uploadMiddleware.fields(fields),
+  none: () => uploadMiddleware.none(),
+};
