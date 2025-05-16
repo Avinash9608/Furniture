@@ -3,7 +3,6 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import axios from "axios";
 import ProductCard from "../components/ProductCard";
-import ProductImage from "../components/ProductImage";
 import Loading from "../components/Loading";
 import Alert from "../components/Alert";
 import Button from "../components/Button";

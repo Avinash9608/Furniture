@@ -3,7 +3,6 @@ import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { formatPrice, calculateDiscountPercentage } from "../utils/format";
 import { getProductImage, handleImageError } from "../utils/defaultImages";
-import ProductImage from "./ProductImage";
 
 // Helper function to safely get product data
 const safeProduct = (product) => {
@@ -17,41 +16,14 @@ const safeProduct = (product) => {
     };
   }
 
-  // Normalize images array
-  let normalizedImages = [];
-
-  if (product.images) {
-    if (Array.isArray(product.images)) {
-      normalizedImages = product.images;
-    } else if (typeof product.images === "string") {
-      // Handle case where images might be a single string
-      normalizedImages = [product.images];
-    }
-  }
-
-  // Handle category data safely
-  let categoryData = { name: "Uncategorized" };
-
-  if (product.category) {
-    if (typeof product.category === "object") {
-      categoryData = product.category;
-    } else if (typeof product.category === "string") {
-      // If category is just a string (name or ID), create an object
-      categoryData = { name: product.category, _id: product.category };
-    }
-  }
-
   return {
     _id: product._id || "unknown",
     name: product.name || "Unknown Product",
     price: typeof product.price === "number" ? product.price : 0,
     discountPrice:
       typeof product.discountPrice === "number" ? product.discountPrice : null,
-    category: categoryData,
-    images: normalizedImages,
-    // Add additional fields that might be needed
-    slug: product.slug || `product-${product._id || "unknown"}`,
-    description: product.description || "",
+    category: product.category || { name: "Uncategorized" },
+    images: Array.isArray(product.images) ? product.images : [],
   };
 };
 
@@ -62,18 +34,11 @@ const ProductCard = ({ product }) => {
   return (
     <motion.div whileHover={{ y: -5 }} className="card group">
       <div className="relative overflow-hidden h-64">
-        <ProductImage
-          product={safe}
+        <img
+          src={getProductImage(safe)}
           alt={safe.name}
-          className="transition-transform duration-500 group-hover:scale-110"
-          size="medium"
-          lazy={true}
-          onError={(e) => {
-            console.log(
-              `ProductCard image error for ${safe.name}:`,
-              e.target.src
-            );
-          }}
+          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+          onError={handleImageError}
         />
         <div className="absolute top-2 right-2 theme-bg-primary rounded-full p-2 shadow-md opacity-0 group-hover:opacity-100 transition-opacity duration-300">
           <svg
