@@ -15,45 +15,7 @@ import Loading from "../../components/Loading";
 import Alert from "../../components/Alert";
 import Modal from "../../components/Modal";
 
-const getImageUrl = (imagePath) => {
-  if (!imagePath) {
-    console.log("No image path provided, using placeholder");
-    return "https://placehold.co/300x300/gray/white?text=No+Image";
-  }
-
-  // Log the image path for debugging
-  console.log("Processing image path:", imagePath);
-
-  // If it's already a full URL (including Cloudinary), return it as is
-  if (imagePath.startsWith("http://") || imagePath.startsWith("https://")) {
-    console.log("Using full URL:", imagePath);
-    return imagePath;
-  }
-
-  // If it's a relative path starting with /uploads, prepend the API base URL
-  if (imagePath.startsWith("/uploads/")) {
-    const baseUrl =
-      import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
-    const fullUrl = `${baseUrl}${imagePath}`;
-    console.log("Constructed uploads URL:", fullUrl);
-    return fullUrl;
-  }
-
-  // If it's just a filename, assume it's in the uploads directory
-  if (!imagePath.startsWith("/")) {
-    const baseUrl =
-      import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
-    const fullUrl = `${baseUrl}/uploads/${imagePath}`;
-    console.log("Constructed filename URL:", fullUrl);
-    return fullUrl;
-  }
-
-  // For any other case, return the path as is with base URL
-  const baseUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
-  const fullUrl = `${baseUrl}${imagePath}`;
-  console.log("Constructed fallback URL:", fullUrl);
-  return fullUrl;
-};
+// Using the imported getImageUrl function from imageHelper.js
 
 const AdminProducts = () => {
   const location = useLocation();
