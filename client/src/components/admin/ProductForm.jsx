@@ -141,8 +141,103 @@ const ProductForm = ({
   };
 
   // Handle image upload
-  const handleImageChange = (newImages) => {
-    setImages(newImages);
+  const handleImageChange = async (newImages) => {
+    // Get the hostname for environment detection
+    const hostname = window.location.hostname;
+    const isProduction =
+      hostname.includes("render.com") ||
+      hostname === "furniture-q3nb.onrender.com";
+
+    console.log("Environment:", isProduction ? "Production" : "Development");
+
+    // In production, use the dedicated image upload endpoint for new file uploads
+    if (isProduction) {
+      try {
+        // Separate File objects and string URLs
+        const fileImages = newImages.filter((image) => image instanceof File);
+        const stringImages = newImages.filter(
+          (image) => typeof image === "string"
+        );
+
+        console.log("New file images:", fileImages.length);
+        console.log("Existing string images:", stringImages.length);
+
+        // If there are new file images, upload them immediately
+        if (fileImages.length > 0) {
+          console.log(
+            "Production environment detected, using dedicated image upload endpoint"
+          );
+
+          // Create a FormData object for the image upload
+          const formData = new FormData();
+          fileImages.forEach((file) => {
+            formData.append("images", file);
+          });
+
+          // Add a cache-busting parameter
+          formData.append("_t", Date.now());
+
+          // Use fetch API directly to upload the images
+          const uploadUrl = `${
+            window.location.origin
+          }/api/images/upload?_t=${Date.now()}`;
+          console.log("Image upload URL:", uploadUrl);
+
+          const uploadResponse = await fetch(uploadUrl, {
+            method: "POST",
+            body: formData,
+            headers: {
+              Accept: "application/json",
+              "Cache-Control": "no-cache",
+            },
+          });
+
+          if (uploadResponse.ok) {
+            const data = await uploadResponse.json();
+            console.log("Image upload successful:", data);
+
+            // Replace the File objects with the uploaded image paths
+            if (data.files && data.files.length > 0) {
+              const uploadedPaths = data.files.map((file) => file.path);
+              console.log("Uploaded image paths:", uploadedPaths);
+
+              // Combine existing string images with new uploaded paths
+              const updatedImages = [...stringImages, ...uploadedPaths];
+              console.log("Final images array:", updatedImages);
+
+              // Update the images state
+              setImages(updatedImages);
+            } else {
+              // If no files were uploaded, just keep the string images
+              setImages(stringImages);
+            }
+          } else {
+            console.warn(
+              "Image upload failed with status:",
+              uploadResponse.status
+            );
+            const errorText = await uploadResponse.text();
+            console.warn("Image upload error:", errorText);
+
+            // Fall back to client-side handling
+            setImages(newImages);
+          }
+        } else {
+          // If there are no new file images, just update with the string images
+          setImages(newImages);
+        }
+      } catch (uploadError) {
+        console.error("Error uploading images:", uploadError);
+
+        // Fall back to client-side handling
+        setImages(newImages);
+      }
+    } else {
+      // In development, use the standard approach
+      setImages(newImages);
+    }
+
+    // Clear any image errors
     if (errors.images) {
       setErrors((prev) => ({ ...prev, images: null }));
     }
@@ -260,26 +355,78 @@ const ProductForm = ({
 
     // Add images if they exist
     if (images && images.length > 0) {
-      // Separate File objects and string URLs
-      const fileImages = images.filter((image) => image instanceof File);
-      const stringImages = images.filter((image) => typeof image === "string");
+      // Get the hostname for environment detection
+      const hostname = window.location.hostname;
+      const isProduction =
+        hostname.includes("render.com") ||
+        hostname === "furniture-q3nb.onrender.com";
 
-      console.log("File images:", fileImages.length);
-      console.log("String images:", stringImages.length);
+      console.log("Environment:", isProduction ? "Production" : "Development");
 
-      // Add new image files
-      fileImages.forEach((image) => {
-        formDataToSubmit.append("images", image);
-      });
+      // In production, handle images differently
+      if (isProduction) {
+        // For production, we've already uploaded the images in handleImageChange
+        // So we only need to add the image paths to the form data
 
-      // Add existing image URLs as JSON array
-      if (stringImages.length > 0) {
-        formDataToSubmit.append("existingImages", JSON.stringify(stringImages));
-        console.log("Added existingImages:", JSON.stringify(stringImages));
+        // All images should be strings at this point (paths)
+        const stringImages = images.filter(
+          (image) => typeof image === "string"
+        );
+        const fileImages = images.filter((image) => image instanceof File);
+
+        console.log("String images for submission:", stringImages.length);
+        console.log("File images remaining (should be 0):", fileImages.length);
+
+        // If there are still file images, log a warning
+        if (fileImages.length > 0) {
+          console.warn(
+            "There are still file images that haven't been uploaded:",
+            fileImages.length
+          );
+        }
+
+        // Add existing image URLs as JSON array
+        if (stringImages.length > 0) {
+          formDataToSubmit.append(
+            "existingImages",
+            JSON.stringify(stringImages)
+          );
+          console.log("Added existingImages:", JSON.stringify(stringImages));
+        }
+
+        // Set replaceImages flag
+        formDataToSubmit.append("replaceImages", "true");
+
+        // Add a flag to indicate we're using the dedicated image endpoint
+        formDataToSubmit.append("useImageEndpoint", "true");
+      } else {
+        // In development, use the standard approach
+        // Separate File objects and string URLs
+        const fileImages = images.filter((image) => image instanceof File);
+        const stringImages = images.filter(
+          (image) => typeof image === "string"
+        );
+
+        console.log("File images:", fileImages.length);
+        console.log("String images:", stringImages.length);
+
+        // Add new image files
+        fileImages.forEach((image) => {
+          formDataToSubmit.append("images", image);
+        });
+
+        // Add existing image URLs as JSON array
+        if (stringImages.length > 0) {
+          formDataToSubmit.append(
+            "existingImages",
+            JSON.stringify(stringImages)
+          );
+          console.log("Added existingImages:", JSON.stringify(stringImages));
+        }
+
+        // Set replaceImages flag
+        formDataToSubmit.append("replaceImages", "true");
       }
-
-      // Set replaceImages flag
-      formDataToSubmit.append("replaceImages", "true");
     }
 
     // Log the form data for debugging

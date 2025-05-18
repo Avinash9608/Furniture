@@ -408,6 +408,206 @@ app.get("/admin/products/edit/:id", (req, res) => {
   res.redirect(`/api/direct/products/${req.params.id}`);
 });
 
+// Dedicated endpoint for image uploads only
+app.post("/api/images/upload", upload.array("images", 10), async (req, res) => {
+  try {
+    console.log("Image upload endpoint called");
+
+    // Add CORS headers
+    res.header("Access-Control-Allow-Origin", "*");
+    res.header(
+      "Access-Control-Allow-Headers",
+      "Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control"
+    );
+    res.header("Access-Control-Allow-Methods", "POST, OPTIONS");
+
+    // Handle preflight requests
+    if (req.method === "OPTIONS") {
+      return res.status(200).end();
+    }
+
+    // Check if files were uploaded
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "No files uploaded",
+      });
+    }
+
+    console.log("Files received:", req.files.length);
+
+    // Process the uploaded files
+    const uploadedFiles = req.files.map((file) => ({
+      filename: file.filename,
+      path: `/uploads/${file.filename}`,
+      size: file.size,
+      mimetype: file.mimetype,
+    }));
+
+    console.log("Processed files:", uploadedFiles);
+
+    // Return the file information
+    return res.status(200).json({
+      success: true,
+      message: "Files uploaded successfully",
+      files: uploadedFiles,
+    });
+  } catch (error) {
+    console.error("Error in image upload endpoint:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error during file upload",
+      error: error.message,
+    });
+  }
+});
+
+// Dedicated endpoint for product image update
+app.put("/api/images/product/:id", async (req, res) => {
+  try {
+    console.log("Product image update endpoint called for ID:", req.params.id);
+
+    // Add CORS headers
+    res.header("Access-Control-Allow-Origin", "*");
+    res.header(
+      "Access-Control-Allow-Headers",
+      "Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control"
+    );
+    res.header("Access-Control-Allow-Methods", "PUT, OPTIONS");
+
+    // Handle preflight requests
+    if (req.method === "OPTIONS") {
+      return res.status(200).end();
+    }
+
+    // Check if image paths were provided
+    if (!req.body.imagePaths) {
+      return res.status(400).json({
+        success: false,
+        message: "No image paths provided",
+      });
+    }
+
+    console.log("Image paths received:", req.body.imagePaths);
+
+    // Parse the image paths
+    let imagePaths;
+    try {
+      imagePaths =
+        typeof req.body.imagePaths === "string"
+          ? JSON.parse(req.body.imagePaths)
+          : req.body.imagePaths;
+    } catch (parseError) {
+      console.error("Error parsing image paths:", parseError);
+      imagePaths = [req.body.imagePaths];
+    }
+
+    console.log("Parsed image paths:", imagePaths);
+
+    // Import MongoDB client
+    const { MongoClient, ObjectId } = require("mongodb");
+
+    // Get MongoDB URI
+    const uri = process.env.MONGO_URI;
+
+    console.log("Connecting to MongoDB directly...");
+
+    // Create a new client with minimal options
+    const client = new MongoClient(uri, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+      connectTimeoutMS: 30000,
+      socketTimeoutMS: 30000,
+    });
+
+    try {
+      // Connect to MongoDB
+      await client.connect();
+      console.log("Connected to MongoDB for product image update");
+
+      // Get database name from URI
+      const dbName = uri.split("/").pop().split("?")[0];
+      const db = client.db(dbName);
+
+      // Get products collection
+      const productsCollection = db.collection("products");
+
+      // Update only the images field
+      const updateResult = await productsCollection.updateOne(
+        { _id: new ObjectId(req.params.id) },
+        {
+          $set: {
+            images: imagePaths,
+            updatedAt: new Date(),
+          },
+        }
+      );
+
+      console.log("Update result:", updateResult);
+
+      if (updateResult.matchedCount === 0) {
+        console.log("No document matched the ID, trying with string ID");
+        // Try with string ID
+        const stringUpdateResult = await productsCollection.updateOne(
+          { _id: req.params.id },
+          {
+            $set: {
+              images: imagePaths,
+              updatedAt: new Date(),
+            },
+          }
+        );
+
+        console.log("String ID update result:", stringUpdateResult);
+
+        if (stringUpdateResult.matchedCount === 0) {
+          await client.close();
+          return res.status(404).json({
+            success: false,
+            message: "Product not found with any ID format",
+          });
+        }
+      }
+
+      // Get the updated product
+      let updatedProduct;
+      try {
+        updatedProduct = await productsCollection.findOne({
+          _id: new ObjectId(req.params.id),
+        });
+      } catch (findError) {
+        updatedProduct = await productsCollection.findOne({
+          _id: req.params.id,
+        });
+      }
+
+      // Close the client
+      await client.close();
+
+      return res.status(200).json({
+        success: true,
+        message: "Product images updated successfully",
+        data: updatedProduct,
+      });
+    } catch (mongoError) {
+      console.error("Error in MongoDB operation:", mongoError);
+      await client.close();
+      return res.status(500).json({
+        success: false,
+        message: "Database operation failed",
+        error: mongoError.message,
+      });
+    }
+  } catch (error) {
+    console.error("Error in product image update endpoint:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error during product image update",
+      error: error.message,
+    });
+  }
+});
+
 // Special route for direct product access without authentication
 app.get("/api/direct-product/:id", async (req, res) => {
   try {

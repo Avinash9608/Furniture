@@ -256,12 +256,156 @@ const EditProduct = () => {
       // Add a cache-busting parameter
       formData.append("_t", Date.now());
 
-      // In production, use a simplified approach with minimal fields
+      // In production, use a specialized approach for images
       if (isProduction) {
         try {
           console.log(
-            "Production environment detected, using simplified approach"
+            "Production environment detected, using specialized approach"
           );
+
+          // Check if we need to handle images separately
+          const hasImageData =
+            formData.has("images") ||
+            formData.has("existingImages") ||
+            formData.has("useImageEndpoint");
+          const useImageEndpoint = formData.get("useImageEndpoint") === "true";
+
+          console.log("Has image data:", hasImageData);
+          console.log("Use image endpoint:", useImageEndpoint);
+
+          // If we have image data and should use the image endpoint, handle images separately
+          if (hasImageData && useImageEndpoint) {
+            console.log("Handling images separately with dedicated endpoint");
+
+            // Get the image paths from the form data
+            let imagePaths = [];
+
+            // Try to get existingImages from form data
+            const existingImagesStr = formData.get("existingImages");
+            if (existingImagesStr) {
+              try {
+                imagePaths = JSON.parse(existingImagesStr);
+                console.log("Parsed image paths:", imagePaths);
+              } catch (parseError) {
+                console.error("Error parsing existingImages:", parseError);
+                // Try to handle as comma-separated string
+                imagePaths = existingImagesStr
+                  .split(",")
+                  .map((path) => path.trim());
+                console.log(
+                  "Parsed image paths as comma-separated:",
+                  imagePaths
+                );
+              }
+            }
+
+            // If we have image paths, update the product images
+            if (imagePaths.length > 0) {
+              console.log("Updating product images with dedicated endpoint");
+
+              // Create a simplified request body for the image update
+              const imageUpdateBody = {
+                imagePaths: JSON.stringify(imagePaths),
+              };
+
+              // Use the dedicated image update endpoint
+              const imageUpdateUrl = `${
+                window.location.origin
+              }/api/images/product/${id}?_t=${Date.now()}`;
+              console.log("Image update URL:", imageUpdateUrl);
+
+              const imageUpdateResponse = await fetch(imageUpdateUrl, {
+                method: "PUT",
+                body: JSON.stringify(imageUpdateBody),
+                headers: {
+                  "Content-Type": "application/json",
+                  Accept: "application/json",
+                  "Cache-Control": "no-cache",
+                },
+              });
+
+              if (imageUpdateResponse.ok) {
+                const imageData = await imageUpdateResponse.json();
+                console.log("Image update successful:", imageData);
+
+                // Now create a simplified FormData with only essential fields for the main product update
+                const simplifiedFormData = new FormData();
+
+                // Only include essential fields
+                const essentialFields = [
+                  "name",
+                  "description",
+                  "price",
+                  "stock",
+                  "category",
+                  "featured",
+                  "discountPrice",
+                ];
+
+                for (let pair of formData.entries()) {
+                  if (essentialFields.includes(pair[0])) {
+                    simplifiedFormData.append(pair[0], pair[1]);
+                  }
+                }
+
+                // Add a cache-busting parameter
+                simplifiedFormData.append("_t", Date.now());
+
+                console.log(
+                  "Using emergency endpoint for main product data..."
+                );
+
+                // Use fetch API directly to bypass all middleware
+                const emergencyUrl = `${
+                  window.location.origin
+                }/api/emergency/products/${id}?_t=${Date.now()}`;
+                console.log("Emergency URL:", emergencyUrl);
+
+                const emergencyResponse = await fetch(emergencyUrl, {
+                  method: "PUT",
+                  body: simplifiedFormData,
+                  headers: {
+                    Accept: "application/json",
+                    "Cache-Control": "no-cache",
+                  },
+                });
+
+                if (emergencyResponse.ok) {
+                  const data = await emergencyResponse.json();
+                  console.log("Emergency update successful:", data);
+
+                  // Set the response in the expected format
+                  response = {
+                    data: {
+                      success: true,
+                      data: imageData.data || data.data || data,
+                      source: "split_update",
+                    },
+                  };
+
+                  // Show success immediately
+                  console.log(
+                    "Product updated successfully via split update approach!"
+                  );
+                  navigate("/admin/products", {
+                    state: { successMessage: "Product updated successfully!" },
+                  });
+
+                  return; // Exit early on success
+                }
+              } else {
+                console.warn(
+                  "Image update failed with status:",
+                  imageUpdateResponse.status
+                );
+                const errorText = await imageUpdateResponse.text();
+                console.warn("Image update error:", errorText);
+              }
+            }
+          }
+
+          // If we didn't handle images separately or it failed, try the emergency endpoint
+          console.log("Using emergency endpoint directly...");
 
           // Create a simplified FormData with only essential fields
           const simplifiedFormData = new FormData();
@@ -273,11 +417,14 @@ const EditProduct = () => {
             "price",
             "stock",
             "category",
+            "featured",
+            "discountPrice",
           ];
+
           for (let pair of formData.entries()) {
             if (
               essentialFields.includes(pair[0]) ||
-              pair[0].startsWith("images")
+              pair[0].startsWith("existingImages")
             ) {
               simplifiedFormData.append(pair[0], pair[1]);
             }
@@ -285,8 +432,6 @@ const EditProduct = () => {
 
           // Add a cache-busting parameter
           simplifiedFormData.append("_t", Date.now());
-
-          console.log("Using emergency endpoint directly...");
 
           // Use fetch API directly to bypass all middleware
           const emergencyUrl = `${
