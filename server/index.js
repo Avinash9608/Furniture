@@ -87,6 +87,24 @@ if (!process.env.JWT_SECRET) {
 // Initialize express app
 const app = express();
 
+// Get allowed origins for CORS
+const getAllowedOrigins = () => {
+  // List of allowed origins
+  const allowedOrigins = [
+    "http://localhost:3000",
+    "http://localhost:5000",
+    "http://localhost:5173",
+    "http://localhost:5174",
+    "http://localhost:5175",
+    "https://furniture-q3nb.onrender.com",
+    "https://furniture-admin.onrender.com",
+    process.env.FRONTEND_URL, // Add this if you have a custom domain
+  ].filter(Boolean); // Remove any undefined values
+
+  console.log("Allowed CORS origins:", allowedOrigins);
+  return allowedOrigins;
+};
+
 // CORS configuration
 const corsOptions = {
   origin: function (origin, callback) {
@@ -95,14 +113,8 @@ const corsOptions = {
       return callback(null, true);
     }
 
-    // List of allowed origins
-    const allowedOrigins = [
-      "http://localhost:3000",
-      "http://localhost:5000",
-      "https://furniture-q3nb.onrender.com",
-      "https://furniture-admin.onrender.com",
-      process.env.FRONTEND_URL, // Add this if you have a custom domain
-    ].filter(Boolean); // Remove any undefined values
+    const allowedOrigins = getAllowedOrigins();
+    console.log("CORS allowed origins:", allowedOrigins);
 
     // Check if the origin is allowed
     if (
@@ -128,6 +140,9 @@ const corsOptions = {
     "Access-Control-Allow-Headers",
     "Access-Control-Request-Method",
     "Access-Control-Request-Headers",
+    "Cache-Control",
+    "Pragma",
+    "Expires",
   ],
   exposedHeaders: ["Content-Range", "X-Content-Range"],
   maxAge: 86400, // Cache preflight requests for 24 hours
@@ -388,9 +403,53 @@ app.put(
 // Direct product deletion (with admin bypass)
 app.delete("/api/direct/products/:id", setAdminForDirectRoutes, deleteProduct);
 
-// Special route for admin product editing
+// Special routes for admin product editing
 app.get("/admin/products/edit/:id", (req, res) => {
   res.redirect(`/api/direct/products/${req.params.id}`);
+});
+
+// Special route for direct product access without authentication
+app.get("/api/direct-product/:id", async (req, res) => {
+  try {
+    console.log("Direct product endpoint called for ID:", req.params.id);
+
+    // Add CORS headers for this specific endpoint
+    res.header("Access-Control-Allow-Origin", "*");
+    res.header(
+      "Access-Control-Allow-Headers",
+      "Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control"
+    );
+    res.header("Access-Control-Allow-Methods", "GET, OPTIONS");
+
+    // Handle preflight requests
+    if (req.method === "OPTIONS") {
+      return res.status(200).end();
+    }
+
+    // Set admin user in the request
+    req.user = {
+      _id: process.env.ADMIN_ID || "admin-user",
+      name: process.env.ADMIN_NAME || "Admin User",
+      email: process.env.ADMIN_EMAIL || "admin@example.com",
+      role: "admin",
+      isAdmin: true,
+    };
+
+    // Add cache control headers
+    res.header("Cache-Control", "no-cache, no-store, must-revalidate");
+    res.header("Pragma", "no-cache");
+    res.header("Expires", "0");
+
+    // Call the getProductById function directly
+    await getProductById(req, res);
+  } catch (error) {
+    console.error("Error in direct product endpoint:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching product",
+      error: error.message,
+    });
+  }
 });
 
 // Standard API routes with file upload support

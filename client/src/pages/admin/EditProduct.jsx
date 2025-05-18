@@ -37,11 +37,85 @@ const EditProduct = () => {
         setLoading(true);
         setError(null);
 
-        // Fetch product details
-        console.log("Fetching product with ID:", id);
-        const productResponse = await productsAPI.getById(id);
+        // Get the hostname for environment detection
+        const hostname = window.location.hostname;
+        const isProduction =
+          hostname.includes("render.com") ||
+          hostname === "furniture-q3nb.onrender.com";
 
-        console.log("Product response:", productResponse);
+        console.log(
+          "Environment:",
+          isProduction ? "Production" : "Development"
+        );
+        console.log("Fetching product with ID:", id);
+
+        // Fetch product details with retry logic
+        let productResponse = null;
+        let fetchError = null;
+        let retryCount = 0;
+        const maxRetries = isProduction ? 3 : 1;
+
+        while (retryCount <= maxRetries) {
+          try {
+            console.log(
+              `Attempt ${retryCount + 1}/${maxRetries + 1} to fetch product`
+            );
+            productResponse = await productsAPI.getById(id);
+
+            if (productResponse && productResponse.data) {
+              console.log(
+                "Product fetch successful on attempt",
+                retryCount + 1
+              );
+              break;
+            }
+          } catch (error) {
+            console.error(`Attempt ${retryCount + 1} failed:`, error);
+            fetchError = error;
+
+            // Wait before retrying in production
+            if (isProduction && retryCount < maxRetries) {
+              const delay = (retryCount + 1) * 1000; // Increasing delay
+              console.log(`Waiting ${delay}ms before retry...`);
+              await new Promise((resolve) => setTimeout(resolve, delay));
+            }
+          }
+          retryCount++;
+        }
+
+        // If all retries failed and we're in production, try a direct fetch as last resort
+        if (!productResponse && isProduction) {
+          try {
+            console.log("All API attempts failed, trying direct fetch...");
+            const directUrl = `${
+              window.location.origin
+            }/api/direct-product/${id}?_t=${Date.now()}`;
+
+            const directResponse = await fetch(directUrl, {
+              method: "GET",
+              headers: {
+                Accept: "application/json",
+                "Cache-Control": "no-cache",
+              },
+            });
+
+            if (directResponse.ok) {
+              const data = await directResponse.json();
+              console.log("Direct fetch successful:", data);
+
+              productResponse = {
+                data: {
+                  success: true,
+                  data: data.data || data,
+                },
+              };
+            }
+          } catch (directError) {
+            console.error("Direct fetch failed:", directError);
+          }
+        }
+
+        console.log("Final product response:", productResponse);
 
         if (!productResponse || !productResponse.data) {
           console.error("Invalid product response:", productResponse);
@@ -75,14 +149,71 @@ const EditProduct = () => {
           throw new Error("Product data is empty");
         }
 
+        // Ensure product has all required fields
+        if (!productData.name || !productData.price) {
+          console.error("Product data missing required fields:", productData);
+          throw new Error("Product data is incomplete");
+        }
+
+        // Ensure product has images array
+        if (!productData.images || !Array.isArray(productData.images)) {
+          console.log("Adding empty images array to product");
+          productData.images = [];
+        }
+
         setProduct(productData);
 
-        // Fetch categories
-        const categoriesResponse = await categoriesAPI.getAll();
-        const categoriesData =
-          categoriesResponse.data.data || categoriesResponse.data;
-        console.log("Fetched categories:", categoriesData);
-        setCategories(categoriesData);
+        // Fetch categories with retry logic
+        let categoriesResponse = null;
+        retryCount = 0;
+
+        while (retryCount <= maxRetries) {
+          try {
+            console.log(
+              `Attempt ${retryCount + 1}/${maxRetries + 1} to fetch categories`
+            );
+            categoriesResponse = await categoriesAPI.getAll();
+
+            if (categoriesResponse && categoriesResponse.data) {
+              console.log(
+                "Categories fetch successful on attempt",
+                retryCount + 1
+              );
+              break;
+            }
+          } catch (error) {
+            console.error(
+              `Categories attempt ${retryCount + 1} failed:`,
+              error
+            );
+
+            // Wait before retrying in production
+            if (isProduction && retryCount < maxRetries) {
+              const delay = (retryCount + 1) * 1000; // Increasing delay
+              console.log(`Waiting ${delay}ms before retry...`);
+              await new Promise((resolve) => setTimeout(resolve, delay));
+            }
+          }
+          retryCount++;
+        }
+
+        // If we have categories response, process it
+        if (categoriesResponse && categoriesResponse.data) {
+          const categoriesData =
+            categoriesResponse.data.data || categoriesResponse.data;
+          console.log("Fetched categories:", categoriesData);
+          setCategories(categoriesData);
+        } else {
+          // Use default categories as fallback
+          console.log("Using default categories as fallback");
+          setCategories([
+            { _id: "680c9481ab11e96a288ef6d9", name: "Sofa Beds" },
+            { _id: "680c9484ab11e96a288ef6da", name: "Tables" },
+            { _id: "680c9486ab11e96a288ef6db", name: "Chairs" },
+            { _id: "680c9489ab11e96a288ef6dc", name: "Wardrobes" },
+            { _id: "680c948eab11e96a288ef6dd", name: "Beds" },
+          ]);
+        }
       } catch (error) {
         console.error("Error fetching data:", error);
         setError(

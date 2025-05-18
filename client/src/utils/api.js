@@ -26,6 +26,9 @@ const getBaseURL = () => {
   return "";
 };
 
+// Log the base URL for debugging
+console.log("API Base URL:", getBaseURL());
+
 // Helper function to get the full image URL
 export const getImageUrl = (imagePath) => {
   if (!imagePath)
@@ -212,13 +215,38 @@ const productsAPI = {
     try {
       console.log(`Fetching product with ID: ${id}`);
 
+      // Get the hostname for environment detection
+      const hostname = window.location.hostname;
+      const isProduction =
+        hostname.includes("render.com") ||
+        hostname === "furniture-q3nb.onrender.com";
+
+      console.log("Environment:", isProduction ? "Production" : "Development");
+
       // Try multiple endpoints in sequence for better reliability
-      const endpoints = [
-        `/api/direct/products/${id}`,
-        `/products/${id}`,
-        `/api/products/${id}`,
-        `/api/reliable/products/${id}`,
-      ];
+      // Order endpoints differently based on environment
+      const endpoints = isProduction
+        ? [
+            // Production endpoints (prioritize direct endpoints)
+            `/api/direct/products/${id}`,
+            `/api/reliable/products/${id}`,
+            `/products/${id}`,
+            `/api/products/${id}`,
+            // Add absolute URL fallbacks for production
+            `${window.location.origin}/api/direct/products/${id}`,
+            `${window.location.origin}/api/reliable/products/${id}`,
+            `${window.location.origin}/products/${id}`,
+            `${window.location.origin}/api/products/${id}`,
+          ]
+        : [
+            // Development endpoints
+            `/api/direct/products/${id}`,
+            `/products/${id}`,
+            `/api/products/${id}`,
+            `/api/reliable/products/${id}`,
+          ];
+
+      console.log("Trying endpoints in order:", endpoints);
 
       let response = null;
       let lastError = null;
@@ -226,10 +254,30 @@ const productsAPI = {
       for (const endpoint of endpoints) {
         try {
           console.log(`Trying to fetch product from ${endpoint}`);
-          response = await api.get(endpoint);
+
+          // Add a cache-busting parameter in production
+          const url = isProduction
+            ? `${endpoint}${endpoint.includes("?") ? "&" : "?"}_t=${Date.now()}`
+            : endpoint;
+
+          response = await api.get(url, {
+            // Increase timeout for production
+            timeout: isProduction ? 30000 : 10000,
+            // Add headers to prevent caching in production
+            headers: isProduction
+              ? {
+                  "Cache-Control": "no-cache, no-store, must-revalidate",
+                  Pragma: "no-cache",
+                  Expires: "0",
+                }
+              : {},
+          });
 
           if (response && response.data) {
-            console.log(`Successfully fetched product from ${endpoint}`);
+            console.log(
+              `Successfully fetched product from ${endpoint}:`,
+              response.data
+            );
 
             // Ensure the response has the expected structure
             if (response.data.success === false) {
@@ -251,6 +299,43 @@ const productsAPI = {
             endpointError
           );
           lastError = endpointError;
+        }
+      }
+
+      // If all endpoints failed, try a last-resort approach in production
+      if (isProduction) {
+        try {
+          console.log(
+            "Trying last-resort approach: direct fetch with full URL"
+          );
+
+          // Try a direct fetch with the full URL
+          const directUrl = `${
+            window.location.origin
+          }/api/direct-product/${id}?_t=${Date.now()}`;
+          console.log("Direct URL:", directUrl);
+
+          const directResponse = await fetch(directUrl, {
+            method: "GET",
+            headers: {
+              Accept: "application/json",
+              "Cache-Control": "no-cache",
+            },
+          });
+
+          if (directResponse.ok) {
+            const data = await directResponse.json();
+            console.log("Direct fetch successful:", data);
+
+            return {
+              data: {
+                success: true,
+                data: data.data || data,
+              },
+            };
+          }
+        } catch (directError) {
+          console.error("Last-resort approach failed:", directError);
         }
       }
 
