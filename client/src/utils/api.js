@@ -361,14 +361,86 @@ const productsAPI = {
         console.log(pair[0] + ": " + pair[1]);
       }
 
+      // Get the hostname for environment detection
+      const hostname = window.location.hostname;
+      const isProduction =
+        hostname.includes("render.com") ||
+        hostname === "furniture-q3nb.onrender.com";
+
+      console.log("Environment:", isProduction ? "Production" : "Development");
+
       // Set up request config with proper headers
       const config = {
         headers: {
           Authorization: `Bearer ${adminToken}`,
           // Let axios handle the Content-Type for FormData
         },
-        timeout: 300000, // 5 minutes timeout for large updates
+        timeout: isProduction ? 600000 : 300000, // 10 minutes timeout in production, 5 minutes in development
       };
+
+      // In production, try the fallback endpoint first
+      if (isProduction) {
+        try {
+          console.log(
+            "Production environment detected, trying fallback endpoint first..."
+          );
+
+          // Create a copy of the form data for the fallback endpoint
+          const fallbackFormData = new FormData();
+          for (let pair of formData.entries()) {
+            fallbackFormData.append(pair[0], pair[1]);
+          }
+
+          // Add a cache-busting parameter
+          fallbackFormData.append("_t", Date.now());
+
+          // Use the fallback endpoint with no auth headers
+          const fallbackConfig = {
+            headers: {
+              "Cache-Control": "no-cache, no-store, must-revalidate",
+              Pragma: "no-cache",
+              Expires: "0",
+            },
+            timeout: 600000, // 10 minutes timeout
+          };
+
+          console.log("Attempting update with fallback endpoint...");
+          const fallbackResponse = await api.put(
+            `/api/fallback/products/${id}`,
+            fallbackFormData,
+            fallbackConfig
+          );
+
+          // Validate response data
+          if (!fallbackResponse?.data?.success) {
+            console.warn(
+              "Fallback endpoint returned non-success response:",
+              fallbackResponse?.data
+            );
+            throw new Error(
+              fallbackResponse?.data?.message ||
+                "Update failed - invalid response"
+            );
+          }
+
+          // Log the updated data
+          console.log(
+            "Product updated successfully with fallback endpoint:",
+            fallbackResponse.data
+          );
+
+          // Return the updated product data with success flag
+          return {
+            data: {
+              success: true,
+              data: fallbackResponse.data.data || fallbackResponse.data,
+            },
+          };
+        } catch (fallbackError) {
+          console.error("Fallback endpoint update failed:", fallbackError);
+          // Continue to try other endpoints
+        }
+      }
 
       // Try the direct endpoint without authentication
       try {
@@ -377,12 +449,22 @@ const productsAPI = {
         const directConfig = {
           ...config,
           headers: {
-            // No Authorization header
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            Pragma: "no-cache",
+            Expires: "0",
           },
         };
+
+        // Add a cache-busting parameter
+        const directFormData = new FormData();
+        for (let pair of formData.entries()) {
+          directFormData.append(pair[0], pair[1]);
+        }
+        directFormData.append("_t", Date.now());
+
         const response = await api.put(
           `/api/direct/products/${id}`,
-          formData,
+          directFormData,
           directConfig
         );
 
@@ -417,10 +499,27 @@ const productsAPI = {
         ) {
           console.log("Attempting update with standard endpoint...");
           try {
+            // Add a cache-busting parameter
+            const standardFormData = new FormData();
+            for (let pair of formData.entries()) {
+              standardFormData.append(pair[0], pair[1]);
+            }
+            standardFormData.append("_t", Date.now());
+
+            const standardConfig = {
+              ...config,
+              headers: {
+                ...config.headers,
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+                Pragma: "no-cache",
+                Expires: "0",
+              },
+            };
+
             const response = await api.put(
               `/api/products/${id}`,
-              formData,
-              config
+              standardFormData,
+              standardConfig
             );
 
             // Validate response data
@@ -442,10 +541,111 @@ const productsAPI = {
             };
           } catch (standardError) {
             console.error("Standard endpoint update failed:", standardError);
-            throw standardError;
+
+            // In production, try a direct fetch as a last resort
+            if (isProduction) {
+              try {
+                console.log("Trying direct fetch as last resort...");
+
+                // Create a new FormData object for the fetch API
+                const fetchFormData = new FormData();
+                for (let pair of formData.entries()) {
+                  fetchFormData.append(pair[0], pair[1]);
+                }
+                fetchFormData.append("_t", Date.now());
+
+                const fetchResponse = await fetch(
+                  `${
+                    window.location.origin
+                  }/api/fallback/products/${id}?_t=${Date.now()}`,
+                  {
+                    method: "PUT",
+                    body: fetchFormData,
+                    headers: {
+                      Accept: "application/json",
+                      "Cache-Control": "no-cache",
+                    },
+                  }
+                );
+
+                if (fetchResponse.ok) {
+                  const data = await fetchResponse.json();
+                  console.log("Direct fetch successful:", data);
+
+                  return {
+                    data: {
+                      success: true,
+                      data: data.data || data,
+                    },
+                  };
+                } else {
+                  throw new Error(
+                    `Fetch failed with status: ${fetchResponse.status}`
+                  );
+                }
+              } catch (fetchError) {
+                console.error("Last resort fetch failed:", fetchError);
+                throw fetchError;
+              }
+            } else {
+              throw standardError;
+            }
           }
         } else {
-          throw directError;
+          // In production, try a direct fetch as a last resort for timeout errors
+          if (
+            isProduction &&
+            (directError.message.includes("timeout") ||
+              directError.message.includes("network"))
+          ) {
+            try {
+              console.log(
+                "Timeout error in production, trying direct fetch..."
+              );
+
+              // Create a new FormData object for the fetch API
+              const fetchFormData = new FormData();
+              for (let pair of formData.entries()) {
+                fetchFormData.append(pair[0], pair[1]);
+              }
+              fetchFormData.append("_t", Date.now());
+
+              const fetchResponse = await fetch(
+                `${
+                  window.location.origin
+                }/api/fallback/products/${id}?_t=${Date.now()}`,
+                {
+                  method: "PUT",
+                  body: fetchFormData,
+                  headers: {
+                    Accept: "application/json",
+                    "Cache-Control": "no-cache",
+                  },
+                }
+              );
+
+              if (fetchResponse.ok) {
+                const data = await fetchResponse.json();
+                console.log("Direct fetch successful:", data);
+
+                return {
+                  data: {
+                    success: true,
+                    data: data.data || data,
+                  },
+                };
+              } else {
+                throw new Error(
+                  `Fetch failed with status: ${fetchResponse.status}`
+                );
+              }
+            } catch (fetchError) {
+              console.error("Last resort fetch failed:", fetchError);
+              throw fetchError;
+            }
+          } else {
+            throw directError;
+          }
         }
       }
     } catch (error) {

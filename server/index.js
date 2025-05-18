@@ -452,6 +452,296 @@ app.get("/api/direct-product/:id", async (req, res) => {
   }
 });
 
+// Special fallback route for product updates that bypasses Mongoose
+app.put(
+  "/api/fallback/products/:id",
+  upload.array("images", 10),
+  async (req, res) => {
+    try {
+      console.log(
+        "Fallback product update endpoint called for ID:",
+        req.params.id
+      );
+
+      // Add CORS headers for this specific endpoint
+      res.header("Access-Control-Allow-Origin", "*");
+      res.header(
+        "Access-Control-Allow-Headers",
+        "Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control"
+      );
+      res.header("Access-Control-Allow-Methods", "PUT, OPTIONS");
+
+      // Handle preflight requests
+      if (req.method === "OPTIONS") {
+        return res.status(200).end();
+      }
+
+      // Add cache control headers
+      res.header("Cache-Control", "no-cache, no-store, must-revalidate");
+      res.header("Pragma", "no-cache");
+      res.header("Expires", "0");
+
+      // Import MongoDB client
+      const { MongoClient, ObjectId } = require("mongodb");
+
+      // Get MongoDB URI
+      const uri = process.env.MONGO_URI;
+
+      // Connection options
+      const options = {
+        useNewUrlParser: true,
+        useUnifiedTopology: true,
+        connectTimeoutMS: 60000,
+        socketTimeoutMS: 60000,
+        serverSelectionTimeoutMS: 60000,
+        maxPoolSize: 20,
+        minPoolSize: 5,
+      };
+
+      console.log("Connecting to MongoDB directly...");
+
+      // Create a new client
+      const client = new MongoClient(uri, options);
+
+      try {
+        // Connect to MongoDB
+        await client.connect();
+        console.log("Connected to MongoDB for fallback product update");
+
+        // Get database name from URI
+        const dbName = uri.split("/").pop().split("?")[0];
+        const db = client.db(dbName);
+
+        // Get products collection
+        const productsCollection = db.collection("products");
+
+        // Find the existing product
+        let existingProduct;
+        try {
+          existingProduct = await productsCollection.findOne({
+            _id: new ObjectId(req.params.id),
+          });
+        } catch (findError) {
+          console.error(
+            "Error finding product with ObjectId:",
+            findError.message
+          );
+          // Try with string ID
+          existingProduct = await productsCollection.findOne({
+            _id: req.params.id,
+          });
+        }
+
+        if (!existingProduct) {
+          await client.close();
+          return res.status(404).json({
+            success: false,
+            message: "Product not found",
+          });
+        }
+
+        console.log("Found existing product:", existingProduct.name);
+
+        // Prepare update object
+        const updates = {
+          $set: {
+            updatedAt: new Date(),
+          },
+        };
+
+        // Add basic fields
+        const basicFields = [
+          "name",
+          "description",
+          "price",
+          "discountPrice",
+          "stock",
+          "featured",
+          "specifications",
+        ];
+
+        basicFields.forEach((field) => {
+          if (req.body[field] !== undefined) {
+            updates.$set[field] = req.body[field];
+          }
+        });
+
+        // Handle numeric fields
+        ["price", "discountPrice", "stock"].forEach((field) => {
+          if (req.body[field] !== undefined) {
+            updates.$set[field] = Number(req.body[field]);
+          }
+        });
+
+        // Handle boolean fields
+        if (req.body.featured !== undefined) {
+          updates.$set.featured =
+            req.body.featured === "true" || req.body.featured === true;
+        }
+
+        // Handle category
+        if (req.body.category) {
+          try {
+            if (/^[0-9a-fA-F]{24}$/.test(req.body.category)) {
+              updates.$set.category = new ObjectId(req.body.category);
+            } else {
+              updates.$set.category = req.body.category;
+            }
+          } catch (error) {
+            console.warn(
+              "Could not convert category to ObjectId, using as is:",
+              error.message
+            );
+            updates.$set.category = req.body.category;
+          }
+        }
+
+        // Handle images
+        if (req.files && req.files.length > 0) {
+          console.log("Processing new uploaded files:", req.files.length);
+          const newImages = req.files.map(
+            (file) => `/uploads/${file.filename}`
+          );
+          console.log("New image paths:", newImages);
+
+          if (req.body.replaceImages === "true") {
+            console.log("Replacing all images with new uploads");
+            updates.$set.images = newImages;
+          } else {
+            // Get existing images from the product
+            const existingImages = existingProduct.images || [];
+            console.log("Existing images:", existingImages);
+
+            // Combine existing and new images
+            updates.$set.images = [...existingImages, ...newImages];
+            console.log("Appending new images to existing ones");
+          }
+          console.log("Final images array:", updates.$set.images);
+        }
+        // Handle existing images from form data
+        else if (req.body.existingImages) {
+          try {
+            console.log(
+              "Processing existingImages from form data:",
+              req.body.existingImages
+            );
+            let existingImages;
+
+            // Handle different formats of existingImages
+            if (typeof req.body.existingImages === "string") {
+              // Try to parse as JSON first
+              try {
+                existingImages = JSON.parse(req.body.existingImages);
+                console.log("Successfully parsed existingImages as JSON");
+              } catch (parseError) {
+                // If not valid JSON, treat as comma-separated list
+                console.log("Treating existingImages as comma-separated list");
+                existingImages = req.body.existingImages
+                  .split(",")
+                  .map((url) => url.trim());
+              }
+            } else if (Array.isArray(req.body.existingImages)) {
+              // If it's already an array
+              existingImages = req.body.existingImages;
+              console.log("existingImages is already an array");
+            } else {
+              // If it's a single value
+              existingImages = [req.body.existingImages];
+              console.log("existingImages is a single value");
+            }
+
+            // Set the images in the update
+            updates.$set.images = existingImages;
+            console.log("Final existingImages array:", existingImages);
+          } catch (error) {
+            console.error("Error processing existing images:", error);
+            await client.close();
+            return res.status(400).json({
+              success: false,
+              message: "Invalid image data format",
+              error: error.message,
+            });
+          }
+        }
+
+        console.log("Final update object:", updates);
+
+        // Update the product
+        const updateResult = await productsCollection.updateOne(
+          { _id: new ObjectId(req.params.id) },
+          updates
+        );
+
+        console.log("Update result:", updateResult);
+
+        if (updateResult.matchedCount === 0) {
+          console.log("No document matched the ID, trying with string ID");
+          // Try with string ID
+          const stringUpdateResult = await productsCollection.updateOne(
+            { _id: req.params.id },
+            updates
+          );
+
+          console.log("String ID update result:", stringUpdateResult);
+
+          if (stringUpdateResult.matchedCount === 0) {
+            await client.close();
+            return res.status(404).json({
+              success: false,
+              message: "Product not found with any ID format",
+            });
+          }
+        }
+
+        // Get the updated product
+        let updatedProduct;
+        try {
+          updatedProduct = await productsCollection.findOne({
+            _id: new ObjectId(req.params.id),
+          });
+        } catch (findError) {
+          updatedProduct = await productsCollection.findOne({
+            _id: req.params.id,
+          });
+        }
+
+        // Close the client
+        await client.close();
+
+        if (!updatedProduct) {
+          return res.status(500).json({
+            success: false,
+            message: "Failed to retrieve updated product",
+          });
+        }
+
+        console.log("Product updated successfully with direct MongoDB");
+
+        return res.status(200).json({
+          success: true,
+          message: "Product updated successfully",
+          data: updatedProduct,
+        });
+      } catch (mongoError) {
+        console.error("Error in direct MongoDB update:", mongoError);
+        await client.close();
+        return res.status(500).json({
+          success: false,
+          message: "Database operation failed",
+          error: mongoError.message,
+        });
+      }
+    } catch (error) {
+      console.error("Error in fallback product update endpoint:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Server error during product update",
+        error: error.message,
+      });
+    }
+  }
+);
+
 // Standard API routes with file upload support
 app.use("/api/products", productRoutes);
 

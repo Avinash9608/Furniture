@@ -239,30 +239,133 @@ const EditProduct = () => {
         throw new Error("Invalid form data format");
       }
 
+      // Get the hostname for environment detection
+      const hostname = window.location.hostname;
+      const isProduction =
+        hostname.includes("render.com") ||
+        hostname === "furniture-q3nb.onrender.com";
+
+      console.log("Environment:", isProduction ? "Production" : "Development");
+
       // Log the form data for debugging
       console.log("Form data contents:");
       for (let pair of formData.entries()) {
         console.log(pair[0] + ":", pair[1]);
       }
 
-      // Send the update request
-      const response = await productsAPI.update(id, formData);
-      console.log("Update response:", response);
+      // Add a cache-busting parameter
+      formData.append("_t", Date.now());
 
-      // Check if response has the expected structure
-      if (!response || !response.data || response.data.success === false) {
-        const errorMessage =
-          response?.data?.message || "Failed to update product";
-        console.error("Update failed:", errorMessage);
-        throw new Error(errorMessage);
+      // Add retry logic for production
+      let response = null;
+      let lastError = null;
+      let retryCount = 0;
+      const maxRetries = isProduction ? 3 : 1;
+
+      while (retryCount <= maxRetries) {
+        try {
+          console.log(
+            `Attempt ${retryCount + 1}/${maxRetries + 1} to update product`
+          );
+
+          // Create a new FormData for each attempt to avoid issues
+          const attemptFormData = new FormData();
+          for (let pair of formData.entries()) {
+            attemptFormData.append(pair[0], pair[1]);
+          }
+
+          // Send the update request
+          response = await productsAPI.update(id, attemptFormData);
+          console.log(
+            `Update response for attempt ${retryCount + 1}:`,
+            response
+          );
+
+          // Check if response has the expected structure
+          if (response && response.data && response.data.success !== false) {
+            console.log("Update successful on attempt", retryCount + 1);
+            break;
+          } else {
+            console.warn("Invalid response:", response);
+            throw new Error(
+              response?.data?.message || "Invalid response from server"
+            );
+          }
+        } catch (error) {
+          console.error(`Attempt ${retryCount + 1} failed:`, error);
+          lastError = error;
+
+          // Wait before retrying in production
+          if (isProduction && retryCount < maxRetries) {
+            const delay = (retryCount + 1) * 2000; // Increasing delay
+            console.log(`Waiting ${delay}ms before retry...`);
+            await new Promise((resolve) => setTimeout(resolve, delay));
+          }
+        }
+        retryCount++;
       }
 
-      console.log("Product updated successfully!");
+      // If all retries failed and we're in production, try a direct fetch as last resort
+      if (!response && isProduction) {
+        try {
+          console.log("All API attempts failed, trying direct fetch...");
 
-      // Show success message and redirect
-      navigate("/admin/products", {
-        state: { successMessage: "Product updated successfully!" },
-      });
+          // Create a new FormData object for the fetch API
+          const fetchFormData = new FormData();
+          for (let pair of formData.entries()) {
+            fetchFormData.append(pair[0], pair[1]);
+          }
+
+          const directUrl = `${
+            window.location.origin
+          }/api/fallback/products/${id}?_t=${Date.now()}`;
+          console.log("Direct URL:", directUrl);
+
+          const directResponse = await fetch(directUrl, {
+            method: "PUT",
+            body: fetchFormData,
+            headers: {
+              Accept: "application/json",
+              "Cache-Control": "no-cache",
+            },
+          });
+
+          if (directResponse.ok) {
+            const data = await directResponse.json();
+            console.log("Direct fetch successful:", data);
+
+            response = {
+              data: {
+                success: true,
+                data: data.data || data,
+              },
+            };
+          } else {
+            throw new Error(
+              `Direct fetch failed with status: ${directResponse.status}`
+            );
+          }
+        } catch (directError) {
+          console.error("Direct fetch failed:", directError);
+          lastError = directError;
+        }
+      }
+
+      // If we have a valid response, show success
+      if (response && response.data && response.data.success !== false) {
+        console.log("Product updated successfully!");
+
+        // Show success message and redirect
+        navigate("/admin/products", {
+          state: { successMessage: "Product updated successfully!" },
+        });
+      } else {
+        // If all attempts failed, throw the last error
+        throw (
+          lastError ||
+          new Error("Failed to update product after multiple attempts")
+        );
+      }
     } catch (error) {
       console.error("Error updating product:", error);
       setSubmitError(error.message || "Failed to update product");
