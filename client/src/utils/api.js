@@ -210,8 +210,52 @@ const productsAPI = {
 
   getById: async (id) => {
     try {
-      const response = await api.get(`/products/${id}`);
-      return response.data;
+      console.log(`Fetching product with ID: ${id}`);
+
+      // Try multiple endpoints in sequence for better reliability
+      const endpoints = [
+        `/api/direct/products/${id}`,
+        `/products/${id}`,
+        `/api/products/${id}`,
+        `/api/reliable/products/${id}`,
+      ];
+
+      let response = null;
+      let lastError = null;
+
+      for (const endpoint of endpoints) {
+        try {
+          console.log(`Trying to fetch product from ${endpoint}`);
+          response = await api.get(endpoint);
+
+          if (response && response.data) {
+            console.log(`Successfully fetched product from ${endpoint}`);
+
+            // Ensure the response has the expected structure
+            if (response.data.success === false) {
+              console.warn(`Endpoint ${endpoint} returned success: false`);
+              continue;
+            }
+
+            // Return the data in a consistent format
+            return {
+              data: {
+                success: true,
+                data: response.data.data || response.data,
+              },
+            };
+          }
+        } catch (endpointError) {
+          console.error(
+            `Error fetching product from ${endpoint}:`,
+            endpointError
+          );
+          lastError = endpointError;
+        }
+      }
+
+      // If we get here, all endpoints failed
+      throw lastError || new Error(`Failed to fetch product with ID ${id}`);
     } catch (error) {
       console.error(`Error fetching product ${id}:`, error);
       throw error;

@@ -38,13 +38,43 @@ const EditProduct = () => {
         setError(null);
 
         // Fetch product details
+        console.log("Fetching product with ID:", id);
         const productResponse = await productsAPI.getById(id);
-        if (!productResponse.data) {
-          throw new Error("Product not found");
+
+        console.log("Product response:", productResponse);
+
+        if (!productResponse || !productResponse.data) {
+          console.error("Invalid product response:", productResponse);
+          throw new Error("Product not found or invalid response format");
         }
 
-        const productData = productResponse.data.data || productResponse.data;
-        console.log("Fetched product data:", productData);
+        // Handle different response formats
+        let productData;
+        if (productResponse.data.data) {
+          // If response has nested data property
+          productData = productResponse.data.data;
+        } else if (
+          productResponse.data.success === true &&
+          productResponse.data.data === undefined
+        ) {
+          // If response has success flag but no data property
+          productData = productResponse.data;
+        } else {
+          // Direct data object
+          productData = productResponse.data;
+        }
+
+        console.log("Processed product data:", productData);
+
+        if (
+          !productData ||
+          (typeof productData === "object" &&
+            Object.keys(productData).length === 0)
+        ) {
+          console.error("Empty product data");
+          throw new Error("Product data is empty");
+        }
+
         setProduct(productData);
 
         // Fetch categories
