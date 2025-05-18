@@ -8,91 +8,76 @@
  * @returns {string} - The full image URL
  */
 export const getImageUrl = (imagePath) => {
-  if (!imagePath) {
-    console.log("No image path provided, using placeholder");
+  // Use a default placeholder if no image path is provided
+  if (!imagePath || imagePath === "undefined" || imagePath === "null") {
     return "https://placehold.co/300x300/gray/white?text=No+Image";
   }
 
-  // Log the image path for debugging
-  console.log("Processing image path:", imagePath);
-
-  // If it's already a full URL (starts with http or https), return it as is
-  if (imagePath.startsWith("http://") || imagePath.startsWith("https://")) {
-    // Fix localhost URLs in production
-    if (
-      window.location.hostname.includes("render.com") &&
-      imagePath.includes("localhost")
-    ) {
-      const fixedUrl = imagePath.replace(
-        "http://localhost:5000",
-        "https://furniture-q3nb.onrender.com"
-      );
-      console.log("Fixed localhost URL in production:", fixedUrl);
-      return fixedUrl;
-    }
-    console.log("Using full URL:", imagePath);
-    return imagePath;
-  }
-
-  // If it's a relative path starting with /uploads
-  if (imagePath.startsWith("/uploads/")) {
+  try {
     // Get the hostname for environment detection
     const hostname = window.location.hostname;
     const isProduction =
       hostname.includes("render.com") ||
       hostname === "furniture-q3nb.onrender.com";
 
-    // In production, use the Render URL
-    if (isProduction) {
-      const baseUrl = "https://furniture-q3nb.onrender.com";
-      const fullUrl = `${baseUrl}${imagePath}`;
-      console.log("Production image URL:", fullUrl);
-      return fullUrl;
+    // Production base URL
+    const productionBaseUrl = "https://furniture-q3nb.onrender.com";
+
+    // Development base URL
+    const developmentBaseUrl =
+      import.meta.env.VITE_API_URL || "http://localhost:5000";
+
+    // Current base URL based on environment
+    const baseUrl = isProduction ? productionBaseUrl : developmentBaseUrl;
+
+    // Clean up the image path
+    let cleanPath = imagePath;
+
+    // If it's already a full URL
+    if (imagePath.startsWith("http://") || imagePath.startsWith("https://")) {
+      // Fix localhost URLs in production
+      if (isProduction && imagePath.includes("localhost")) {
+        return imagePath.replace(
+          /http:\/\/localhost(:\d+)?/g,
+          productionBaseUrl
+        );
+      }
+
+      // If it's already a full URL and doesn't need fixing, return it as is
+      return imagePath;
     }
 
-    // In development, use the local server URL
-    const devUrl = `${
-      import.meta.env.VITE_API_URL || "http://localhost:5000"
-    }${imagePath}`;
-    console.log("Development image URL:", devUrl);
-    return devUrl;
-  }
-
-  // If it's just a filename, assume it's in the uploads directory
-  if (!imagePath.startsWith("/")) {
-    // Get the hostname for environment detection
-    const hostname = window.location.hostname;
-    const isProduction =
-      hostname.includes("render.com") ||
-      hostname === "furniture-q3nb.onrender.com";
-
-    // In production, use the Render URL
-    if (isProduction) {
-      const baseUrl = "https://furniture-q3nb.onrender.com";
-      const fullUrl = `${baseUrl}/uploads/${imagePath}`;
-      console.log("Production filename URL:", fullUrl);
-      return fullUrl;
+    // Handle relative paths
+    if (imagePath.startsWith("/uploads/")) {
+      // Path already starts with /uploads/, just add the base URL
+      return `${baseUrl}${imagePath}`;
     }
 
-    // In development, use the local server URL
-    const devUrl = `${
-      import.meta.env.VITE_API_URL || "http://localhost:5000"
-    }/uploads/${imagePath}`;
-    console.log("Development filename URL:", devUrl);
-    return devUrl;
-  }
+    // If it's just a filename or a path without /uploads/ prefix
+    if (!imagePath.includes("/uploads/")) {
+      // Check if it's already a path but missing the /uploads/ prefix
+      if (imagePath.startsWith("/")) {
+        // It's a path but doesn't have /uploads/, check if it's in uploads
+        if (imagePath.includes("/uploads")) {
+          // It has uploads somewhere in the path, use as is
+          return `${baseUrl}${imagePath}`;
+        } else {
+          // Add /uploads/ prefix
+          return `${baseUrl}/uploads${imagePath}`;
+        }
+      } else {
+        // It's just a filename, add /uploads/ prefix
+        return `${baseUrl}/uploads/${imagePath}`;
+      }
+    }
 
-  // For any other case, return the path as is with base URL
-  const hostname = window.location.hostname;
-  const isProduction =
-    hostname.includes("render.com") ||
-    hostname === "furniture-q3nb.onrender.com";
-  const baseUrl = isProduction
-    ? "https://furniture-q3nb.onrender.com"
-    : import.meta.env.VITE_API_URL || "http://localhost:5000";
-  const fullUrl = `${baseUrl}${imagePath}`;
-  console.log("Fallback URL:", fullUrl);
-  return fullUrl;
+    // For any other case, add the base URL
+    return `${baseUrl}${imagePath.startsWith("/") ? "" : "/"}${imagePath}`;
+  } catch (error) {
+    console.error("Error processing image URL:", error);
+    // Return a placeholder in case of any error
+    return "https://placehold.co/300x300/gray/white?text=Error+Loading+Image";
+  }
 };
 
 /**
@@ -123,4 +108,83 @@ export const fixProductImageUrls = (product) => {
 export const fixProductsImageUrls = (products) => {
   if (!products || !Array.isArray(products)) return products;
   return products.map((product) => fixProductImageUrls(product));
+};
+
+/**
+ * Checks if an image URL is valid and returns a fallback if not
+ * @param {string} imageUrl - The image URL to check
+ * @param {string} fallbackUrl - Optional fallback URL
+ * @returns {Promise<string>} - A promise that resolves to the valid image URL or fallback
+ */
+export const validateImageUrl = async (imageUrl) => {
+  const fallbackUrl = "https://placehold.co/300x300/gray/white?text=No+Image";
+
+  if (!imageUrl) return fallbackUrl;
+
+  try {
+    // Try to fetch the image with a HEAD request
+    const response = await fetch(imageUrl, {
+      method: "HEAD",
+      cache: "no-cache",
+      headers: {
+        "Cache-Control": "no-cache",
+      },
+    });
+
+    // If the response is ok, return the original URL
+    if (response.ok) {
+      return imageUrl;
+    }
+
+    // If the response is not ok, try with the production URL
+    const productionUrl = imageUrl.replace(
+      /http:\/\/localhost(:\d+)?/g,
+      "https://furniture-q3nb.onrender.com"
+    );
+
+    if (productionUrl !== imageUrl) {
+      const productionResponse = await fetch(productionUrl, {
+        method: "HEAD",
+        cache: "no-cache",
+        headers: {
+          "Cache-Control": "no-cache",
+        },
+      });
+
+      if (productionResponse.ok) {
+        return productionUrl;
+      }
+    }
+
+    // If all else fails, return the fallback URL
+    return fallbackUrl;
+  } catch (error) {
+    console.error("Error validating image URL:", error);
+    return fallbackUrl;
+  }
+};
+
+/**
+ * Gets a cached image URL or validates and caches it
+ * @param {string} imagePath - The image path
+ * @returns {string} - The image URL (may be a placeholder if invalid)
+ */
+const imageCache = {};
+
+export const getCachedImageUrl = (imagePath) => {
+  // If we have a cached result, return it
+  if (imageCache[imagePath]) {
+    return imageCache[imagePath];
+  }
+
+  // Otherwise, get the URL and cache it for next time
+  const imageUrl = getImageUrl(imagePath);
+  imageCache[imagePath] = imageUrl;
+
+  // Validate the URL in the background and update the cache
+  validateImageUrl(imageUrl).then((validatedUrl) => {
+    imageCache[imagePath] = validatedUrl;
+  });
+
+  return imageUrl;
 };

@@ -8,7 +8,12 @@ import {
   saveLocalCategories,
 } from "../../utils/defaultData";
 import { formatPrice } from "../../utils/format";
-import { getImageUrl, fixProductsImageUrls } from "../../utils/imageHelper";
+import {
+  getImageUrl,
+  fixProductsImageUrls,
+  getCachedImageUrl,
+  validateImageUrl,
+} from "../../utils/imageHelper";
 import AdminLayout from "../../components/admin/AdminLayout";
 import Button from "../../components/Button";
 import Loading from "../../components/Loading";
@@ -1488,35 +1493,61 @@ const AdminProducts = () => {
                         style={{ maxWidth: "200px" }}
                       >
                         {product.images && product.images.length > 0 ? (
-                          product.images.map((imageUrl, index) => (
-                            <div
-                              key={index}
-                              className="flex-shrink-0 w-16 h-16 rounded-md overflow-hidden"
-                            >
-                              <img
-                                src={getImageUrl(imageUrl)}
-                                alt={`${product.name} - Image ${index + 1}`}
-                                className="w-full h-full object-cover hover:opacity-75 transition-opacity duration-150"
-                                onError={(e) => {
-                                  console.error("Image load error:", {
-                                    originalSrc: e.target.src,
-                                    productName: product.name,
-                                    imageIndex: index,
-                                  });
-                                  e.target.onerror = null;
-                                  e.target.src =
-                                    "https://placehold.co/300x300/gray/white?text=No+Image";
-                                }}
-                                onLoad={(e) => {
-                                  console.log("Image loaded successfully:", {
-                                    src: e.target.src,
-                                    productName: product.name,
-                                    imageIndex: index,
-                                  });
-                                }}
-                              />
-                            </div>
-                          ))
+                          product.images.slice(0, 1).map((imageUrl, index) => {
+                            // Use the cached image URL function to get a validated URL
+                            const cachedUrl = getCachedImageUrl(imageUrl);
+
+                            return (
+                              <div
+                                key={index}
+                                className="flex-shrink-0 w-16 h-16 rounded-md overflow-hidden"
+                              >
+                                <img
+                                  src={cachedUrl}
+                                  alt={`${product.name} - Image ${index + 1}`}
+                                  className="w-full h-full object-cover hover:opacity-75 transition-opacity duration-150"
+                                  onError={(e) => {
+                                    console.error("Image load error:", {
+                                      originalSrc: e.target.src,
+                                      productName: product.name,
+                                      imageIndex: index,
+                                    });
+                                    e.target.onerror = null;
+
+                                    // Try with a different URL format
+                                    const hostname = window.location.hostname;
+                                    const isProduction =
+                                      hostname.includes("render.com") ||
+                                      hostname ===
+                                        "furniture-q3nb.onrender.com";
+
+                                    if (isProduction) {
+                                      // Try with the production URL
+                                      const productionUrl = `https://furniture-q3nb.onrender.com/uploads/${imageUrl
+                                        .split("/")
+                                        .pop()}`;
+                                      console.log(
+                                        "Trying production URL:",
+                                        productionUrl
+                                      );
+                                      e.target.src = productionUrl;
+                                    } else {
+                                      // Use placeholder
+                                      e.target.src =
+                                        "https://placehold.co/300x300/gray/white?text=No+Image";
+                                    }
+                                  }}
+                                  onLoad={(e) => {
+                                    console.log("Image loaded successfully:", {
+                                      src: e.target.src,
+                                      productName: product.name,
+                                      imageIndex: index,
+                                    });
+                                  }}
+                                />
+                              </div>
+                            );
+                          })
                         ) : (
                           <div className="w-16 h-16 bg-gray-200 dark:bg-gray-700 flex items-center justify-center rounded-md">
                             <span className="text-xs theme-text-secondary">
