@@ -8,6 +8,7 @@ import {
   saveLocalCategories,
 } from "../../utils/defaultData";
 import { formatPrice } from "../../utils/format";
+import { getImageUrl, fixProductsImageUrls } from "../../utils/imageHelper";
 import AdminLayout from "../../components/admin/AdminLayout";
 import Button from "../../components/Button";
 import Loading from "../../components/Loading";
@@ -16,39 +17,41 @@ import Modal from "../../components/Modal";
 
 const getImageUrl = (imagePath) => {
   if (!imagePath) {
-    console.log('No image path provided, using placeholder');
-    return 'https://placehold.co/300x300/gray/white?text=No+Image';
+    console.log("No image path provided, using placeholder");
+    return "https://placehold.co/300x300/gray/white?text=No+Image";
   }
-  
+
   // Log the image path for debugging
-  console.log('Processing image path:', imagePath);
-  
+  console.log("Processing image path:", imagePath);
+
   // If it's already a full URL (including Cloudinary), return it as is
-  if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
-    console.log('Using full URL:', imagePath);
+  if (imagePath.startsWith("http://") || imagePath.startsWith("https://")) {
+    console.log("Using full URL:", imagePath);
     return imagePath;
   }
-  
+
   // If it's a relative path starting with /uploads, prepend the API base URL
-  if (imagePath.startsWith('/uploads/')) {
-    const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+  if (imagePath.startsWith("/uploads/")) {
+    const baseUrl =
+      import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
     const fullUrl = `${baseUrl}${imagePath}`;
-    console.log('Constructed uploads URL:', fullUrl);
+    console.log("Constructed uploads URL:", fullUrl);
     return fullUrl;
   }
-  
+
   // If it's just a filename, assume it's in the uploads directory
-  if (!imagePath.startsWith('/')) {
-    const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+  if (!imagePath.startsWith("/")) {
+    const baseUrl =
+      import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
     const fullUrl = `${baseUrl}/uploads/${imagePath}`;
-    console.log('Constructed filename URL:', fullUrl);
+    console.log("Constructed filename URL:", fullUrl);
     return fullUrl;
   }
-  
+
   // For any other case, return the path as is with base URL
-  const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+  const baseUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
   const fullUrl = `${baseUrl}${imagePath}`;
-  console.log('Constructed fallback URL:', fullUrl);
+  console.log("Constructed fallback URL:", fullUrl);
   return fullUrl;
 };
 
@@ -240,7 +243,7 @@ const AdminProducts = () => {
               product.category.name = "Unknown";
             }
 
-            // Ensure product has images array
+            // Ensure product has images array and fix image URLs
             if (
               !product.images ||
               !Array.isArray(product.images) ||
@@ -249,6 +252,9 @@ const AdminProducts = () => {
               product.images = [
                 "https://placehold.co/300x300/gray/white?text=Product",
               ];
+            } else {
+              // Fix image URLs to use the correct domain
+              product.images = product.images.map((img) => getImageUrl(img));
             }
 
             // Ensure product has stock value
@@ -370,7 +376,7 @@ const AdminProducts = () => {
                 product.images &&
                 Array.isArray(product.images) &&
                 product.images.length > 0
-                  ? product.images
+                  ? product.images.map((img) => getImageUrl(img))
                   : ["https://placehold.co/300x300/gray/white?text=Product"],
               stock: product.stock ?? 0,
             }));
@@ -482,7 +488,7 @@ const AdminProducts = () => {
                   product.images &&
                   Array.isArray(product.images) &&
                   product.images.length > 0
-                    ? product.images
+                    ? product.images.map((img) => getImageUrl(img))
                     : ["https://placehold.co/300x300/gray/white?text=Product"],
                 stock: product.stock ?? 0,
               };
@@ -619,7 +625,7 @@ const AdminProducts = () => {
               product.category.name = "Unknown";
             }
 
-            // Ensure product has images array
+            // Ensure product has images array and fix image URLs
             if (
               !product.images ||
               !Array.isArray(product.images) ||
@@ -628,6 +634,9 @@ const AdminProducts = () => {
               product.images = [
                 "https://placehold.co/300x300/gray/white?text=Product",
               ];
+            } else {
+              // Fix image URLs to use the correct domain
+              product.images = product.images.map((img) => getImageUrl(img));
             }
 
             // Ensure product has stock value
@@ -1016,7 +1025,7 @@ const AdminProducts = () => {
         category: { _id: "category1", name: "Chairs" },
         images: [
           "https://placehold.co/300x300/gray/white?text=No+Image",
-          "https://placehold.co/300x300/gray/white?text=Chair+View+2"
+          "https://placehold.co/300x300/gray/white?text=Chair+View+2",
         ],
       },
       {
@@ -1036,7 +1045,7 @@ const AdminProducts = () => {
         images: [
           "https://placehold.co/300x300/gray/white?text=No+Image",
           "https://placehold.co/300x300/gray/white?text=Sofa+Side+View",
-          "https://placehold.co/300x300/gray/white?text=Sofa+Front"
+          "https://placehold.co/300x300/gray/white?text=Sofa+Front",
         ],
       },
       {
@@ -1055,7 +1064,7 @@ const AdminProducts = () => {
         category: { _id: "category2", name: "Tables" },
         images: [
           "https://placehold.co/300x300/gray/white?text=Dining+Set",
-          "https://placehold.co/300x300/gray/white?text=No+Image"
+          "https://placehold.co/300x300/gray/white?text=No+Image",
         ],
       },
     ];
@@ -1163,7 +1172,7 @@ const AdminProducts = () => {
       await productsAPI.delete(deleteProductId);
 
       // Remove the product from the state
-      const updatedProducts = products.filter(p => p._id !== deleteProductId);
+      const updatedProducts = products.filter((p) => p._id !== deleteProductId);
       setProducts(updatedProducts);
       setFilteredProducts(updatedProducts);
 
@@ -1175,7 +1184,9 @@ const AdminProducts = () => {
       setDeleteProductId(null);
     } catch (error) {
       console.error("Error deleting product:", error);
-      setDeleteError(error.response?.data?.message || "Failed to delete product");
+      setDeleteError(
+        error.response?.data?.message || "Failed to delete product"
+      );
     } finally {
       setDeleteLoading(false);
     }
@@ -1306,15 +1317,26 @@ const AdminProducts = () => {
                 {/* Custom Categories */}
                 {categories &&
                   categories
-                    .filter(category => 
-                      // Filter out default categories that we already added
-                      !["680c9481ab11e96a288ef6d9", "680c9484ab11e96a288ef6da", 
-                        "680c9486ab11e96a288ef6db", "680c9489ab11e96a288ef6dc"]
-                        .includes(category._id)
+                    .filter(
+                      (category) =>
+                        // Filter out default categories that we already added
+                        ![
+                          "680c9481ab11e96a288ef6d9",
+                          "680c9484ab11e96a288ef6da",
+                          "680c9486ab11e96a288ef6db",
+                          "680c9489ab11e96a288ef6dc",
+                        ].includes(category._id)
                     )
                     .map((category) => {
-                      const categoryName = category.displayName || category.name || "Unknown Category";
-                      const categoryId = category._id || `temp_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+                      const categoryName =
+                        category.displayName ||
+                        category.name ||
+                        "Unknown Category";
+                      const categoryId =
+                        category._id ||
+                        `temp_${Date.now()}_${Math.random()
+                          .toString(36)
+                          .substring(2, 9)}`;
 
                       return (
                         <option key={categoryId} value={categoryId}>
@@ -1499,28 +1521,35 @@ const AdminProducts = () => {
                     className="hover:theme-bg-secondary transition-colors duration-150"
                   >
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex space-x-2 overflow-x-auto" style={{ maxWidth: '200px' }}>
+                      <div
+                        className="flex space-x-2 overflow-x-auto"
+                        style={{ maxWidth: "200px" }}
+                      >
                         {product.images && product.images.length > 0 ? (
                           product.images.map((imageUrl, index) => (
-                            <div key={index} className="flex-shrink-0 w-16 h-16 rounded-md overflow-hidden">
+                            <div
+                              key={index}
+                              className="flex-shrink-0 w-16 h-16 rounded-md overflow-hidden"
+                            >
                               <img
                                 src={getImageUrl(imageUrl)}
                                 alt={`${product.name} - Image ${index + 1}`}
                                 className="w-full h-full object-cover hover:opacity-75 transition-opacity duration-150"
                                 onError={(e) => {
-                                  console.error('Image load error:', {
+                                  console.error("Image load error:", {
                                     originalSrc: e.target.src,
                                     productName: product.name,
-                                    imageIndex: index
+                                    imageIndex: index,
                                   });
                                   e.target.onerror = null;
-                                  e.target.src = "https://placehold.co/300x300/gray/white?text=No+Image";
+                                  e.target.src =
+                                    "https://placehold.co/300x300/gray/white?text=No+Image";
                                 }}
                                 onLoad={(e) => {
-                                  console.log('Image loaded successfully:', {
+                                  console.log("Image loaded successfully:", {
                                     src: e.target.src,
                                     productName: product.name,
-                                    imageIndex: index
+                                    imageIndex: index,
                                   });
                                 }}
                               />
@@ -1770,7 +1799,8 @@ const AdminProducts = () => {
       >
         <div className="p-6">
           <p className="text-gray-700 mb-4">
-            Are you sure you want to delete this product? This action cannot be undone.
+            Are you sure you want to delete this product? This action cannot be
+            undone.
           </p>
           {deleteError && (
             <Alert type="error" message={deleteError} className="mb-4" />

@@ -1,6 +1,7 @@
 import React, { useCallback } from "react";
 import { useDropzone } from "react-dropzone";
 import { getAssetUrl } from "../utils/apiUrlHelper";
+import { getImageUrl } from "../utils/imageHelper";
 
 const FileUpload = ({
   multiple = false,
@@ -106,7 +107,7 @@ const FileUpload = ({
                   file instanceof File
                     ? file.preview // Use preview URL for File objects
                     : typeof file === "string"
-                    ? file // Use the string URL directly
+                    ? getImageUrl(file) // Use the string URL with proper domain
                     : file.preview || getAssetUrl(file) // Fallback for other object types
                 }
                 alt={`Preview ${index + 1}`}

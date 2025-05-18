@@ -100,9 +100,49 @@ exports.getAllProducts = async (req, res) => {
 
           try {
             // Try to get category from database
-            const category = await findOneDocument("categories", {
-              _id: new ObjectId(categoryId),
-            });
+            let category = null;
+
+            // Only try to convert to ObjectId if it's a valid 24-character hex string
+            if (/^[0-9a-fA-F]{24}$/.test(categoryId)) {
+              try {
+                category = await findOneDocument("categories", {
+                  _id: new ObjectId(categoryId),
+                });
+                console.log("Found category using ObjectId");
+              } catch (objIdError) {
+                console.warn(
+                  `Invalid ObjectId format for category: ${categoryId}`,
+                  objIdError.message
+                );
+                // Continue to try other methods
+              }
+            }
+
+            // If not found by ObjectId, try with string ID
+            if (!category) {
+              try {
+                category = await findOneDocument("categories", {
+                  _id: categoryId,
+                });
+                console.log("Found category using string ID");
+              } catch (strIdError) {
+                console.warn(
+                  `Could not find category with string ID: ${categoryId}`
+                );
+              }
+            }
+
+            // If still not found, try by name
+            if (!category && typeof categoryId === "string") {
+              try {
+                category = await findOneDocument("categories", {
+                  name: categoryId,
+                });
+                console.log("Found category by name");
+              } catch (nameError) {
+                console.warn(`Could not find category by name: ${categoryId}`);
+              }
+            }
 
             if (category) {
               product.category = {
@@ -458,14 +498,10 @@ exports.createProduct = async (req, res) => {
         console.log("Extracted filename:", filename);
 
         try {
-          // Create a URL that will work in both development and production
-          const isProduction = process.env.NODE_ENV === "production";
-          const baseUrl = isProduction
-            ? process.env.BASE_URL || "https://furniture-q3nb.onrender.com"
-            : "http://localhost:5000";
-
-          const imagePath = `${baseUrl}/uploads/${filename}`;
-          console.log("Generated image URL:", imagePath);
+          // Store only the relative path in the database
+          // The client will handle adding the correct domain based on environment
+          const imagePath = `/uploads/${filename}`;
+          console.log("Generated image path:", imagePath);
 
           // Add to images array
           images.push(imagePath);
