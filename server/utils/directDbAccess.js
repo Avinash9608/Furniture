@@ -143,7 +143,42 @@ const updateDocument = async (collectionName, query, update) => {
     );
     console.log("[updateDocument] Update operation:", update);
 
-    const collection = await getCollection(collectionName);
+    // Try to get the collection with retry logic
+    let collection = null;
+    let retryCount = 0;
+    const maxRetries = 3;
+
+    while (retryCount <= maxRetries) {
+      try {
+        collection = await getCollection(collectionName);
+        if (collection) {
+          console.log(
+            `[updateDocument] Got collection on attempt ${retryCount + 1}`
+          );
+          break;
+        }
+      } catch (collectionError) {
+        console.error(
+          `[updateDocument] Error getting collection on attempt ${
+            retryCount + 1
+          }:`,
+          collectionError.message
+        );
+
+        if (retryCount < maxRetries) {
+          const delay = (retryCount + 1) * 1000; // Increasing delay
+          console.log(`[updateDocument] Waiting ${delay}ms before retry...`);
+          await new Promise((resolve) => setTimeout(resolve, delay));
+        }
+      }
+      retryCount++;
+    }
+
+    if (!collection) {
+      throw new Error(
+        `Could not get collection ${collectionName} after ${maxRetries} attempts`
+      );
+    }
 
     // If update doesn't use operators ($set, $unset, etc.), wrap it in $set
     const hasOperators = Object.keys(update).some((key) => key.startsWith("$"));
@@ -158,17 +193,53 @@ const updateDocument = async (collectionName, query, update) => {
     console.log("[updateDocument] Final update operation:", finalUpdate);
 
     try {
-      // Use updateOne instead of findOneAndUpdate for more reliability
-      const updateResult = await collection.updateOne(query, finalUpdate);
+      // Try direct MongoDB update with timeout
+      const updatePromise = collection.updateOne(query, finalUpdate);
+
+      // Add timeout to the operation
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => {
+          reject(new Error(`Operation timed out after 30000ms`));
+        }, 30000);
+      });
+
+      // Race the promises
+      const updateResult = await Promise.race([updatePromise, timeoutPromise]);
       console.log("[updateDocument] Update result:", updateResult);
 
       if (!updateResult.acknowledged || updateResult.matchedCount === 0) {
-        console.error("[updateDocument] Document not found or update failed");
-        throw new Error("Document not found or update failed");
+        console.warn("[updateDocument] Document not found or update failed");
+
+        // Try with string ID if ObjectId failed
+        if (query._id && query._id.toString) {
+          console.log("[updateDocument] Trying with string ID");
+          const stringIdQuery = { _id: query._id.toString() };
+          const stringIdResult = await collection.updateOne(
+            stringIdQuery,
+            finalUpdate
+          );
+
+          if (
+            !stringIdResult.acknowledged ||
+            stringIdResult.matchedCount === 0
+          ) {
+            console.error("[updateDocument] String ID update also failed");
+            throw new Error("Document not found or update failed");
+          }
+
+          console.log("[updateDocument] String ID update succeeded");
+
+          // Use string ID for fetching updated document
+          query = stringIdQuery;
+        } else {
+          throw new Error("Document not found or update failed");
+        }
       }
 
-      // Fetch the updated document
-      const updatedDoc = await collection.findOne(query);
+      // Fetch the updated document with timeout
+      const findPromise = collection.findOne(query);
+      const updatedDoc = await Promise.race([findPromise, timeoutPromise]);
+
       if (!updatedDoc) {
         console.error("[updateDocument] Could not fetch updated document");
         throw new Error("Could not fetch updated document");

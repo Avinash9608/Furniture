@@ -6,9 +6,9 @@ module.exports = function timeoutPlugin(schema, options = {}) {
   const timeout = options.timeout || 30000;
 
   // Add timeout to save operations
-  schema.pre('save', function(next) {
+  schema.pre("save", function (next) {
     const timeoutId = setTimeout(() => {
-      next(new Error('Operation timed out'));
+      next(new Error("Operation timed out"));
     }, timeout);
 
     // Clear timeout if operation completes
@@ -16,35 +16,63 @@ module.exports = function timeoutPlugin(schema, options = {}) {
     next();
   });
 
-  schema.post('save', function() {
+  schema.post("save", function () {
     if (this.$locals.timeoutId) {
       clearTimeout(this.$locals.timeoutId);
     }
   });
 
   // Add timeout to all queries
-  ['find', 'findOne', 'findOneAndUpdate', 'findOneAndDelete', 'update', 'updateOne', 'updateMany', 'delete', 'deleteOne', 'deleteMany'].forEach(method => {
-    schema.pre(method, function() {
+  [
+    "find",
+    "findOne",
+    "findOneAndUpdate",
+    "findOneAndDelete",
+    "update",
+    "updateOne",
+    "updateMany",
+    "delete",
+    "deleteOne",
+    "deleteMany",
+  ].forEach((method) => {
+    schema.pre(method, function () {
       this.maxTimeMS(timeout);
     });
   });
 
   // Add timeout handling to all operations
-  schema.pre(/.*/, function(next) {
+  schema.pre(/.*/, function (next) {
     if (this.op) {
-      const timeoutId = setTimeout(() => {
-        next(new Error(`Operation ${this.op} timed out after ${timeout}ms`));
-      }, timeout);
+      try {
+        // Initialize $locals if it doesn't exist
+        if (!this.$locals) {
+          this.$locals = {};
+        }
 
-      // Clear timeout if operation completes
-      this.$locals.timeoutId = timeoutId;
+        const timeoutId = setTimeout(() => {
+          next(new Error(`Operation ${this.op} timed out after ${timeout}ms`));
+        }, timeout);
+
+        // Clear timeout if operation completes
+        this.$locals.timeoutId = timeoutId;
+      } catch (error) {
+        console.warn(
+          `Could not set timeout for operation ${this.op}: ${error.message}`
+        );
+        // Continue without setting timeout
+      }
     }
     next();
   });
 
-  schema.post(/.*/, function() {
-    if (this.$locals && this.$locals.timeoutId) {
-      clearTimeout(this.$locals.timeoutId);
+  schema.post(/.*/, function () {
+    try {
+      if (this.$locals && this.$locals.timeoutId) {
+        clearTimeout(this.$locals.timeoutId);
+      }
+    } catch (error) {
+      console.warn(`Could not clear timeout: ${error.message}`);
+      // Continue without clearing timeout
     }
   });
 
