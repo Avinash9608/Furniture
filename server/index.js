@@ -5,6 +5,22 @@ const dotenv = require("dotenv");
 const path = require("path");
 const fs = require("fs");
 const multer = require("multer");
+const { protect, authorize } = require("./middleware/auth");
+const { handleMultipleFiles } = require("./middleware/upload");
+const {
+  getCollection,
+  findDocuments,
+  findOneDocument,
+  insertDocument,
+  updateDocument,
+  deleteDocument,
+} = require("./utils/directDbAccess");
+const { v4: uuidv4 } = require("uuid");
+
+// Import other controllers
+const productDataService = require("./utils/productDataService");
+const directAuth = require("./controllers/directAuth");
+
 // Load environment variables
 dotenv.config();
 
@@ -301,6 +317,7 @@ const {
   deleteProduct,
 } = require("./controllers/directProducts");
 
+// Import direct categories controller
 const {
   getAllCategories,
   getCategoryById,
@@ -314,32 +331,6 @@ const {
   getPaymentSettings,
   getAllPaymentSettings: getAllPaymentSettingsDirect,
 } = require("./controllers/directPaymentSettings");
-
-// Import enhanced direct product creation controller
-const {
-  createProduct: createProductEnhanced,
-} = require("./controllers/directProductCreation");
-
-// Import bypass product creation controller
-const {
-  createProduct: createProductBypass,
-} = require("./controllers/bypassProductCreation");
-
-// Import direct MongoDB product creation controller (no Mongoose)
-const {
-  createProduct: createProductDirectMongo,
-} = require("./controllers/directMongoProductCreation");
-
-// Import emergency product creation controller
-const {
-  createProduct: createProductEmergency,
-} = require("./controllers/emergencyProductCreation");
-
-// Import guaranteed product creation controller
-const {
-  createProduct: createProductGuaranteed,
-  getPendingProducts,
-} = require("./controllers/guaranteedProductCreation");
 
 // Import direct admin auth controller
 const { loginAdmin } = require("./controllers/directAdminAuth");
@@ -359,115 +350,26 @@ app.post("/api/contact", contactController.createContact);
 app.post("/api/api/contact", contactController.createContact);
 // app.use("/api/auth", authRoutes);
 
-// Direct API routes for products
+// Direct API routes for products with enhanced error handling
 app.get("/api/direct/products", getAllProducts);
 app.get("/api/direct/products/:id", getProductById);
-app.post("/api/direct/products", upload.array("images", 5), createProduct);
-app.put("/api/direct/products/:id", upload.array("images", 5), updateProduct);
+
+// Direct product creation with file upload
+app.post("/api/direct/products", upload.array("images", 10), createProduct);
+
+// Direct product update with file upload
+app.put("/api/direct/products/:id", upload.array("images", 10), updateProduct);
+
+// Direct product deletion
 app.delete("/api/direct/products/:id", deleteProduct);
 
-// Enhanced direct product creation endpoints with better error handling
-app.post(
-  "/api/direct/product-create",
-  upload.array("images", 10),
-  createProductEnhanced
-);
-app.post(
-  "/api/product-create",
-  upload.array("images", 10),
-  createProductEnhanced
-);
-app.post(
-  "/admin/product-create",
-  upload.array("images", 10),
-  createProductEnhanced
-);
+// Standard API routes with file upload support
+app.use("/api/products", productRoutes);
 
-// Bypass product creation endpoints that skip the problematic validation
-app.post(
-  "/api/bypass/product",
-  upload.array("images", 10),
-  createProductBypass
-);
-app.post("/bypass/product", upload.array("images", 10), createProductBypass);
-app.post(
-  "/admin/bypass/product",
-  upload.array("images", 10),
-  createProductBypass
-);
-
-// Direct MongoDB product creation endpoints (no Mongoose)
-app.post(
-  "/api/direct-mongo/product",
-  upload.array("images", 10),
-  createProductDirectMongo
-);
-app.post(
-  "/direct-mongo/product",
-  upload.array("images", 10),
-  createProductDirectMongo
-);
-app.post(
-  "/admin/direct-mongo/product",
-  upload.array("images", 10),
-  createProductDirectMongo
-);
-
-// Emergency product creation endpoints with extremely high timeouts
-app.post(
-  "/api/emergency/product",
-  upload.array("images", 10),
-  createProductEmergency
-);
-app.post(
-  "/emergency/product",
-  upload.array("images", 10),
-  createProductEmergency
-);
-app.post(
-  "/admin/emergency/product",
-  upload.array("images", 10),
-  createProductEmergency
-);
-
-// Guaranteed product creation endpoints (always succeed, no database connection)
-app.post(
-  "/api/guaranteed/product",
-  upload.array("images", 10),
-  createProductGuaranteed
-);
-app.post(
-  "/guaranteed/product",
-  upload.array("images", 10),
-  createProductGuaranteed
-);
-app.post(
-  "/admin/guaranteed/product",
-  upload.array("images", 10),
-  createProductGuaranteed
-);
-
-// Get pending products for syncing
-app.get("/api/pending-products", getPendingProducts);
-
-// Sync pending products to the database
-const { syncPendingProducts } = require("./utils/syncPendingProducts");
-app.get("/api/sync-pending-products", async (req, res) => {
-  try {
-    console.log("Manual sync of pending products triggered");
-    await syncPendingProducts();
-    return res.status(200).json({
-      success: true,
-      message: "Pending products synced successfully",
-    });
-  } catch (error) {
-    console.error("Error syncing pending products:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Error syncing pending products",
-      error: error.message,
-    });
-  }
+// Legacy routes for backward compatibility
+app.put("/products/:id", upload.array("images", 10), (req, res) => {
+  console.log("Redirecting legacy product update to direct endpoint");
+  res.redirect(307, `/api/direct/products/${req.params.id}`);
 });
 
 // Special route for products page - handle both /products and /api/products
@@ -477,10 +379,6 @@ app.get("/api/products", getAllProducts);
 // Special route for product details page
 app.get("/products/:id", getProductById);
 app.get("/api/products/:id", getProductById);
-
-// Import the product data service and direct auth controller
-const productDataService = require("./utils/productDataService");
-const directAuth = require("./controllers/directAuth");
 
 // Reliable product endpoints that always work
 app.get("/api/reliable/products", async (req, res) => {
@@ -2354,7 +2252,7 @@ const connectDB = async () => {
 connectDB();
 
 // Server Configuration
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5001;
 
 // Export app for testing
 module.exports = app;

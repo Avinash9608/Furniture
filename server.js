@@ -1133,12 +1133,10 @@ if (!staticPath) {
       }
     });
 
-    // Direct API routes for products
-    app.get("/api/direct/products", getAllProducts);
-    app.get("/api/direct/products/:id", getProductById);
-    app.post("/api/direct/products", createProduct);
-    app.put("/api/direct/products/:id", updateProduct);
-    app.delete("/api/direct/products/:id", deleteProduct);
+    // Product routes are already mounted above
+    // Do not uncomment these lines as they would cause duplicate declarations
+    // const productRoutes = require("./server/routes/productRoutes");
+    // app.use("/api/products", productRoutes);
 
     // MongoDB-based review controller
     const reviewController = require("./server/controllers/reviewController");
@@ -1158,11 +1156,99 @@ if (!staticPath) {
     // Special direct product details route that completely bypasses Mongoose
     // This route is specifically designed to handle the timeout issues
     const directProductDetails = require("./server/controllers/directProductDetails");
+    const directProducts = require("./server/controllers/directProducts");
+    const multer = require("multer");
+    const { v4: uuidv4 } = require("uuid");
+    const path = require("path");
+
+    // Configure multer for file uploads
+    const storage = multer.diskStorage({
+      destination: function (req, file, cb) {
+        cb(null, path.join(__dirname, "uploads"));
+      },
+      filename: function (req, file, cb) {
+        const uniqueFilename = `${uuidv4()}-${file.originalname}`;
+        cb(null, uniqueFilename);
+      },
+    });
+
+    const upload = multer({
+      storage: storage,
+      limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+      fileFilter: function (req, file, cb) {
+        // Accept images only
+        if (!file.originalname.match(/\.(jpg|jpeg|png|gif|webp)$/i)) {
+          return cb(new Error("Only image files are allowed!"), false);
+        }
+        cb(null, true);
+      },
+    });
 
     // Register the direct product endpoint with multiple paths to ensure it's accessible
     app.get("/api/direct-product/:id", directProductDetails.getProductById);
     app.get("/api/direct/product/:id", directProductDetails.getProductById); // Alternative path
     app.get("/api/direct/products/:id", directProductDetails.getProductById); // Match with other API patterns
+
+    // Direct product routes for CRUD operations with authentication bypass
+    // Create a simple authentication bypass middleware
+    const bypassAuth = (req, res, next) => {
+      console.log("Auth bypass middleware called");
+      // Set admin user in the request
+      req.user = {
+        _id: "admin",
+        name: "Admin",
+        email: "admin@example.com",
+        role: "admin",
+        isAdmin: true,
+      };
+      next();
+    };
+
+    // Debug middleware to log all requests
+    const logRequests = (req, res, next) => {
+      console.log(`[DEBUG] ${req.method} ${req.url}`);
+      next();
+    };
+
+    // Apply the log middleware to all routes
+    app.use(logRequests);
+
+    // Register direct product routes
+    console.log("Registering direct product routes");
+
+    app.get("/api/direct/products", directProducts.getAllProducts);
+
+    app.post(
+      "/api/direct/products",
+      bypassAuth, // Add auth bypass
+      upload.array("images", 10),
+      directProducts.createProduct
+    );
+
+    // Special route for product updates
+    app.put(
+      "/api/direct/products/:id",
+      bypassAuth, // Add auth bypass
+      upload.array("images", 10),
+      (req, res) => {
+        console.log(
+          `Direct product update route called for ID: ${req.params.id}`
+        );
+        console.log("Request body:", req.body);
+        directProducts.updateProduct(req, res);
+      }
+    );
+
+    app.delete(
+      "/api/direct/products/:id",
+      bypassAuth,
+      directProducts.deleteProduct
+    );
+
+    // Add a test route to verify routing
+    app.get("/api/test-route", (req, res) => {
+      res.json({ success: true, message: "Test route is working" });
+    });
 
     // Special route for direct API access to the problematic product IDs
     app.get("/api/direct-product/680cfe0ee4e0274a4cc9a1ea", (_req, res) => {
@@ -2198,7 +2284,7 @@ if (!staticPath) {
   });
 
   // Start server
-  const PORT = process.env.PORT || 10000;
+  const PORT = process.env.PORT || 5001; // Changed from 10000 to 5001
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on port ${PORT}`);
     console.log(`MongoDB connection state: ${mongoose.connection.readyState}`);

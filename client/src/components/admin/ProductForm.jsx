@@ -173,16 +173,46 @@ const ProductForm = ({
   const handleSubmit = (e) => {
     e.preventDefault();
 
+    // Validate required fields first
+    const requiredFields = ["name", "price", "stock"];
+    const missingFields = requiredFields.filter((field) => {
+      const value = formData[field];
+      return value === undefined || value === null || value === "";
+    });
+
+    if (missingFields.length > 0) {
+      setErrors((prev) => ({
+        ...prev,
+        ...missingFields.reduce(
+          (acc, field) => ({
+            ...acc,
+            [field]: `${
+              field.charAt(0).toUpperCase() + field.slice(1)
+            } is required`,
+          }),
+          {}
+        ),
+      }));
+      setTouched((prev) => ({
+        ...prev,
+        ...missingFields.reduce(
+          (acc, field) => ({ ...acc, [field]: true }),
+          {}
+        ),
+      }));
+      return;
+    }
+
     if (!validateForm()) return;
 
     // Create FormData object
     const formDataToSubmit = new FormData();
 
-    // Add basic fields
-    formDataToSubmit.append("name", formData.name);
-    formDataToSubmit.append("description", formData.description);
-    formDataToSubmit.append("price", formData.price);
-    formDataToSubmit.append("stock", formData.stock);
+    // Add basic fields with type conversion
+    formDataToSubmit.append("name", formData.name.trim());
+    formDataToSubmit.append("description", formData.description.trim());
+    formDataToSubmit.append("price", Number(formData.price));
+    formDataToSubmit.append("stock", Number(formData.stock));
     formDataToSubmit.append("category", formData.category);
 
     // Add category name if it's an offline category
@@ -195,54 +225,67 @@ const ProductForm = ({
           "categoryName",
           categoryObj.name || categoryObj.displayName
         );
-        console.log(
-          `Adding categoryName: ${categoryObj.name || categoryObj.displayName}`
-        );
       }
     }
 
-    formDataToSubmit.append("featured", formData.featured);
+    // Convert boolean to string for featured
+    formDataToSubmit.append("featured", formData.featured.toString());
 
-    // Add optional fields if they exist
-    if (formData.material)
-      formDataToSubmit.append("material", formData.material);
-    if (formData.color) formDataToSubmit.append("color", formData.color);
-    if (formData.discountPrice)
-      formDataToSubmit.append("discountPrice", formData.discountPrice);
+    // Add optional fields if they exist and are not empty
+    if (formData.material && formData.material.trim()) {
+      formDataToSubmit.append("material", formData.material.trim());
+    }
+    if (formData.color && formData.color.trim()) {
+      formDataToSubmit.append("color", formData.color.trim());
+    }
+    if (formData.discountPrice) {
+      formDataToSubmit.append("discountPrice", Number(formData.discountPrice));
+    }
 
-    // Add dimensions if they exist
+    // Add dimensions if they exist and are valid
     if (formData.dimensions) {
-      formDataToSubmit.append(
-        "dimensions",
-        JSON.stringify(formData.dimensions)
-      );
+      const dimensions = {
+        length: formData.dimensions.length
+          ? Number(formData.dimensions.length)
+          : 0,
+        width: formData.dimensions.width
+          ? Number(formData.dimensions.width)
+          : 0,
+        height: formData.dimensions.height
+          ? Number(formData.dimensions.height)
+          : 0,
+      };
+      formDataToSubmit.append("dimensions", JSON.stringify(dimensions));
     }
 
-    // Add images
+    // Add images if they exist
     if (images && images.length > 0) {
-      console.log("Processing images for upload:", images);
-      images.forEach((image, index) => {
-        if (image.file) {
-          console.log(`Appending image file ${index}:`, image.file.name);
-          formDataToSubmit.append("images", image.file);
-        } else if (typeof image === "string") {
-          console.log(`Appending image URL ${index}:`, image);
-          formDataToSubmit.append("imageUrls", image);
-        } else if (image instanceof File) {
-          console.log(`Appending direct File object ${index}:`, image.name);
-          formDataToSubmit.append("images", image);
-        } else {
-          console.warn(`Skipping image ${index} - invalid format:`, image);
-        }
+      // Separate File objects and string URLs
+      const fileImages = images.filter((image) => image instanceof File);
+      const stringImages = images.filter((image) => typeof image === "string");
+
+      console.log("File images:", fileImages.length);
+      console.log("String images:", stringImages.length);
+
+      // Add new image files
+      fileImages.forEach((image) => {
+        formDataToSubmit.append("images", image);
       });
-    } else {
-      console.log("No images to upload");
+
+      // Add existing image URLs as JSON array
+      if (stringImages.length > 0) {
+        formDataToSubmit.append("existingImages", JSON.stringify(stringImages));
+        console.log("Added existingImages:", JSON.stringify(stringImages));
+      }
+
+      // Set replaceImages flag
+      formDataToSubmit.append("replaceImages", "true");
     }
 
-    // Log FormData contents for debugging
-    console.log("Submitting form with data:");
+    // Log the form data for debugging
+    console.log("Submitting form data:");
     for (let pair of formDataToSubmit.entries()) {
-      console.log(pair[0], pair[1]);
+      console.log(pair[0] + ": " + pair[1]);
     }
 
     onSubmit(formDataToSubmit);
@@ -310,18 +353,23 @@ const ProductForm = ({
                   <option value="680c9486ab11e96a288ef6db">Chairs</option>
                   <option value="680c9489ab11e96a288ef6dc">Wardrobes</option>
                   {/* Custom Categories */}
-                  {validCategories && validCategories
-                    .filter(category => 
-                      // Filter out default categories that we already added
-                      !["680c9481ab11e96a288ef6d9", "680c9484ab11e96a288ef6da", 
-                        "680c9486ab11e96a288ef6db", "680c9489ab11e96a288ef6dc"]
-                        .includes(category._id)
-                    )
-                    .map((category) => (
-                      <option key={category._id} value={category._id}>
-                        {category.displayName || category.name}
-                      </option>
-                    ))}
+                  {validCategories &&
+                    validCategories
+                      .filter(
+                        (category) =>
+                          // Filter out default categories that we already added
+                          ![
+                            "680c9481ab11e96a288ef6d9",
+                            "680c9484ab11e96a288ef6da",
+                            "680c9486ab11e96a288ef6db",
+                            "680c9489ab11e96a288ef6dc",
+                          ].includes(category._id)
+                      )
+                      .map((category) => (
+                        <option key={category._id} value={category._id}>
+                          {category.displayName || category.name}
+                        </option>
+                      ))}
                 </select>
               </div>
             </label>

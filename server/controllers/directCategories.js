@@ -13,6 +13,7 @@ const {
   updateDocument,
   deleteDocument,
 } = require("../utils/directDbConnection");
+const { getCollection } = require("../utils/directDbAccess");
 
 // Collection name
 const COLLECTION = "categories";
@@ -128,79 +129,37 @@ exports.getCategoryById = async (req, res) => {
 exports.createCategory = async (req, res) => {
   try {
     console.log("Creating category with direct MongoDB access");
-    console.log("Request body:", req.body);
-    console.log("Request file:", req.file);
 
     // Validate required fields
-    if (!req.body.name) {
+    const requiredFields = ["name", "displayName"];
+    const missingFields = requiredFields.filter((field) => {
+      const value = req.body[field];
+      return value === undefined || value === null || value === "";
+    });
+
+    if (missingFields.length > 0) {
+      console.error("Missing required fields:", missingFields);
       return res.status(400).json({
         success: false,
-        message: "Category name is required",
+        message: `Missing required fields: ${missingFields.join(", ")}`,
       });
     }
 
-    // Create category data object with all required fields
+    // Create category data
     const categoryData = {
-      name: req.body.name,
-      description: req.body.description || "",
-      slug: generateSlug(req.body.name),
-      image: "https://placehold.co/300x300/e2e8f0/1e293b?text=No+Image", // Default image
+      name: req.body.name.trim(),
+      displayName: req.body.displayName.trim(),
+      description: req.body.description?.trim() || "",
       createdAt: new Date(),
       updatedAt: new Date(),
     };
 
-    // Add image if it exists
-    if (req.file) {
-      // Ensure the path is absolute for proper access
-      categoryData.image = `/uploads/${req.file.filename}`;
-      console.log("Image added to category:", categoryData.image);
-
-      // Log detailed information about the file
-      console.log("File details:", {
-        filename: req.file.filename,
-        originalname: req.file.originalname,
-        mimetype: req.file.mimetype,
-        size: req.file.size,
-        path: req.file.path,
-      });
-    } else {
-      console.log("No image file provided in the request");
-    }
-
-    console.log(
-      "Category data to be saved:",
-      JSON.stringify(categoryData, null, 2)
-    );
-
     // Create category using direct MongoDB access
     try {
-      // Get MongoDB client
-      const { MongoClient, ObjectId } = require("mongodb");
-      const uri = process.env.MONGO_URI || process.env.MONGODB_URI;
-
-      if (!uri) {
-        throw new Error("MongoDB URI not found in environment variables");
-      }
-
-      console.log("Connecting to MongoDB directly...");
-
-      // Create a new client with minimal options
-      const client = new MongoClient(uri, {
-        connectTimeoutMS: 30000,
-        socketTimeoutMS: 30000,
-        serverSelectionTimeoutMS: 30000,
-      });
-
-      // Connect to MongoDB
-      await client.connect();
-      console.log("Connected to MongoDB successfully");
-
-      // Get database name from URI
-      const dbName = uri.split("/").pop().split("?")[0];
-      const db = client.db(dbName);
-
+      console.log("Attempting to insert category using direct MongoDB...");
+      
       // Get collection
-      const collection = db.collection(COLLECTION);
+      const collection = await getCollection(COLLECTION);
 
       // Insert document
       console.log(
@@ -219,9 +178,6 @@ exports.createCategory = async (req, res) => {
       const insertedCategory = await collection.findOne({
         _id: result.insertedId,
       });
-
-      // Close the connection
-      await client.close();
 
       if (!insertedCategory) {
         throw new Error("Failed to retrieve inserted category");
@@ -267,24 +223,7 @@ exports.createCategory = async (req, res) => {
         });
       } catch (mongooseError) {
         console.error("Error with Mongoose fallback:", mongooseError);
-
-        // Try second fallback method
-        console.log(
-          "Trying second fallback method with insertDocument utility"
-        );
-        const category = await insertDocument(COLLECTION, categoryData);
-
-        console.log(
-          "Category created successfully with utility fallback:",
-          category
-        );
-
-        // Return category
-        return res.status(201).json({
-          success: true,
-          data: category,
-          source: "utility_fallback",
-        });
+        throw mongooseError;
       }
     }
   } catch (error) {

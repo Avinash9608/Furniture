@@ -29,22 +29,16 @@ const FileUpload = ({
         return;
       }
 
-      // Create preview URLs for accepted files
+      // Process the files directly without creating wrapper objects
       const newFiles = validFiles.map((file) => {
-        // Create a File object that can be directly used in FormData
-        const fileObj = new File([file], file.name, {
-          type: file.type,
-          lastModified: file.lastModified,
-        });
-
-        return {
-          file: fileObj,
+        // Add preview URL to the file object for display
+        Object.assign(file, {
           preview: URL.createObjectURL(file),
-          name: file.name,
-          size: file.size,
-          type: file.type,
-        };
+        });
+        return file;
       });
+
+      console.log("New files with previews:", newFiles);
 
       // If not multiple, replace existing files
       if (!multiple) {
@@ -52,7 +46,26 @@ const FileUpload = ({
       } else {
         // Add new files to existing ones, respecting maxFiles limit
         const currentFiles = Array.isArray(value) ? value : [];
-        const combinedFiles = [...currentFiles, ...newFiles].slice(0, maxFiles);
+
+        // Filter out any non-File objects from currentFiles to avoid mixing types
+        const existingFileObjects = currentFiles.filter(
+          (file) => file instanceof File
+        );
+        const existingUrlStrings = currentFiles.filter(
+          (file) => typeof file === "string"
+        );
+
+        console.log("Existing file objects:", existingFileObjects.length);
+        console.log("Existing URL strings:", existingUrlStrings.length);
+
+        // Combine everything, respecting maxFiles limit
+        const combinedFiles = [
+          ...existingUrlStrings,
+          ...existingFileObjects,
+          ...newFiles,
+        ].slice(0, maxFiles);
+        console.log("Combined files:", combinedFiles.length);
+
         onChange(combinedFiles);
       }
     },
@@ -88,15 +101,23 @@ const FileUpload = ({
           <div key={index} className="relative group">
             <div className="aspect-w-1 aspect-h-1 w-full overflow-hidden rounded-lg bg-gray-200">
               <img
-                src={file.preview || getAssetUrl(file)}
+                src={
+                  // Handle different types of files/images
+                  file instanceof File
+                    ? file.preview // Use preview URL for File objects
+                    : typeof file === "string"
+                    ? file // Use the string URL directly
+                    : file.preview || getAssetUrl(file) // Fallback for other object types
+                }
                 alt={`Preview ${index + 1}`}
                 className="object-cover object-center w-full h-full"
                 onError={(e) => {
-                  // If preview fails, try using the asset URL
-                  if (e.target.src !== getAssetUrl(file)) {
-                    e.target.src = getAssetUrl(file);
-                  }
+                  console.log("Image load error:", e.target.src);
+                  // If preview fails, try using a fallback
+                  e.target.src =
+                    "https://placehold.co/300x300/gray/white?text=Image+Error";
                 }}
+                onLoad={() => console.log("Image loaded successfully:", index)}
               />
             </div>
             <button

@@ -9,6 +9,8 @@ const { MongoClient, ObjectId } = require("mongodb");
 const { cloudinary } = require("../config/cloudinary");
 const fs = require("fs");
 const path = require("path");
+const Product = require("../models/Product");
+const { getCollection } = require("../utils/directDbAccess");
 
 // Get the MongoDB URI from environment variables
 const getMongoURI = () => process.env.MONGO_URI;
@@ -33,405 +35,104 @@ const getProperImageUrl = (imagePath) => {
   return normalizedPath ? `${baseUrl}${normalizedPath}` : null;
 };
 
+// Collection name
+const COLLECTION = "products";
+
 /**
  * Create a new product with guaranteed persistence
  */
 const createProduct = async (req, res) => {
-  console.log("Creating product with data:", req.body);
+  try {
+    console.log("Creating new product");
+    console.log("Request body:", req.body);
   console.log("Files:", req.files);
 
-  // Set proper headers to ensure JSON response
-  res.setHeader("Content-Type", "application/json");
-
-  try {
-    // Verify admin authentication
-    if (!req.user || req.user.role !== 'admin') {
-      return res.status(403).json({
-        success: false,
-        message: "Admin authentication required. Please log in as an administrator.",
-      });
-    }
-
     // Validate required fields
-    if (!req.body.name || !req.body.price || !req.body.category) {
+    const requiredFields = ["name", "description", "price", "category", "stock"];
+    const missingFields = requiredFields.filter((field) => {
+      const value = req.body[field];
+      return value === undefined || value === null || value === "";
+    });
+
+    if (missingFields.length > 0) {
+      console.error("Missing required fields:", missingFields);
       return res.status(400).json({
         success: false,
-        message: "Please provide name, price, and category",
+        message: `Missing required fields: ${missingFields.join(", ")}`,
       });
     }
 
-    // Process uploaded files if any
-    let imageUrls = [];
-
-    // If we have files from multer
-    if (req.files && req.files.length > 0) {
-      console.log(`Processing ${req.files.length} uploaded files`);
-
-      // Try to upload to Cloudinary first
-      try {
-        for (const file of req.files) {
-          const result = await cloudinary.uploader.upload(file.path, {
-            folder: "furniture_products",
-            resource_type: "image",
-          });
-
-          console.log("Cloudinary upload result:", result);
-          imageUrls.push(result.secure_url);
-
-          // Remove the local file after successful Cloudinary upload
-          fs.unlinkSync(file.path);
-        }
-
-        console.log("All images uploaded to Cloudinary successfully");
-      } catch (cloudinaryError) {
-        console.error("Error uploading to Cloudinary:", cloudinaryError);
-
-        // Fallback to local file paths with proper URLs
-        imageUrls = req.files.map((file) =>
-          getProperImageUrl(
-            file.path.replace(/\\/g, "/").replace("uploads/", "/uploads/")
-          )
-        );
-        console.log("Using local file paths with proper URLs:", imageUrls);
-      }
-    } else if (req.uploadedFiles && req.uploadedFiles.length > 0) {
-      // If we have files from cloudinaryUpload middleware
-      console.log("Using pre-processed files from cloudinaryUpload middleware");
-      imageUrls = req.uploadedFiles.map((file) => file.path);
-    } else if (req.body.images) {
-      // If images are provided directly in the request body
-      console.log("Using images from request body:", req.body.images);
-
-      // Handle different formats of images in the request body
-      if (Array.isArray(req.body.images)) {
-        imageUrls = req.body.images;
-      } else if (typeof req.body.images === "string") {
-        // Try to parse as JSON if it's a string
-        try {
-          const parsedImages = JSON.parse(req.body.images);
-          imageUrls = Array.isArray(parsedImages)
-            ? parsedImages
-            : [req.body.images];
-        } catch (e) {
-          // If not valid JSON, treat as a single URL or comma-separated list
-          imageUrls = req.body.images.includes(",")
-            ? req.body.images.split(",").map((url) => url.trim())
-            : [req.body.images];
-        }
-      }
-    } else if (req.body.image) {
-      // If image URL is provided directly in the request body
-      console.log("Using image from request body:", req.body.image);
-
-      // Handle different formats of image in the request body
-      if (Array.isArray(req.body.image)) {
-        imageUrls = req.body.image;
-      } else if (typeof req.body.image === "string") {
-        // Try to parse as JSON if it's a string
-        try {
-          const parsedImage = JSON.parse(req.body.image);
-          imageUrls = Array.isArray(parsedImage)
-            ? parsedImage
-            : [req.body.image];
-        } catch (e) {
-          // If not valid JSON, treat as a single URL or comma-separated list
-          imageUrls = req.body.image.includes(",")
-            ? req.body.image.split(",").map((url) => url.trim())
-            : [req.body.image];
-        }
-      }
-    }
-
-    // Log the final image URLs
-    console.log("Final image URLs:", imageUrls);
-
-    // Try to import slugify, but provide a fallback if it's not available
-    let slugify;
-    try {
-      slugify = require("slugify");
-    } catch (error) {
-      console.warn(
-        "Slugify package not found in controller, using fallback implementation"
-      );
-      // Simple fallback implementation of slugify
-      slugify = (text, options = {}) => {
-        if (!text) return "";
-
-        // Convert to lowercase if specified in options
-        let result = options.lower ? text.toLowerCase() : text;
-
-        // Replace spaces with hyphens
-        result = result.replace(/\s+/g, "-");
-
-        // Remove special characters if strict mode is enabled
-        if (options.strict) {
-          result = result.replace(/[^a-zA-Z0-9-]/g, "");
-        }
-
-        // Remove specific characters if provided in options
-        if (options.remove && options.remove instanceof RegExp) {
-          result = result.replace(options.remove, "");
-        }
-
-        return result;
-      };
-    }
-
-    // Generate a slug from the product name
-    let productName = req.body.name ? req.body.name.trim() : "";
-    let slug = "";
-
-    if (productName) {
-      // Generate base slug from name using slugify
-      slug = slugify(productName, {
-        lower: true,
-        strict: true, // removes special characters
-        remove: /[*+~.()'"!:@]/g,
-      });
-
-      // If slug is empty after processing, use a fallback
-      if (!slug || slug.trim() === "") {
-        slug = `product-${Date.now()}`;
-      }
-    } else {
-      // If no name provided, generate a random slug
-      slug = `product-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-    }
-
-    console.log(`Generated slug: ${slug} for product: ${productName}`);
-
-    // Process dimensions if provided
-    let dimensions = null;
-    if (req.body.dimensions) {
-      try {
-        // Check if dimensions is a string that needs parsing
-        if (typeof req.body.dimensions === "string") {
-          try {
-            dimensions = JSON.parse(req.body.dimensions);
-            console.log("Successfully parsed dimensions JSON:", dimensions);
-          } catch (parseError) {
-            console.error(
-              "Error parsing dimensions JSON:",
-              parseError,
-              "Original value:",
-              req.body.dimensions
-            );
-            // Try to handle the case where dimensions might be a stringified object with quotes
-            try {
-              // Remove any extra quotes that might be causing parsing issues
-              const cleanedDimensions = req.body.dimensions
-                .replace(/['"]+/g, '"')
-                .trim();
-              dimensions = JSON.parse(cleanedDimensions);
-              console.log(
-                "Successfully parsed cleaned dimensions JSON:",
-                dimensions
-              );
-            } catch (secondParseError) {
-              console.error(
-                "Second attempt to parse dimensions failed:",
-                secondParseError
-              );
-            }
-          }
-        } else if (typeof req.body.dimensions === "object") {
-          dimensions = req.body.dimensions;
-        }
-
-        // Ensure dimensions has proper numeric values
-        if (dimensions) {
-          dimensions = {
-            length: parseFloat(dimensions.length) || 0,
-            width: parseFloat(dimensions.width) || 0,
-            height: parseFloat(dimensions.height) || 0,
-          };
-          console.log("Processed dimensions:", dimensions);
-        }
-      } catch (dimError) {
-        console.error("Error processing dimensions:", dimError);
-      }
-    }
-
-    // Process other fields
-    const featured = req.body.featured === "true" || req.body.featured === true;
-    const material = req.body.material || "";
-    const color = req.body.color || "";
-
-    // Create the product data
+    // Create product data
     const productData = {
-      name: productName,
-      slug: slug, // Add the generated slug
+      name: req.body.name.trim(),
+      description: req.body.description.trim(),
       price: parseFloat(req.body.price),
-      description: req.body.description || "",
       category: req.body.category,
-      images: imageUrls,
-      stock: parseInt(req.body.stock) || 0,
-      featured: featured,
-      material: material,
-      color: color,
+      stock: parseInt(req.body.stock),
+      images: req.files ? req.files.map((file) => `/uploads/${file.filename}`) : [],
       createdAt: new Date(),
       updatedAt: new Date(),
-      createdBy: req.user._id // Add the admin user who created the product
     };
 
-    // Only add dimensions if it's valid
-    if (dimensions) {
-      // Ensure dimensions are properly formatted for MongoDB
-      productData.dimensions = {
-        length: parseFloat(dimensions.length) || 0,
-        width: parseFloat(dimensions.width) || 0,
-        height: parseFloat(dimensions.height) || 0,
-      };
-      console.log("Adding dimensions to product data:", productData.dimensions);
-    } else {
-      console.log(
-        "No valid dimensions found, dimensions will not be added to the product"
-      );
-    }
-
-    console.log("Product data to be saved:", productData);
-
-    // Create a new direct MongoDB connection specifically for this operation
-    let client = null;
-    let savedProduct = null;
-    let saveMethod = null;
-
+    // Try to save using Mongoose first
     try {
-      console.log("Attempting to save product using direct MongoDB driver");
+      console.log("Attempting to save using Mongoose model");
+      const product = new Product(productData);
+      const savedProduct = await product.save();
+      console.log("Product saved successfully with Mongoose:", savedProduct._id);
 
-      // Get the MongoDB URI
-      const uri = getMongoURI();
+      return res.status(201).json({
+        success: true,
+        message: "Product created successfully",
+        data: savedProduct,
+        source: "mongoose",
+      });
+    } catch (mongooseError) {
+      console.error("Error saving product with Mongoose:", mongooseError);
 
-      // Direct connection options with increased timeouts for Render deployment
-      const options = {
-        useNewUrlParser: true,
-        useUnifiedTopology: true,
-        connectTimeoutMS: 600000, // 10 minutes
-        socketTimeoutMS: 600000, // 10 minutes
-        serverSelectionTimeoutMS: 600000, // 10 minutes
-        maxPoolSize: 20, // Increased pool size
-        minPoolSize: 5, // Ensure minimum connections
-        maxIdleTimeMS: 120000, // 2 minutes max idle time
-        // Removed unsupported options: keepAlive, keepAliveInitialDelay, poolSize, bufferCommands
-      };
+      // Try direct MongoDB driver as fallback
+      try {
+        console.log("Attempting to save using direct MongoDB driver");
 
-      // Create a new MongoClient
-      client = new MongoClient(uri, options);
-      await client.connect();
+        // Get collection
+        const collection = await getCollection(COLLECTION);
 
-      // Get database name from connection string
-      const dbName = uri.split("/").pop().split("?")[0];
-      const db = client.db(dbName);
+        // Insert document
+        const result = await collection.insertOne(productData);
 
-      console.log(`MongoDB connection established to database: ${dbName}`);
+        if (!result.acknowledged || !result.insertedId) {
+          throw new Error("Insert operation not acknowledged");
+        }
 
-      // Insert the product into the products collection
-      console.log("Inserting product into database");
-      const productsCollection = db.collection("products");
-      const result = await productsCollection.insertOne(productData);
-
-      if (result.acknowledged) {
-        console.log("Product created successfully:", result);
-
-        // Verify the product was saved by fetching it back
-        const verifiedProduct = await productsCollection.findOne({
+        // Get the inserted product
+        const insertedProduct = await collection.findOne({
           _id: result.insertedId,
         });
 
-        if (verifiedProduct) {
-          console.log("Product verified in database:", verifiedProduct._id);
-
-          // Try to get category information
-          try {
-            const categoriesCollection = db.collection("categories");
-            const category = await categoriesCollection.findOne({
-              _id: new ObjectId(productData.category),
-            });
-
-            savedProduct = {
-              ...verifiedProduct,
-              categoryInfo: category,
-            };
-          } catch (categoryError) {
-            console.error("Error fetching category info:", categoryError);
-            savedProduct = verifiedProduct;
-          }
-
-          saveMethod = "direct-mongodb";
-        } else {
-          throw new Error("Product verification failed");
+        if (!insertedProduct) {
+          throw new Error("Failed to retrieve inserted product");
         }
-      } else {
-        throw new Error("Insert operation not acknowledged");
-      }
-    } catch (error) {
-      console.error("Error saving product:", error);
-      throw error;
-    } finally {
-      // Close the MongoDB client
-      if (client) {
-        await client.close();
-        console.log("MongoDB connection closed");
-      }
-    }
 
-    // Verify that the product was saved
-    if (!savedProduct) {
-      throw new Error("Product was not saved");
-    }
+        console.log("Product saved successfully with MongoDB driver");
 
-    // Return success response
     return res.status(201).json({
       success: true,
-      data: savedProduct,
-      method: saveMethod,
       message: "Product created successfully",
-    });
-  } catch (error) {
-    console.error("Error creating product:", error);
-
-    // Handle duplicate key errors specifically
-    if (error.code === 11000) {
-      console.log("Duplicate key error:", error.keyValue);
-
-      // Check if it's a duplicate slug
-      if (error.keyValue && error.keyValue.slug) {
-        return res.status(200).json({
-          success: false,
-          message:
-            "A product with a similar name already exists. Please try a different name.",
-          error: "Duplicate slug error",
-          code: "DUPLICATE_SLUG",
+          data: insertedProduct,
+          source: "mongodb_driver",
         });
+      } catch (mongoError) {
+        console.error("Error with MongoDB driver:", mongoError);
+        throw mongoError;
       }
-
-      // Check if it's a duplicate name
-      if (error.keyValue && error.keyValue.name) {
-        return res.status(200).json({
-          success: false,
-          message:
-            "A product with this exact name already exists. Please use a different name.",
-          error: "Duplicate name error",
-          code: "DUPLICATE_NAME",
-        });
-      }
-
-      // Generic duplicate key error
-      return res.status(200).json({
-        success: false,
-        message:
-          "This product conflicts with an existing one. Please check your input.",
-        error: "Duplicate key error",
-        code: "DUPLICATE_KEY",
-        duplicateField: Object.keys(error.keyValue)[0],
-      });
     }
+  } catch (error) {
+    console.error("Error in createProduct:", error);
 
-    // Return error response for other errors
-    return res.status(200).json({
-      success: false,
-      message: error.message || "Error creating product",
-      error: error.stack,
+    return res.status(500).json({
+        success: false,
+      message: "Error creating product",
+      error: error.message,
     });
   }
 };

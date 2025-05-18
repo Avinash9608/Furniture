@@ -1,22 +1,8 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { formatPrice, calculateDiscountPercentage } from "../utils/format";
-import { getProductImage, handleImageError } from "../utils/defaultImages";
-
-// Helper function to get the full image URL
-const getImageUrl = (imagePath) => {
-  if (!imagePath) return 'https://placehold.co/300x300/gray/white?text=No+Image';
-  
-  // If it's already a full URL, return it as is
-  if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
-    return imagePath;
-  }
-  
-  // Otherwise, prepend the API base URL
-  const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
-  return `${baseUrl}${imagePath}`;
-};
+import { getImageUrl, handleImageError } from "../utils/defaultImages";
 
 // Helper function to safely get product data
 const safeProduct = (product) => {
@@ -46,11 +32,88 @@ const safeProduct = (product) => {
 const ProductCard = ({ product }) => {
   // Use the safe product helper to ensure we have valid data
   const safe = safeProduct(product);
+  const [imageUrl, setImageUrl] = useState('');
+  const [imageLoadAttempts, setImageLoadAttempts] = useState(0);
 
-  // Get the first image or use a placeholder
-  const imageUrl = safe.images && safe.images.length > 0 
-    ? getImageUrl(safe.images[0])
-    : 'https://placehold.co/300x300/gray/white?text=No+Image';
+  // Initialize image URL
+  useEffect(() => {
+    const initializeImage = () => {
+      if (safe.images && safe.images.length > 0) {
+        console.log('ProductCard - Product:', safe._id, 'Original image data:', safe.images);
+        
+        // Try to get the first valid image path
+        const imagePath = safe.images[0];
+        console.log('ProductCard - Using image path:', imagePath);
+        
+        // Always use backend server URL
+        const baseUrl = 'http://localhost:5000';
+        console.log('ProductCard - Base URL:', baseUrl);
+        
+        // Process the image URL
+        let processedUrl;
+        
+        if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+          processedUrl = imagePath;
+          console.log('ProductCard - Using full URL:', processedUrl);
+        } else if (imagePath.startsWith('/uploads/')) {
+          processedUrl = `${baseUrl}${imagePath}`;
+          console.log('ProductCard - Constructed uploads URL:', processedUrl);
+        } else if (!imagePath.startsWith('/')) {
+          processedUrl = `${baseUrl}/uploads/${imagePath}`;
+          console.log('ProductCard - Constructed filename URL:', processedUrl);
+        } else {
+          processedUrl = `${baseUrl}${imagePath}`;
+          console.log('ProductCard - Constructed fallback URL:', processedUrl);
+        }
+        
+        setImageUrl(processedUrl);
+      } else {
+        const placeholderUrl = 'https://placehold.co/300x300/gray/white?text=No+Image';
+        console.log('ProductCard - No images available, using placeholder:', placeholderUrl);
+        setImageUrl(placeholderUrl);
+      }
+    };
+
+    initializeImage();
+  }, [safe.images, safe._id]);
+
+  // Function to handle image load errors
+  const handleImageLoadError = (e) => {
+    e.target.onerror = null; // Prevent infinite loop
+    console.log('ProductCard - Image load error for product:', safe._id);
+    console.log('ProductCard - Failed URL:', e.target.src);
+    
+    const attempts = imageLoadAttempts + 1;
+    setImageLoadAttempts(attempts);
+    
+    // Try different URL formats based on the number of attempts
+    switch (attempts) {
+      case 1:
+        // Try with backend URL first
+        const backendUrl = 'http://localhost:5000';
+        const filename = safe.images[0].split(/[\/\\]/).pop();
+        const uploadsUrl = `${backendUrl}/uploads/${filename}`;
+        console.log('ProductCard - Trying backend URL:', uploadsUrl);
+        setImageUrl(uploadsUrl);
+        break;
+        
+      case 2:
+        // Try production URL
+        const prodUrl = 'https://furniture-q3nb.onrender.com';
+        const prodUploadsUrl = `${prodUrl}/uploads/${filename}`;
+        console.log('ProductCard - Trying production URL:', prodUploadsUrl);
+        setImageUrl(prodUploadsUrl);
+        break;
+        
+      default:
+        // Use placeholder with product name
+        const placeholderText = encodeURIComponent(safe.name);
+        const placeholderUrl = `https://placehold.co/300x300/gray/white?text=${placeholderText}`;
+        console.log('ProductCard - Using named placeholder:', placeholderUrl);
+        setImageUrl(placeholderUrl);
+        break;
+    }
+  };
 
   return (
     <motion.div whileHover={{ y: -5 }} className="card group">
@@ -59,10 +122,7 @@ const ProductCard = ({ product }) => {
           src={imageUrl}
           alt={safe.name}
           className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-          onError={(e) => {
-            e.target.onerror = null;
-            e.target.src = 'https://placehold.co/300x300/gray/white?text=Error+Loading+Image';
-          }}
+          onError={handleImageLoadError}
         />
         <div className="absolute top-2 right-2 theme-bg-primary rounded-full p-2 shadow-md opacity-0 group-hover:opacity-100 transition-opacity duration-300">
           <svg

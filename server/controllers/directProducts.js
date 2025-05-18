@@ -7,13 +7,13 @@
 
 const { ObjectId } = require("mongodb");
 const {
+  getCollection,
   findDocuments,
   findOneDocument,
   insertDocument,
   updateDocument,
   deleteDocument,
-  getDb,
-} = require("../utils/directDbConnection");
+} = require("../utils/directDbAccess");
 const path = require("path");
 const fs = require("fs");
 const slugify = require("slugify");
@@ -86,91 +86,79 @@ exports.getAllProducts = async (req, res) => {
       skip: (Number(page) - 1) * Number(limit),
     };
 
-    // Get products
-    let products = await findDocuments(COLLECTION, query, options);
+    // Get products using findDocuments utility
+    const products = await findDocuments(COLLECTION, query, options);
 
     // Populate category information for each product
-    products = products.map((product) => {
-      if (product.category) {
-        const categoryId =
-          typeof product.category === "object"
-            ? product.category._id.toString()
-            : product.category.toString();
+    const populatedProducts = await Promise.all(
+      products.map(async (product) => {
+        if (product.category) {
+          const categoryId =
+            typeof product.category === "object"
+              ? product.category._id.toString()
+              : product.category.toString();
 
-        // Try to get category name from the map
-        const categoryName = categoryMap[categoryId];
+          try {
+            // Try to get category from database
+            const category = await findOneDocument("categories", {
+              _id: new ObjectId(categoryId),
+            });
 
-        if (categoryName) {
-          product.category = {
-            _id: categoryId,
-            name: categoryName,
-            slug: categoryName.toLowerCase().replace(/\s+/g, "-"),
-          };
-        } else {
-          // If category ID is not in the map, try to extract from existing category object
-          if (typeof product.category === "object" && product.category.name) {
+            if (category) {
+              product.category = {
+                _id: categoryId,
+                name: category.name,
+                slug:
+                  category.slug ||
+                  category.name.toLowerCase().replace(/\s+/g, "-"),
+              };
+            } else if (categoryMap[categoryId]) {
+              // Fallback to category map
+              product.category = {
+                _id: categoryId,
+                name: categoryMap[categoryId],
+                slug: categoryMap[categoryId]
+                  .toLowerCase()
+                  .replace(/\s+/g, "-"),
+              };
+            } else {
+              // Generic fallback
+              product.category = {
+                _id: categoryId,
+                name: "Other",
+                slug: "other",
+              };
+            }
+          } catch (error) {
+            console.error(
+              `Error populating category for product ${product._id}:`,
+              error
+            );
+            // Use fallback category
             product.category = {
               _id: categoryId,
-              name: product.category.name,
-              slug: product.category.name.toLowerCase().replace(/\s+/g, "-"),
-            };
-          } else {
-            // Fallback to a generic name if nothing else works
-            product.category = {
-              _id: categoryId,
-              name: "Other",
-              slug: "other",
+              name: categoryMap[categoryId] || "Other",
+              slug: (categoryMap[categoryId] || "other")
+                .toLowerCase()
+                .replace(/\s+/g, "-"),
             };
           }
         }
-      }
-      return product;
-    });
+        return product;
+      })
+    );
 
     // Return products
     return res.status(200).json({
       success: true,
-      count: products.length,
-      data: products,
+      count: populatedProducts.length,
+      data: populatedProducts,
       source: "direct_database",
     });
   } catch (error) {
     console.error("Error getting products with direct MongoDB access:", error);
 
-    // Log detailed error information
-    console.error("Error details:", {
-      name: error.name,
-      message: error.message,
-      stack: error.stack,
-      query: query,
-    });
-
-    try {
-      // Try to get products with a simpler query as fallback
-      console.log("Attempting fallback query for products");
-      const fallbackProducts = await findDocuments(
-        COLLECTION,
-        {},
-        { limit: 20 }
-      );
-
-      if (fallbackProducts && fallbackProducts.length > 0) {
-        console.log(
-          `Fallback query successful, found ${fallbackProducts.length} products`
-        );
-        return res.status(200).json({
-          success: true,
-          count: fallbackProducts.length,
-          data: fallbackProducts,
-          source: "direct_database_fallback",
-        });
-      }
-    } catch (fallbackError) {
-      console.error("Fallback query also failed:", fallbackError);
-    }
-
     // Return mock data as last resort
-    console.log("All database queries failed, returning mock data");
     return res.status(200).json({
       success: true,
       count: 2,
@@ -179,7 +167,11 @@ exports.getAllProducts = async (req, res) => {
           _id: "mock1",
           name: "Mock Product 1",
           price: 19999,
-          category: "mock-category-1",
+          category: {
+            _id: "mock-cat-1",
+            name: "Mock Category 1",
+            slug: "mock-category-1",
+          },
           stock: 10,
           images: ["https://placehold.co/300x300/gray/white?text=Product1"],
         },
@@ -187,7 +179,11 @@ exports.getAllProducts = async (req, res) => {
           _id: "mock2",
           name: "Mock Product 2",
           price: 29999,
-          category: "mock-category-2",
+          category: {
+            _id: "mock-cat-2",
+            name: "Mock Category 2",
+            slug: "mock-category-2",
+          },
           stock: 5,
           images: ["https://placehold.co/300x300/gray/white?text=Product2"],
         },
@@ -266,7 +262,6 @@ exports.getProductById = async (req, res) => {
     if (product.category && typeof product.category === "string") {
       try {
         console.log(`Fetching category details for ID: ${product.category}`);
-        const { findOneDocument } = require("../utils/directDbConnection");
 
         // Try to fetch the category
         const category = await findOneDocument("categories", {
@@ -557,9 +552,9 @@ exports.createProduct = async (req, res) => {
     // Save to database
     let result;
     try {
-      const db = await getDb();
+      const collection = await getCollection(COLLECTION);
       console.log("Connected to database successfully");
-      result = await db.collection("products").insertOne(productData);
+      result = await collection.insertOne(productData);
       console.log("Product inserted successfully with ID:", result.insertedId);
 
       if (!result.acknowledged) {
@@ -595,51 +590,292 @@ exports.createProduct = async (req, res) => {
 // @access  Private/Admin
 exports.updateProduct = async (req, res) => {
   try {
+    console.log("\n=== Starting Product Update ===");
     console.log(`Updating product with ID: ${req.params.id}`);
+    console.log("Request body:", req.body);
+    console.log("Files received:", req.files ? req.files.length : 0);
 
-    // Convert string ID to ObjectId
-    let productId;
-    try {
-      productId = new ObjectId(req.params.id);
-    } catch (error) {
-      console.error("Invalid product ID format:", error);
-      return res.status(400).json({
-        success: false,
-        message: "Invalid product ID format",
-      });
+    // Create query for finding the product
+    let query = {};
+
+    // Try to convert to ObjectId if it looks like one
+    if (/^[0-9a-fA-F]{24}$/.test(req.params.id)) {
+      try {
+        const objectId = new ObjectId(req.params.id);
+        query = { _id: objectId };
+        console.log("Using ObjectId query:", query);
+      } catch (error) {
+        console.warn("Could not convert to ObjectId, using string ID");
+        query = { _id: req.params.id };
+      }
+    } else {
+      // Use string ID
+      query = { _id: req.params.id };
+      console.log("Using string ID query:", query);
     }
 
-    // Update product
-    const result = await updateDocument(
-      COLLECTION,
-      { _id: productId },
-      { $set: req.body }
-    );
+    // Get existing product
+    const existingProduct = await findOneDocument(COLLECTION, query);
 
-    // Check if product exists
-    if (result.matchedCount === 0) {
+    if (!existingProduct) {
+      console.error("Product not found in database");
       return res.status(404).json({
         success: false,
         message: "Product not found",
       });
     }
-
-    // Get updated product
-    const product = await findOneDocument(COLLECTION, { _id: productId });
-
-    // Return product
-    return res.status(200).json({
-      success: true,
-      data: product,
-      source: "direct_database",
+    console.log("Found existing product:", {
+      id: existingProduct._id,
+      name: existingProduct.name,
     });
-  } catch (error) {
-    console.error("Error updating product with direct MongoDB access:", error);
 
-    // Return error
+    // Create updates object with all fields
+    const updates = {
+      $set: {
+        updatedAt: new Date(),
+      },
+    };
+
+    // Handle each field explicitly with type conversion and validation
+    if ("name" in req.body) {
+      const name = req.body.name.toString().trim();
+      if (!name) {
+        return res.status(400).json({
+          success: false,
+          message: "Product name cannot be empty",
+        });
+      }
+      updates.$set.name = name;
+    }
+
+    if ("description" in req.body) {
+      updates.$set.description = req.body.description.toString().trim();
+    }
+
+    if ("price" in req.body) {
+      const price = Number(req.body.price);
+      if (isNaN(price) || price < 0) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid price value - must be a non-negative number",
+        });
+      }
+      updates.$set.price = price;
+    }
+
+    if ("stock" in req.body) {
+      const stock = parseInt(req.body.stock);
+      if (isNaN(stock) || stock < 0) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid stock value - must be a non-negative integer",
+        });
+      }
+      updates.$set.stock = stock;
+    }
+
+    if ("material" in req.body) {
+      updates.$set.material = req.body.material.toString().trim();
+    }
+
+    if ("color" in req.body) {
+      updates.$set.color = req.body.color.toString().trim();
+    }
+
+    if ("featured" in req.body) {
+      updates.$set.featured =
+        req.body.featured === "true" || req.body.featured === true;
+    }
+
+    if ("category" in req.body && req.body.category) {
+      try {
+        if (/^[0-9a-fA-F]{24}$/.test(req.body.category)) {
+          updates.$set.category = new ObjectId(req.body.category);
+        } else {
+          updates.$set.category = req.body.category;
+        }
+      } catch (error) {
+        console.warn(
+          "Could not convert category to ObjectId, using as is:",
+          error.message
+        );
+        updates.$set.category = req.body.category;
+      }
+    }
+
+    // Handle images
+    if (req.files && req.files.length > 0) {
+      console.log("New files uploaded:", req.files.length);
+      const newImages = req.files.map((file) => `/uploads/${file.filename}`);
+      console.log("New image paths:", newImages);
+
+      // Check if we should replace or append images
+      if (req.body.replaceImages === "true") {
+        updates.$set.images = newImages;
+        console.log("Replacing all images with new uploads");
+      } else {
+        // Get existing images from the product
+        const existingImages = existingProduct.images || [];
+        console.log("Existing images:", existingImages);
+
+        // Combine existing and new images
+        updates.$set.images = [...existingImages, ...newImages];
+        console.log("Appending new images to existing ones");
+      }
+      console.log("Final images array:", updates.$set.images);
+    }
+
+    // Handle existing images from form data
+    else if (req.body.existingImages) {
+      try {
+        console.log(
+          "Processing existingImages from form data:",
+          req.body.existingImages
+        );
+        let existingImages;
+
+        // Handle different formats of existingImages
+        if (typeof req.body.existingImages === "string") {
+          // Try to parse as JSON first
+          try {
+            existingImages = JSON.parse(req.body.existingImages);
+            console.log("Successfully parsed existingImages as JSON");
+          } catch (parseError) {
+            // If not valid JSON, treat as comma-separated list
+            console.log("Treating existingImages as comma-separated list");
+            existingImages = req.body.existingImages
+              .split(",")
+              .map((url) => url.trim());
+          }
+        } else if (Array.isArray(req.body.existingImages)) {
+          // If it's already an array
+          existingImages = req.body.existingImages;
+          console.log("existingImages is already an array");
+        } else {
+          // If it's a single value
+          existingImages = [req.body.existingImages];
+          console.log("existingImages is a single value");
+        }
+
+        // Set the images in the update
+        updates.$set.images = existingImages;
+        console.log("Final existingImages array:", existingImages);
+      } catch (error) {
+        console.error("Error processing existing images:", error);
+        return res.status(400).json({
+          success: false,
+          message: "Invalid image data format",
+          error: error.message,
+        });
+      }
+    }
+
+    // Handle dimensions
+    if (req.body.dimensions) {
+      try {
+        let dimensionsData;
+        if (typeof req.body.dimensions === "string") {
+          try {
+            dimensionsData = JSON.parse(req.body.dimensions);
+          } catch {
+            const cleanedDimensions = req.body.dimensions
+              .replace(/['"]+/g, '"')
+              .trim();
+            dimensionsData = JSON.parse(cleanedDimensions);
+          }
+        } else {
+          dimensionsData = req.body.dimensions;
+        }
+
+        const dimensionsObj = {
+          length: parseFloat(dimensionsData.length) || 0,
+          width: parseFloat(dimensionsData.width) || 0,
+          height: parseFloat(dimensionsData.height) || 0,
+        };
+
+        if (Object.values(dimensionsObj).some((val) => val < 0)) {
+          return res.status(400).json({
+            success: false,
+            message: "Dimensions cannot be negative",
+          });
+        }
+
+        updates.$set.dimensions = dimensionsObj;
+        console.log("Processed dimensions:", dimensionsObj);
+      } catch (error) {
+        console.error("Error processing dimensions:", error);
+        return res.status(400).json({
+          success: false,
+          message: "Invalid dimensions format",
+          error: error.message,
+        });
+      }
+    }
+
+    console.log("Final update object:", JSON.stringify(updates, null, 2));
+
+    try {
+      console.log("Calling updateDocument with query:", query);
+      console.log("Updates:", updates);
+
+      // Use the updateDocument function from directDbAccess
+      const updatedProduct = await updateDocument(COLLECTION, query, updates);
+
+      if (!updatedProduct) {
+        console.error("Product not found or update failed");
+        return res.status(404).json({
+          success: false,
+          message: "Product not found or update failed",
+        });
+      }
+
+      // Fetch the category details if needed
+      if (updatedProduct.category) {
+        try {
+          const category = await findOneDocument("categories", {
+            _id:
+              typeof updatedProduct.category === "string" &&
+              /^[0-9a-fA-F]{24}$/.test(updatedProduct.category)
+                ? new ObjectId(updatedProduct.category)
+                : updatedProduct.category,
+          });
+
+          if (category) {
+            updatedProduct.category = {
+              _id: category._id,
+              name: category.name,
+              slug:
+                category.slug ||
+                category.name.toLowerCase().replace(/\s+/g, "-"),
+            };
+          }
+        } catch (categoryError) {
+          console.warn("Error fetching category details:", categoryError);
+          // Don't fail the update if category details can't be fetched
+        }
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: "Product updated successfully",
+        data: updatedProduct,
+      });
+    } catch (dbError) {
+      console.error("Database operation failed:", dbError);
+      return res.status(500).json({
+        success: false,
+        message: "Database operation failed",
+        error: dbError.message,
+        details: dbError.details || {},
+      });
+    }
+  } catch (error) {
+    console.error("Error in product update:", error);
     return res.status(500).json({
       success: false,
-      message: "Server error",
+      message: "Server error during product update",
+      error: error.message,
+      stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
     });
   }
 };

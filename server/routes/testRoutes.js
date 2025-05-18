@@ -1,10 +1,8 @@
 const express = require('express');
 const router = express.Router();
+const { getCollection, findDocuments, findOneDocument } = require('../utils/directDbAccess');
 const { ObjectId } = require('mongodb');
 const mongoose = require('mongoose');
-
-// Get direct database connection utilities
-const { getMongoClient, findOneDocument, findDocuments } = require('../utils/directDbConnection');
 
 /**
  * Test endpoint for MongoDB connection

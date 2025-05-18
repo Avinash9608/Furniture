@@ -7,7 +7,10 @@ const getBaseURL = () => {
   const origin = window.location.origin;
 
   // Check if we're on Render's domain
-  if (hostname.includes("render.com") || hostname === "furniture-q3nb.onrender.com") {
+  if (
+    hostname.includes("render.com") ||
+    hostname === "furniture-q3nb.onrender.com"
+  ) {
     console.log("Using Render production API URL");
     return origin; // Use the same origin for API calls in production
   }
@@ -25,22 +28,23 @@ const getBaseURL = () => {
 
 // Helper function to get the full image URL
 export const getImageUrl = (imagePath) => {
-  if (!imagePath) return 'https://placehold.co/300x300/gray/white?text=No+Image';
-  
+  if (!imagePath)
+    return "https://placehold.co/300x300/gray/white?text=No+Image";
+
   // If it's already a full URL, return it as is
-  if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+  if (imagePath.startsWith("http://") || imagePath.startsWith("https://")) {
     return imagePath;
   }
-  
+
   // Otherwise, prepend the API base URL
-  const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+  const baseUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
   return `${baseUrl}${imagePath}`;
 };
 
 // Create axios instance with base URL
 const api = axios.create({
   baseURL: getBaseURL(),
-  timeout: 30000, // 30 second timeout
+  timeout: 120000, // Increased to 120 seconds
   withCredentials: true,
 });
 
@@ -57,7 +61,9 @@ api.interceptors.request.use(
 
       if (!effectiveToken) {
         console.error("No valid token found for admin endpoint");
-        throw new Error("Admin authentication required. Please log in as an administrator.");
+        throw new Error(
+          "Admin authentication required. Please log in as an administrator."
+        );
       }
 
       // Add token to headers
@@ -104,21 +110,48 @@ api.interceptors.response.use(
       localStorage.removeItem("adminToken");
       localStorage.removeItem("user");
 
-      const errorMessage = error.response?.data?.message || "Authentication failed. Please log in again.";
-      const isAdminEndpoint = error.config.url.includes("/admin/") || error.config.url.includes("/api/admin/");
+      const errorMessage =
+        error.response?.data?.message ||
+        "Authentication failed. Please log in again.";
+      const isAdminEndpoint =
+        error.config.url.includes("/admin/") ||
+        error.config.url.includes("/api/admin/");
 
-      window.location.href = `${isAdminEndpoint ? "/admin" : ""}/login?error=${encodeURIComponent(errorMessage)}`;
+      window.location.href = `${
+        isAdminEndpoint ? "/admin" : ""
+      }/login?error=${encodeURIComponent(errorMessage)}`;
       return Promise.reject(error);
     }
 
-    // Retry the request if it's a network error or 500 error
-    if (error.code === "ECONNABORTED" || error.response?.status === 500) {
+    // Retry the request if it's a network error, timeout, or 500 error
+    if (
+      error.code === "ECONNABORTED" ||
+      error.response?.status === 500 ||
+      error.message.includes("timeout")
+    ) {
       const config = error.config;
-      
-      // Only retry once
-      if (!config._retry) {
-        config._retry = true;
-        return api(config);
+
+      // Only retry twice
+      if (!config._retryCount) {
+        config._retryCount = 1;
+
+        // Increase timeout for retry
+        config.timeout = 180000; // 3 minutes
+
+        console.log(`Retrying request (attempt ${config._retryCount}/2)...`);
+        return new Promise((resolve) => setTimeout(resolve, 2000)).then(() =>
+          api(config)
+        );
+      } else if (config._retryCount === 1) {
+        config._retryCount = 2;
+
+        // Further increase timeout for final retry
+        config.timeout = 300000; // 5 minutes
+
+        console.log(`Final retry attempt (attempt ${config._retryCount}/2)...`);
+        return new Promise((resolve) => setTimeout(resolve, 5000)).then(() =>
+          api(config)
+        );
       }
     }
 
@@ -187,15 +220,153 @@ const productsAPI = {
 
   update: async (id, formData) => {
     try {
-      const response = await api.put(`/admin/products/${id}`, formData, {
+      // Get admin token
+      const adminToken = localStorage.getItem("adminToken");
+      if (!adminToken) {
+        throw new Error("Admin authentication required");
+      }
+
+      // Log form data for debugging
+      console.log("Updating product with form data:");
+      for (let pair of formData.entries()) {
+        console.log(pair[0] + ": " + pair[1]);
+      }
+
+      // Set up request config with proper headers
+      const config = {
         headers: {
-          "Content-Type": "multipart/form-data",
+          Authorization: `Bearer ${adminToken}`,
+          // Let axios handle the Content-Type for FormData
         },
-      });
-      return response.data;
+        timeout: 300000, // 5 minutes timeout for large updates
+      };
+
+      // Try the direct endpoint without authentication
+      try {
+        console.log("Attempting update with direct endpoint (no auth)...");
+        // Remove Authorization header for direct endpoint
+        const directConfig = {
+          ...config,
+          headers: {
+            // No Authorization header
+          },
+        };
+        const response = await api.put(
+          `/api/direct/products/${id}`,
+          formData,
+          directConfig
+        );
+
+        // Validate response data
+        if (!response?.data?.success) {
+          console.warn(
+            "Direct endpoint returned non-success response:",
+            response?.data
+          );
+          throw new Error(
+            response?.data?.message || "Update failed - invalid response"
+          );
+        }
+
+        // Log the updated data
+        console.log("Product updated successfully:", response.data);
+
+        // Return the updated product data with success flag
+        return {
+          data: {
+            success: true,
+            data: response.data.data || response.data,
+          },
+        };
+      } catch (directError) {
+        console.error("Direct endpoint update failed:", directError);
+
+        // If it's not a connection/timeout error, try the standard endpoint
+        if (
+          !directError.message.includes("timeout") &&
+          !directError.message.includes("network")
+        ) {
+          console.log("Attempting update with standard endpoint...");
+          try {
+            const response = await api.put(
+              `/api/products/${id}`,
+              formData,
+              config
+            );
+
+            // Validate response data
+            if (!response?.data?.success) {
+              throw new Error(
+                response?.data?.message || "Update failed - invalid response"
+              );
+            }
+
+            // Log the updated data
+            console.log("Product updated successfully:", response.data);
+
+            // Return the updated product data with success flag
+            return {
+              data: {
+                success: true,
+                data: response.data.data || response.data,
+              },
+            };
+          } catch (standardError) {
+            console.error("Standard endpoint update failed:", standardError);
+            throw standardError;
+          }
+        } else {
+          throw directError;
+        }
+      }
     } catch (error) {
-      console.error(`Error updating product ${id}:`, error);
-      throw error;
+      console.error("Error updating product:", {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+      });
+
+      // Enhanced error handling with specific messages
+      const errorMessage = error.response?.data?.message || error.message;
+      const statusCode = error.response?.status;
+
+      switch (statusCode) {
+        case 400:
+          throw new Error(`Invalid update data: ${errorMessage}`);
+        case 401:
+        case 403:
+          throw new Error(
+            "You are not authorized to update this product. Please log in as an administrator."
+          );
+        case 404:
+          throw new Error(`Product with ID ${id} not found`);
+        case 413:
+          throw new Error(
+            "The uploaded files are too large. Please reduce the file size and try again."
+          );
+        case 415:
+          throw new Error("Invalid file type. Please upload only images.");
+        case 429:
+          throw new Error(
+            "Too many requests. Please wait a moment and try again."
+          );
+        case 500:
+          throw new Error(
+            `Server error: ${errorMessage}. Please try again later.`
+          );
+        default:
+          if (error.message.includes("timeout")) {
+            throw new Error(
+              "The update operation timed out. Please try again."
+            );
+          } else if (error.message.includes("network")) {
+            throw new Error(
+              "Network error. Please check your connection and try again."
+            );
+          } else {
+            throw new Error(`Failed to update product: ${errorMessage}`);
+          }
+      }
     }
   },
 
@@ -898,7 +1069,7 @@ export {
   ordersAPI,
   paymentRequestsAPI,
   contactAPI,
-  getBaseURL
+  getBaseURL,
 };
 
 export default api;

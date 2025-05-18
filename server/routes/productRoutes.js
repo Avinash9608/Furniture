@@ -1,29 +1,26 @@
 const express = require('express');
 const router = express.Router();
+const {
+  getAllProducts,
+  getProductById,
+  createProduct,
+  updateProduct,
+  deleteProduct
+} = require('../controllers/directProducts');
+const { protect, authorize } = require('../middleware/auth');
+const { handleMultipleFiles } = require('../middleware/upload');
 
-// Get all products
-router.get('/', (req, res) => {
-  res.json({ message: 'Get all products' });
-});
+// Public routes
+router.get('/', getAllProducts);
+router.get('/:id', getProductById);
 
-// Get a single product
-router.get('/:id', (req, res) => {
-  res.json({ message: `Get product with id ${req.params.id}` });
-});
+// Protected routes
+router.use(protect); // Apply authentication middleware to all routes below
 
-// Create a product
-router.post('/', (req, res) => {
-  res.json({ message: 'Create a product' });
-});
+// Admin routes
+router.post('/', authorize('admin'), handleMultipleFiles, createProduct);
+router.put('/:id', authorize('admin'), handleMultipleFiles, updateProduct);
+router.delete('/:id', authorize('admin'), deleteProduct);
 
-// Update a product
-router.put('/:id', (req, res) => {
-  res.json({ message: `Update product with id ${req.params.id}` });
-});
-
-// Delete a product
-router.delete('/:id', (req, res) => {
-  res.json({ message: `Delete product with id ${req.params.id}` });
-});
-
+// Export the router
 module.exports = router;

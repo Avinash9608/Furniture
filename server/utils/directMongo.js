@@ -5,7 +5,7 @@
  * bypassing Mongoose for critical operations.
  */
 
-const { directDB } = require('./db');
+const { getCollection, findDocuments, findOneDocument } = require('./directDbAccess');
 
 /**
  * Get contacts collection using direct MongoDB driver
@@ -13,22 +13,7 @@ const { directDB } = require('./db');
  */
 const getContacts = async () => {
   try {
-    // Ensure we have a connection
-    let db = directDB.getDB();
-    
-    if (!db) {
-      db = await directDB.connect();
-    }
-    
-    if (!db) {
-      console.error('Failed to connect to MongoDB using direct driver');
-      return [];
-    }
-    
-    // Query the contacts collection
-    const contactsCollection = db.collection('contacts');
-    const contacts = await contactsCollection.find({}).sort({ createdAt: -1 }).toArray();
-    
+    const contacts = await findDocuments('contacts', {}, { sort: { createdAt: -1 } });
     console.log(`Successfully fetched ${contacts.length} contacts using direct MongoDB driver`);
     return contacts;
   } catch (error) {
@@ -43,22 +28,7 @@ const getContacts = async () => {
  */
 const getProducts = async () => {
   try {
-    // Ensure we have a connection
-    let db = directDB.getDB();
-    
-    if (!db) {
-      db = await directDB.connect();
-    }
-    
-    if (!db) {
-      console.error('Failed to connect to MongoDB using direct driver');
-      return [];
-    }
-    
-    // Query the products collection
-    const productsCollection = db.collection('products');
-    const products = await productsCollection.find({}).sort({ createdAt: -1 }).toArray();
-    
+    const products = await findDocuments('products', {}, { sort: { createdAt: -1 } });
     console.log(`Successfully fetched ${products.length} products using direct MongoDB driver`);
     return products;
   } catch (error) {
@@ -73,22 +43,7 @@ const getProducts = async () => {
  */
 const getCategories = async () => {
   try {
-    // Ensure we have a connection
-    let db = directDB.getDB();
-    
-    if (!db) {
-      db = await directDB.connect();
-    }
-    
-    if (!db) {
-      console.error('Failed to connect to MongoDB using direct driver');
-      return [];
-    }
-    
-    // Query the categories collection
-    const categoriesCollection = db.collection('categories');
-    const categories = await categoriesCollection.find({}).sort({ name: 1 }).toArray();
-    
+    const categories = await findDocuments('categories', {}, { sort: { name: 1 } });
     console.log(`Successfully fetched ${categories.length} categories using direct MongoDB driver`);
     return categories;
   } catch (error) {
@@ -103,22 +58,7 @@ const getCategories = async () => {
  */
 const getOrders = async () => {
   try {
-    // Ensure we have a connection
-    let db = directDB.getDB();
-    
-    if (!db) {
-      db = await directDB.connect();
-    }
-    
-    if (!db) {
-      console.error('Failed to connect to MongoDB using direct driver');
-      return [];
-    }
-    
-    // Query the orders collection
-    const ordersCollection = db.collection('orders');
-    const orders = await ordersCollection.find({}).sort({ createdAt: -1 }).toArray();
-    
+    const orders = await findDocuments('orders', {}, { sort: { createdAt: -1 } });
     console.log(`Successfully fetched ${orders.length} orders using direct MongoDB driver`);
     return orders;
   } catch (error) {
@@ -133,22 +73,7 @@ const getOrders = async () => {
  */
 const getPaymentSettings = async () => {
   try {
-    // Ensure we have a connection
-    let db = directDB.getDB();
-    
-    if (!db) {
-      db = await directDB.connect();
-    }
-    
-    if (!db) {
-      console.error('Failed to connect to MongoDB using direct driver');
-      return null;
-    }
-    
-    // Query the payment settings collection
-    const paymentSettingsCollection = db.collection('paymentsettings');
-    const paymentSettings = await paymentSettingsCollection.findOne({});
-    
+    const paymentSettings = await findOneDocument('paymentsettings', {});
     console.log('Successfully fetched payment settings using direct MongoDB driver');
     return paymentSettings;
   } catch (error) {
@@ -163,22 +88,7 @@ const getPaymentSettings = async () => {
  */
 const getPaymentRequests = async () => {
   try {
-    // Ensure we have a connection
-    let db = directDB.getDB();
-    
-    if (!db) {
-      db = await directDB.connect();
-    }
-    
-    if (!db) {
-      console.error('Failed to connect to MongoDB using direct driver');
-      return [];
-    }
-    
-    // Query the payment requests collection
-    const paymentRequestsCollection = db.collection('paymentrequests');
-    const paymentRequests = await paymentRequestsCollection.find({}).sort({ createdAt: -1 }).toArray();
-    
+    const paymentRequests = await findDocuments('paymentrequests', {}, { sort: { createdAt: -1 } });
     console.log(`Successfully fetched ${paymentRequests.length} payment requests using direct MongoDB driver`);
     return paymentRequests;
   } catch (error) {

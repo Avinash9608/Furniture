@@ -3,6 +3,11 @@
  * This controller bypasses Mongoose and accesses MongoDB directly
  */
 
+const { getCollection } = require("../utils/directDbAccess");
+
+// Collection name
+const COLLECTION = "contacts";
+
 // Mock data for fallback
 const mockMessages = [
   {
@@ -45,26 +50,15 @@ exports.getAllMessagesDirectDb = async (req, res) => {
     console.log("🔍 getAllMessagesDirectDb called - fetching messages directly from MongoDB");
     console.log("Request URL:", req.originalUrl);
     
-    // Check if we have a global database reference
-    if (!global.mongoDb) {
-      console.error("No global database reference available");
-      return res.status(200).json({
-        success: true,
-        count: mockMessages.length,
-        data: mockMessages,
-        source: "mock_messages_no_global_db"
-      });
-    }
-    
     // Try to get messages directly from the database
     try {
       console.log("Attempting to fetch messages directly from MongoDB...");
       
       // Get the contacts collection
-      const contactsCollection = global.mongoDb.collection('contacts');
+      const collection = await getCollection(COLLECTION);
       
       // Find all messages
-      const messages = await contactsCollection.find({}).sort({ createdAt: -1 }).toArray();
+      const messages = await collection.find({}).sort({ createdAt: -1 }).toArray();
       
       console.log(`Found ${messages.length} messages directly from MongoDB`);
       
@@ -88,27 +82,25 @@ exports.getAllMessagesDirectDb = async (req, res) => {
         source: "mock_messages_empty_result_direct"
       });
     } catch (dbError) {
-      console.error("❌ Error fetching messages directly from MongoDB:", dbError);
+      console.error("Error fetching messages from MongoDB:", dbError);
       
       // Return mock messages on error
       return res.status(200).json({
         success: true,
         count: mockMessages.length,
         data: mockMessages,
-        source: "mock_messages_db_error_direct",
-        error: dbError.message
+        source: "mock_messages_db_error"
       });
     }
   } catch (error) {
-    console.error("❌ Unexpected error in getAllMessagesDirectDb:", error);
+    console.error("Error in getAllMessagesDirectDb:", error);
     
-    // Return mock messages on error
+    // Return mock messages as last resort
     return res.status(200).json({
       success: true,
       count: mockMessages.length,
       data: mockMessages,
-      source: "mock_messages_unexpected_error_direct",
-      error: error.message
+      source: "mock_messages_error_fallback"
     });
   }
 };

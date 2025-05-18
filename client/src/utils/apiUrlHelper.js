@@ -1,6 +1,6 @@
 /**
  * API URL Helper
- * 
+ *
  * This utility provides functions to handle API URLs consistently across the application.
  * It ensures that API calls work correctly in both development and production environments.
  */
@@ -11,13 +11,14 @@
  */
 export const getApiBaseUrl = () => {
   const hostname = window.location.hostname;
-  const isProduction = hostname.includes('render.com') || process.env.NODE_ENV === 'production';
-  
+  const isProduction =
+    hostname.includes("render.com") || process.env.NODE_ENV === "production";
+
   if (isProduction) {
-    return 'https://furniture-q3nb.onrender.com/api';
+    return "https://furniture-q3nb.onrender.com/api";
   }
-  
-  return 'http://localhost:5000/api';
+
+  return "http://localhost:5000/api";
 };
 
 /**
@@ -27,10 +28,12 @@ export const getApiBaseUrl = () => {
  */
 export const getApiUrl = (endpoint) => {
   const baseUrl = getApiBaseUrl();
-  
+
   // Ensure endpoint doesn't start with a slash if baseUrl ends with one
-  const normalizedEndpoint = endpoint.startsWith('/') ? endpoint.substring(1) : endpoint;
-  
+  const normalizedEndpoint = endpoint.startsWith("/")
+    ? endpoint.substring(1)
+    : endpoint;
+
   return `${baseUrl}/${normalizedEndpoint}`;
 };
 
@@ -40,13 +43,14 @@ export const getApiUrl = (endpoint) => {
  */
 export const getAssetsBaseUrl = () => {
   const hostname = window.location.hostname;
-  const isProduction = hostname.includes('render.com') || process.env.NODE_ENV === 'production';
-  
+  const isProduction =
+    hostname.includes("render.com") || process.env.NODE_ENV === "production";
+
   if (isProduction) {
-    return 'https://furniture-q3nb.onrender.com';
+    return "https://furniture-q3nb.onrender.com";
   }
-  
-  return 'http://localhost:5000';
+
+  return "http://localhost:5000";
 };
 
 /**
@@ -55,10 +59,10 @@ export const getAssetsBaseUrl = () => {
  * @returns {string} The full URL for the asset
  */
 export const getAssetUrl = (asset) => {
-  if (!asset) return '';
+  if (!asset) return "";
 
   // If the asset is an object (like from FileUpload)
-  if (typeof asset === 'object') {
+  if (typeof asset === "object") {
     // If it's a File object or has a preview URL
     if (asset instanceof File || asset.preview) {
       return asset.preview || URL.createObjectURL(asset);
@@ -74,24 +78,27 @@ export const getAssetUrl = (asset) => {
   }
 
   // If it's a string URL
-  if (typeof asset === 'string') {
+  if (typeof asset === "string") {
     // If it's already a full URL
-    if (asset.startsWith('http')) {
+    if (asset.startsWith("http")) {
       const hostname = window.location.hostname;
       // Ensure HTTPS in production
-      if (hostname.includes("render.com") || hostname === "furniture-q3nb.onrender.com") {
-        return asset.replace('http:', 'https:');
+      if (
+        hostname.includes("render.com") ||
+        hostname === "furniture-q3nb.onrender.com"
+      ) {
+        return asset.replace("http:", "https:");
       }
       return asset;
     }
 
     // Handle relative paths
     const baseUrl = getAssetsBaseUrl();
-    const normalizedPath = asset.startsWith('/') ? asset : `/${asset}`;
+    const normalizedPath = asset.startsWith("/") ? asset : `/${asset}`;
     return `${baseUrl}${normalizedPath}`;
   }
 
-  return '';
+  return "";
 };
 
 /**
@@ -101,22 +108,22 @@ export const getAssetUrl = (asset) => {
  */
 export const fixImageUrls = (images) => {
   if (!images) return [];
-  
+
   const baseUrl = getAssetsBaseUrl();
-  
-  return images.map(img => {
-    if (typeof img !== 'string') return img;
-    
+
+  return images.map((img) => {
+    if (typeof img !== "string") return img;
+
     // If the image URL is already absolute, return it as is
-    if (img.startsWith('http://') || img.startsWith('https://')) {
+    if (img.startsWith("http://") || img.startsWith("https://")) {
       return img;
     }
-    
+
     // If the image path starts with a slash, append it to the base URL
-    if (img.startsWith('/')) {
+    if (img.startsWith("/")) {
       return `${baseUrl}${img}`;
     }
-    
+
     // Otherwise, add a slash between base URL and image path
     return `${baseUrl}/${img}`;
   });
@@ -127,5 +134,5 @@ export default {
   getApiUrl,
   getAssetsBaseUrl,
   getAssetUrl,
-  fixImageUrls
+  fixImageUrls,
 };

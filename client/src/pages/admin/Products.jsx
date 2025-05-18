@@ -1143,51 +1143,39 @@ const AdminProducts = () => {
     setCurrentPage(pageNumber);
   };
 
-  // Handle delete product
-  const handleDeleteProduct = async () => {
-    if (!deleteProductId) return;
+  // Handle edit product
+  const handleEditProduct = (productId) => {
+    navigate(`/admin/products/edit/${productId}`);
+  };
 
+  // Handle delete product
+  const handleDeleteClick = (productId) => {
+    setDeleteProductId(productId);
+    setShowDeleteModal(true);
+  };
+
+  const handleDeleteConfirm = async () => {
     try {
       setDeleteLoading(true);
       setDeleteError(null);
 
-      try {
-        // Try to delete via API
-        await productsAPI.delete(deleteProductId);
-      } catch (apiError) {
-        console.log(
-          "API error when deleting product, continuing with UI update:",
-          apiError
-        );
-        // We'll continue with the UI update even if the API fails
-      }
+      // Call the API to delete the product
+      await productsAPI.delete(deleteProductId);
 
-      // Remove product from state
-      const updatedProducts = products.filter(
-        (product) => product._id !== deleteProductId
-      );
+      // Remove the product from the state
+      const updatedProducts = products.filter(p => p._id !== deleteProductId);
       setProducts(updatedProducts);
+      setFilteredProducts(updatedProducts);
 
       // Show success message
-      setSuccessMessage("Product deleted successfully");
+      setSuccessMessage("Product deleted successfully!");
 
-      // Close modal
+      // Close the modal
       setShowDeleteModal(false);
       setDeleteProductId(null);
-
-      // Clear success message after 3 seconds
-      setTimeout(() => {
-        setSuccessMessage(null);
-      }, 3000);
     } catch (error) {
       console.error("Error deleting product:", error);
-      setDeleteError("Failed to delete product. Please try again.");
-
-      // Close modal anyway after a delay
-      setTimeout(() => {
-        setShowDeleteModal(false);
-        setDeleteProductId(null);
-      }, 2000);
+      setDeleteError(error.response?.data?.message || "Failed to delete product");
     } finally {
       setDeleteLoading(false);
     }
@@ -1696,10 +1684,7 @@ const AdminProducts = () => {
                         Edit
                       </Link>
                       <button
-                        onClick={() => {
-                          setDeleteProductId(product._id);
-                          setShowDeleteModal(true);
-                        }}
+                        onClick={() => handleDeleteClick(product._id)}
                         className="text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300"
                       >
                         Delete
@@ -1780,66 +1765,31 @@ const AdminProducts = () => {
       {/* Delete Confirmation Modal */}
       <Modal
         isOpen={showDeleteModal}
-        onClose={() => {
-          setShowDeleteModal(false);
-          setDeleteProductId(null);
-          setDeleteError(null);
-        }}
+        onClose={() => !deleteLoading && setShowDeleteModal(false)}
         title="Delete Product"
-        size="md"
-        footer={
-          <>
-            <Button
-              variant="danger"
-              onClick={handleDeleteProduct}
-              disabled={deleteLoading}
-            >
-              {deleteLoading ? "Deleting..." : "Delete"}
-            </Button>
+      >
+        <div className="p-6">
+          <p className="text-gray-700 mb-4">
+            Are you sure you want to delete this product? This action cannot be undone.
+          </p>
+          {deleteError && (
+            <Alert type="error" message={deleteError} className="mb-4" />
+          )}
+          <div className="flex justify-end gap-4">
             <Button
               variant="secondary"
-              onClick={() => {
-                setShowDeleteModal(false);
-                setDeleteProductId(null);
-                setDeleteError(null);
-              }}
+              onClick={() => setShowDeleteModal(false)}
+              disabled={deleteLoading}
             >
               Cancel
             </Button>
-          </>
-        }
-      >
-        <div className="sm:flex sm:items-start">
-          <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 dark:bg-red-900/30 sm:mx-0 sm:h-10 sm:w-10">
-            <svg
-              className="h-6 w-6 text-red-600 dark:text-red-400"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              xmlns="http://www.w3.org/2000/svg"
+            <Button
+              variant="danger"
+              onClick={handleDeleteConfirm}
+              loading={deleteLoading}
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-              ></path>
-            </svg>
-          </div>
-          <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
-            <p className="text-sm theme-text-secondary">
-              Are you sure you want to delete this product? This action cannot
-              be undone.
-            </p>
-            {deleteError && (
-              <div className="mt-2">
-                <Alert
-                  type="error"
-                  message={deleteError}
-                  onClose={() => setDeleteError(null)}
-                />
-              </div>
-            )}
+              Delete
+            </Button>
           </div>
         </div>
       </Modal>

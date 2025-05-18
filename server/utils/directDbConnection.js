@@ -22,28 +22,25 @@ let cachedDb = null;
 
 /**
  * Get a MongoDB client with connection and retry logic
- * @param {number} retryCount - Current retry attempt (default: 0)
- * @param {number} maxRetries - Maximum number of retry attempts (default: 3)
  * @returns {Promise<{client: MongoClient, db: any}>} MongoDB client and database
  */
-const getMongoClient = async (retryCount = 0, maxRetries = 3) => {
+const getMongoClient = async () => {
   // If we already have a cached connection, test it and return if valid
   if (cachedClient && cachedDb) {
     try {
       // Test the connection with a ping
       await cachedDb.command({ ping: 1 });
-      console.log("Using cached MongoDB connection (verified with ping)");
+      console.log("Using cached MongoDB connection");
       return { client: cachedClient, db: cachedDb };
     } catch (pingError) {
       console.warn(
         "Cached MongoDB connection failed ping test:",
         pingError.message
       );
-      console.log("Will create a new connection...");
 
       // Close the failed connection
       try {
-        await cachedClient.close(true);
+        await cachedClient.close();
       } catch (closeError) {
         console.warn("Error closing failed connection:", closeError.message);
       }
@@ -55,55 +52,48 @@ const getMongoClient = async (retryCount = 0, maxRetries = 3) => {
   }
 
   // Get MongoDB URI
-  const uri = getMongoURI();
-
+  const uri = process.env.MONGO_URI || process.env.MONGODB_URI;
   if (!uri) {
     throw new Error("MongoDB URI not found in environment variables");
   }
 
-  console.log(
-    `Creating new MongoDB client connection (attempt ${retryCount + 1}/${
-      maxRetries + 1
-    })`
-  );
+  console.log("Creating new MongoDB client connection");
 
-  // Create a new MongoDB client with optimized settings for Render deployment
+  // Create a new MongoDB client with optimized settings
   const client = new MongoClient(uri, {
-    connectTimeoutMS: 600000, // 10 minutes
-    socketTimeoutMS: 600000, // 10 minutes
-    serverSelectionTimeoutMS: 600000, // 10 minutes
-    maxPoolSize: 20, // Increased pool size
-    minPoolSize: 5, // Ensure minimum connections
+    connectTimeoutMS: 60000, // 1 minute
+    socketTimeoutMS: 300000, // 5 minutes
+    serverSelectionTimeoutMS: 60000, // 1 minute
+    maxPoolSize: 10,
+    minPoolSize: 1,
     retryWrites: true,
-    w: 1, // Write acknowledgment from primary only (faster than majority)
-    wtimeoutMS: 60000, // 1 minute
-    maxIdleTimeMS: 120000, // 2 minutes max idle time
-    directConnection: false, // Allow for replica set connections
-    readPreference: "primaryPreferred", // Read from primary if available, otherwise secondary
-    retryReads: true, // Retry read operations
-    // Removed unsupported options: keepAlive, keepAliveInitialDelay
+    retryReads: true,
+    w: 1,
+    readPreference: "primary",
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+    // Add server monitoring
+    monitorCommands: true,
+    heartbeatFrequencyMS: 10000, // Check server health every 10 seconds
+  });
+
+  // Add event listeners for better monitoring
+  client.on("serverHeartbeatStarted", (event) => {
+    console.log("Server heartbeat started");
+  });
+
+  client.on("serverHeartbeatSucceeded", (event) => {
+    console.log("Server heartbeat succeeded");
+  });
+
+  client.on("serverHeartbeatFailed", (event) => {
+    console.warn("Server heartbeat failed:", event.failure);
   });
 
   try {
-    // Connect to MongoDB with timeout
-    const connectPromise = client.connect();
-
-    // Add a timeout to the connect promise
-    const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(
-        () => reject(new Error("Connection timeout after 60 seconds")),
-        60000
-      );
-    });
-
-    // Race the connect promise against the timeout
-    await Promise.race([connectPromise, timeoutPromise]);
-
+    // Connect to MongoDB
+    await client.connect();
     console.log("MongoDB connection established successfully");
-
-    // Test the connection with a ping
-    await client.db("admin").command({ ping: 1 });
-    console.log("MongoDB connection verified with ping");
 
     // Get database name from URI
     const dbName = uri.split("/").pop().split("?")[0];
@@ -113,49 +103,15 @@ const getMongoClient = async (retryCount = 0, maxRetries = 3) => {
     cachedClient = client;
     cachedDb = db;
 
-    // Set up event listeners for the connection
-    client.on("error", (error) => {
-      console.error("MongoDB connection error event:", error);
-    });
-
-    client.on("timeout", () => {
-      console.warn("MongoDB connection timeout event");
-    });
-
-    client.on("close", () => {
-      console.warn("MongoDB connection closed event");
-      // Reset cache on close
-      if (cachedClient === client) {
-        cachedClient = null;
-        cachedDb = null;
-      }
-    });
-
     return { client, db };
   } catch (error) {
-    console.error(
-      `Error connecting to MongoDB (attempt ${retryCount + 1}/${
-        maxRetries + 1
-      }):`,
-      error
-    );
+    console.error("Error connecting to MongoDB:", error);
 
     // Close the failed connection
     try {
-      await client.close(true);
+      await client.close();
     } catch (closeError) {
       console.warn("Error closing failed connection:", closeError.message);
-    }
-
-    // Retry logic
-    if (retryCount < maxRetries) {
-      console.log(
-        `Retrying connection in 3 seconds... (attempt ${retryCount + 2}/${
-          maxRetries + 1
-        })`
-      );
-      await new Promise((resolve) => setTimeout(resolve, 3000));
-      return getMongoClient(retryCount + 1, maxRetries);
     }
 
     throw error;
@@ -541,31 +497,79 @@ const insertDocument = async (collectionName, document) => {
  * @param {string} collectionName - The name of the collection
  * @param {Object} query - The query to find the document
  * @param {Object} update - The update to apply
- * @returns {Promise<Object>} - The update result
+ * @param {number} timeoutMs - Timeout in milliseconds (default: 300000)
+ * @returns {Promise<Object>} - The updated document
  */
-const updateDocument = async (collectionName, query, update) => {
+const updateDocument = async (
+  collectionName,
+  query,
+  update,
+  timeoutMs = 300000
+) => {
   console.log(`Updating document in ${collectionName} with query:`, query);
+  console.log("Update operation:", update);
+
+  let client = null;
+  let timeoutId = null;
 
   try {
+    // Get MongoDB client with retry logic
     const { db } = await getMongoClient();
     const collection = db.collection(collectionName);
 
-    // Add updatedAt timestamp
-    const updateWithTimestamp = {
-      ...update,
-      $set: {
-        ...(update.$set || {}),
-        updatedAt: new Date(),
-      },
-    };
+    // If update doesn't use operators ($set, $unset, etc.), wrap it in $set
+    const hasOperators = Object.keys(update).some((key) => key.startsWith("$"));
+    const finalUpdate = hasOperators ? update : { $set: update };
 
-    const result = await collection.updateOne(query, updateWithTimestamp);
-    console.log(`Document updated in ${collectionName}:`, result.modifiedCount);
+    // Always add updatedAt timestamp to $set
+    if (!finalUpdate.$set) {
+      finalUpdate.$set = {};
+    }
+    finalUpdate.$set.updatedAt = new Date();
 
-    return result;
+    console.log("Final update operation:", finalUpdate);
+
+    // Perform the update operation directly without using Promise.race
+    const result = await collection.findOneAndUpdate(query, finalUpdate, {
+      returnDocument: "after",
+      upsert: false,
+      maxTimeMS: timeoutMs,
+    });
+
+    if (!result || !result.value) {
+      throw new Error("Document not found or update failed");
+    }
+
+    console.log("Update successful:", {
+      documentId: result.value._id,
+      acknowledged: true,
+    });
+
+    return result.value;
   } catch (error) {
     console.error(`Error updating document in ${collectionName}:`, error);
+
+    // If it's a timeout error, provide a clearer message
+    if (
+      error.message &&
+      (error.message.includes("timed out") ||
+        error.message.includes("operation exceeded time limit"))
+    ) {
+      throw new Error(
+        `Update operation timed out after ${timeoutMs}ms. Please try again.`
+      );
+    }
+
     throw error;
+  } finally {
+    // Close the client if it exists
+    if (client) {
+      try {
+        await client.close();
+      } catch (closeError) {
+        console.warn("Error closing MongoDB connection:", closeError);
+      }
+    }
   }
 };
 

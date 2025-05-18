@@ -11,7 +11,7 @@ const { ObjectId } = require('mongodb');
 const mongoose = require('mongoose');
 
 // Import direct database connection utilities
-const { findDocuments, findOneDocument } = require('../utils/directDbConnection');
+const { findDocuments, findOneDocument } = require('../utils/directDbAccess');
 
 // Collection name
 const COLLECTION = 'products';

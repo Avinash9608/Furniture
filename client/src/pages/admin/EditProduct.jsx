@@ -39,53 +39,25 @@ const EditProduct = () => {
 
         // Fetch product details
         const productResponse = await productsAPI.getById(id);
-        setProduct(productResponse.data.data);
+        if (!productResponse.data) {
+          throw new Error("Product not found");
+        }
+
+        const productData = productResponse.data.data || productResponse.data;
+        console.log("Fetched product data:", productData);
+        setProduct(productData);
 
         // Fetch categories
         const categoriesResponse = await categoriesAPI.getAll();
-        console.log("Categories API response:", categoriesResponse);
-
-        // Check if we have categories data and it's in the expected format
-        let fetchedCategories = [];
-        if (categoriesResponse.data && Array.isArray(categoriesResponse.data)) {
-          fetchedCategories = categoriesResponse.data;
-        } else if (
-          categoriesResponse.data &&
-          categoriesResponse.data.data &&
-          Array.isArray(categoriesResponse.data.data)
-        ) {
-          fetchedCategories = categoriesResponse.data.data;
-        } else {
-          console.error(
-            "Unexpected categories data format:",
-            categoriesResponse.data
-          );
-        }
-
-        // If no categories exist, create default ones
-        if (fetchedCategories.length === 0) {
-          console.log("No categories found, creating default categories...");
-          const createCategory = async (categoryData) => {
-            return await categoriesAPI.create(categoryData);
-          };
-
-          fetchedCategories = await createDefaultCategories(createCategory);
-        }
-
-        // Process categories to ensure they have all required fields
-        fetchedCategories = fetchedCategories.map(category => ({
-          ...category,
-          _id: category._id || `temp_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
-          name: category.name || "Unnamed Category",
-          description: category.description || ""
-        }));
-
-        console.log("Processed categories:", fetchedCategories);
-        setCategories(fetchedCategories);
-
+        const categoriesData =
+          categoriesResponse.data.data || categoriesResponse.data;
+        console.log("Fetched categories:", categoriesData);
+        setCategories(categoriesData);
       } catch (error) {
         console.error("Error fetching data:", error);
-        setError("Failed to load product or categories. Please try again.");
+        setError(
+          error.response?.data?.message || "Failed to load product data"
+        );
       } finally {
         setLoading(false);
       }
@@ -99,16 +71,40 @@ const EditProduct = () => {
       setIsSubmitting(true);
       setSubmitError(null);
 
-      const response = await productsAPI.update(id, formData);
+      console.log("Raw form data:", formData);
 
+      // Validate that we received FormData
+      if (!(formData instanceof FormData)) {
+        throw new Error("Invalid form data format");
+      }
+
+      // Log the form data for debugging
+      console.log("Form data contents:");
+      for (let pair of formData.entries()) {
+        console.log(pair[0] + ":", pair[1]);
+      }
+
+      // Send the update request
+      const response = await productsAPI.update(id, formData);
+      console.log("Update response:", response);
+
+      // Check if response has the expected structure
+      if (!response || !response.data || response.data.success === false) {
+        const errorMessage =
+          response?.data?.message || "Failed to update product";
+        console.error("Update failed:", errorMessage);
+        throw new Error(errorMessage);
+      }
+
+      console.log("Product updated successfully!");
+
+      // Show success message and redirect
       navigate("/admin/products", {
         state: { successMessage: "Product updated successfully!" },
       });
     } catch (error) {
       console.error("Error updating product:", error);
-      setSubmitError(
-        error.response?.data?.message || "Failed to update product"
-      );
+      setSubmitError(error.message || "Failed to update product");
     } finally {
       setIsSubmitting(false);
     }
@@ -127,7 +123,12 @@ const EditProduct = () => {
   if (error) {
     return (
       <AdminLayout title="Edit Product">
-        <Alert type="error" message={error} />
+        <div className="space-y-4">
+          <Alert type="error" message={error} />
+          <Button onClick={() => navigate("/admin/products")}>
+            Back to Products
+          </Button>
+        </div>
       </AdminLayout>
     );
   }
@@ -150,12 +151,22 @@ const EditProduct = () => {
         </Button>
       </div>
 
+      {submitError && (
+        <Alert
+          type="error"
+          message={submitError}
+          className="mb-4"
+          onClose={() => setSubmitError(null)}
+        />
+      )}
+
       <ProductForm
         initialData={product}
         categories={categories}
         onSubmit={handleSubmit}
         isSubmitting={isSubmitting}
         submitError={submitError}
+        mode="edit"
       />
 
       {/* Add Category Modal */}
