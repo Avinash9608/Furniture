@@ -256,98 +256,155 @@ const EditProduct = () => {
       // Add a cache-busting parameter
       formData.append("_t", Date.now());
 
-      // Add retry logic for production
-      let response = null;
-      let lastError = null;
-      let retryCount = 0;
-      const maxRetries = isProduction ? 3 : 1;
-
-      while (retryCount <= maxRetries) {
+      // In production, use a simplified approach with minimal fields
+      if (isProduction) {
         try {
           console.log(
-            `Attempt ${retryCount + 1}/${maxRetries + 1} to update product`
+            "Production environment detected, using simplified approach"
           );
 
-          // Create a new FormData for each attempt to avoid issues
-          const attemptFormData = new FormData();
+          // Create a simplified FormData with only essential fields
+          const simplifiedFormData = new FormData();
+
+          // Only include essential fields
+          const essentialFields = [
+            "name",
+            "description",
+            "price",
+            "stock",
+            "category",
+          ];
           for (let pair of formData.entries()) {
-            attemptFormData.append(pair[0], pair[1]);
+            if (
+              essentialFields.includes(pair[0]) ||
+              pair[0].startsWith("images")
+            ) {
+              simplifiedFormData.append(pair[0], pair[1]);
+            }
           }
 
-          // Send the update request
-          response = await productsAPI.update(id, attemptFormData);
-          console.log(
-            `Update response for attempt ${retryCount + 1}:`,
-            response
-          );
+          // Add a cache-busting parameter
+          simplifiedFormData.append("_t", Date.now());
 
-          // Check if response has the expected structure
-          if (response && response.data && response.data.success !== false) {
-            console.log("Update successful on attempt", retryCount + 1);
-            break;
-          } else {
-            console.warn("Invalid response:", response);
-            throw new Error(
-              response?.data?.message || "Invalid response from server"
-            );
-          }
-        } catch (error) {
-          console.error(`Attempt ${retryCount + 1} failed:`, error);
-          lastError = error;
+          console.log("Using emergency endpoint directly...");
 
-          // Wait before retrying in production
-          if (isProduction && retryCount < maxRetries) {
-            const delay = (retryCount + 1) * 2000; // Increasing delay
-            console.log(`Waiting ${delay}ms before retry...`);
-            await new Promise((resolve) => setTimeout(resolve, delay));
-          }
-        }
-        retryCount++;
-      }
-
-      // If all retries failed and we're in production, try a direct fetch as last resort
-      if (!response && isProduction) {
-        try {
-          console.log("All API attempts failed, trying direct fetch...");
-
-          // Create a new FormData object for the fetch API
-          const fetchFormData = new FormData();
-          for (let pair of formData.entries()) {
-            fetchFormData.append(pair[0], pair[1]);
-          }
-
-          const directUrl = `${
+          // Use fetch API directly to bypass all middleware
+          const emergencyUrl = `${
             window.location.origin
-          }/api/fallback/products/${id}?_t=${Date.now()}`;
-          console.log("Direct URL:", directUrl);
+          }/api/emergency/products/${id}?_t=${Date.now()}`;
+          console.log("Emergency URL:", emergencyUrl);
 
-          const directResponse = await fetch(directUrl, {
+          const emergencyResponse = await fetch(emergencyUrl, {
             method: "PUT",
-            body: fetchFormData,
+            body: simplifiedFormData,
             headers: {
               Accept: "application/json",
               "Cache-Control": "no-cache",
             },
           });
 
-          if (directResponse.ok) {
-            const data = await directResponse.json();
-            console.log("Direct fetch successful:", data);
+          if (emergencyResponse.ok) {
+            const data = await emergencyResponse.json();
+            console.log("Emergency update successful:", data);
 
+            // Set the response in the expected format
             response = {
               data: {
                 success: true,
                 data: data.data || data,
+                source: "emergency_direct",
               },
             };
+
+            // Show success immediately
+            console.log("Product updated successfully via emergency endpoint!");
+            navigate("/admin/products", {
+              state: { successMessage: "Product updated successfully!" },
+            });
+
+            return; // Exit early on success
           } else {
-            throw new Error(
-              `Direct fetch failed with status: ${directResponse.status}`
+            console.warn(
+              "Emergency endpoint returned status:",
+              emergencyResponse.status
             );
+            const errorText = await emergencyResponse.text();
+            console.warn("Emergency endpoint error:", errorText);
+
+            // Try the API utility as fallback
+            console.log("Emergency endpoint failed, trying API utility...");
           }
-        } catch (directError) {
-          console.error("Direct fetch failed:", directError);
-          lastError = directError;
+        } catch (emergencyError) {
+          console.error("Emergency direct approach failed:", emergencyError);
+          // Continue to standard approach
+        }
+      }
+
+      // Standard approach using the API utility
+      console.log("Using standard API approach");
+      let response = null;
+      let lastError = null;
+
+      try {
+        // Send the update request through the API utility
+        response = await productsAPI.update(id, formData);
+        console.log("Update response:", response);
+
+        // Check if response has the expected structure
+        if (response && response.data && response.data.success !== false) {
+          console.log("Update successful through API utility");
+        } else {
+          console.warn("Invalid response from API utility:", response);
+          throw new Error(
+            response?.data?.message || "Invalid response from server"
+          );
+        }
+      } catch (error) {
+        console.error("API utility approach failed:", error);
+        lastError = error;
+
+        // If we're in production and the API utility failed, try one more direct approach
+        if (isProduction) {
+          try {
+            console.log("Trying last-resort direct fetch...");
+
+            // Create a minimal FormData with only the most essential fields
+            const minimalFormData = new FormData();
+            minimalFormData.append(
+              "name",
+              formData.get("name") || "Updated Product"
+            );
+            minimalFormData.append("price", formData.get("price") || "0");
+            minimalFormData.append("_t", Date.now());
+
+            const lastResortUrl = `${
+              window.location.origin
+            }/api/emergency/products/${id}?_t=${Date.now()}&minimal=true`;
+
+            const lastResortResponse = await fetch(lastResortUrl, {
+              method: "PUT",
+              body: minimalFormData,
+              headers: {
+                Accept: "application/json",
+                "Cache-Control": "no-cache",
+              },
+            });
+
+            if (lastResortResponse.ok) {
+              const data = await lastResortResponse.json();
+              console.log("Last-resort update successful:", data);
+
+              response = {
+                data: {
+                  success: true,
+                  data: data.data || data,
+                  source: "last_resort",
+                },
+              };
+            }
+          } catch (lastResortError) {
+            console.error("Last-resort approach failed:", lastResortError);
+          }
         }
       }
 

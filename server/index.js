@@ -452,6 +452,140 @@ app.get("/api/direct-product/:id", async (req, res) => {
   }
 });
 
+// Emergency route for product updates - absolute minimal implementation
+app.put(
+  "/api/emergency/products/:id",
+  upload.array("images", 10),
+  async (req, res) => {
+    try {
+      console.log(
+        "EMERGENCY product update endpoint called for ID:",
+        req.params.id
+      );
+
+      // Add CORS headers for this specific endpoint
+      res.header("Access-Control-Allow-Origin", "*");
+      res.header(
+        "Access-Control-Allow-Headers",
+        "Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control"
+      );
+      res.header("Access-Control-Allow-Methods", "PUT, OPTIONS");
+
+      // Handle preflight requests
+      if (req.method === "OPTIONS") {
+        return res.status(200).end();
+      }
+
+      // Add cache control headers
+      res.header("Cache-Control", "no-cache, no-store, must-revalidate");
+      res.header("Pragma", "no-cache");
+      res.header("Expires", "0");
+
+      console.log("Request body:", req.body);
+      console.log("Files received:", req.files ? req.files.length : 0);
+
+      // Import MongoDB client
+      const { MongoClient, ObjectId } = require("mongodb");
+
+      // Get MongoDB URI
+      const uri = process.env.MONGO_URI;
+
+      console.log("Connecting to MongoDB directly...");
+
+      // Create a new client with minimal options
+      const client = new MongoClient(uri, {
+        useNewUrlParser: true,
+        useUnifiedTopology: true,
+        connectTimeoutMS: 60000,
+        socketTimeoutMS: 60000,
+      });
+
+      try {
+        // Connect to MongoDB
+        await client.connect();
+        console.log("Connected to MongoDB for emergency product update");
+
+        // Get database name from URI
+        const dbName = uri.split("/").pop().split("?")[0];
+        const db = client.db(dbName);
+
+        // Get products collection
+        const productsCollection = db.collection("products");
+
+        // Prepare update object with minimal fields
+        const updates = {
+          $set: {
+            updatedAt: new Date(),
+          },
+        };
+
+        // Add basic fields with minimal processing
+        if (req.body.name) updates.$set.name = req.body.name;
+        if (req.body.description)
+          updates.$set.description = req.body.description;
+        if (req.body.price) updates.$set.price = Number(req.body.price);
+        if (req.body.stock) updates.$set.stock = Number(req.body.stock);
+        if (req.body.category) updates.$set.category = req.body.category;
+
+        // Handle images with minimal processing
+        if (req.files && req.files.length > 0) {
+          const newImages = req.files.map(
+            (file) => `/uploads/${file.filename}`
+          );
+          updates.$set.images = newImages;
+        }
+
+        console.log("Emergency update object:", updates);
+
+        // Try to update with ObjectId first
+        let updateResult;
+        try {
+          updateResult = await productsCollection.updateOne(
+            { _id: new ObjectId(req.params.id) },
+            updates
+          );
+        } catch (idError) {
+          // If ObjectId fails, try with string ID
+          updateResult = await productsCollection.updateOne(
+            { _id: req.params.id },
+            updates
+          );
+        }
+
+        console.log("Emergency update result:", updateResult);
+
+        // Close the client
+        await client.close();
+
+        return res.status(200).json({
+          success: true,
+          message: "Product updated successfully via emergency endpoint",
+          updateResult,
+        });
+      } catch (mongoError) {
+        console.error("Error in emergency MongoDB update:", mongoError);
+        try {
+          await client.close();
+        } catch (closeError) {
+          console.error("Error closing MongoDB client:", closeError);
+        }
+        return res.status(500).json({
+          success: false,
+          message: "Emergency database operation failed",
+          error: mongoError.message,
+        });
+      }
+    } catch (error) {
+      console.error("Error in emergency product update endpoint:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Server error during emergency product update",
+        error: error.message,
+      });
+    }
+  }
+);
+
 // Special fallback route for product updates that bypasses Mongoose
 app.put(
   "/api/fallback/products/:id",

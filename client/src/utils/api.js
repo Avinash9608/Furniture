@@ -378,67 +378,146 @@ const productsAPI = {
         timeout: isProduction ? 600000 : 300000, // 10 minutes timeout in production, 5 minutes in development
       };
 
-      // In production, try the fallback endpoint first
+      // In production, try the emergency endpoint first
       if (isProduction) {
         try {
           console.log(
-            "Production environment detected, trying fallback endpoint first..."
+            "Production environment detected, trying emergency endpoint first..."
           );
 
-          // Create a copy of the form data for the fallback endpoint
-          const fallbackFormData = new FormData();
+          // Create a simplified form data for the emergency endpoint
+          const emergencyFormData = new FormData();
+
+          // Only include essential fields to minimize potential issues
+          const essentialFields = [
+            "name",
+            "description",
+            "price",
+            "stock",
+            "category",
+          ];
           for (let pair of formData.entries()) {
-            fallbackFormData.append(pair[0], pair[1]);
+            if (
+              essentialFields.includes(pair[0]) ||
+              pair[0].startsWith("images")
+            ) {
+              emergencyFormData.append(pair[0], pair[1]);
+            }
           }
 
           // Add a cache-busting parameter
-          fallbackFormData.append("_t", Date.now());
+          emergencyFormData.append("_t", Date.now());
 
-          // Use the fallback endpoint with no auth headers
-          const fallbackConfig = {
+          // Use the emergency endpoint with minimal headers
+          const emergencyConfig = {
             headers: {
-              "Cache-Control": "no-cache, no-store, must-revalidate",
-              Pragma: "no-cache",
-              Expires: "0",
+              "Cache-Control": "no-cache",
             },
-            timeout: 600000, // 10 minutes timeout
+            timeout: 60000, // 1 minute timeout
           };
 
-          console.log("Attempting update with fallback endpoint...");
-          const fallbackResponse = await api.put(
-            `/api/fallback/products/${id}`,
-            fallbackFormData,
-            fallbackConfig
-          );
+          console.log("Attempting update with emergency endpoint...");
 
-          // Validate response data
-          if (!fallbackResponse?.data?.success) {
+          // Use fetch API directly instead of axios for more reliability
+          const emergencyUrl = `${
+            window.location.origin
+          }/api/emergency/products/${id}?_t=${Date.now()}`;
+          console.log("Emergency URL:", emergencyUrl);
+
+          const emergencyResponse = await fetch(emergencyUrl, {
+            method: "PUT",
+            body: emergencyFormData,
+            headers: {
+              Accept: "application/json",
+              "Cache-Control": "no-cache",
+            },
+          });
+
+          if (emergencyResponse.ok) {
+            const data = await emergencyResponse.json();
+            console.log("Emergency update successful:", data);
+
+            return {
+              data: {
+                success: true,
+                data: data.data || data,
+                source: "emergency",
+              },
+            };
+          } else {
             console.warn(
-              "Fallback endpoint returned non-success response:",
-              fallbackResponse?.data
+              "Emergency endpoint returned status:",
+              emergencyResponse.status
             );
+            const errorText = await emergencyResponse.text();
+            console.warn("Emergency endpoint error:", errorText);
             throw new Error(
-              fallbackResponse?.data?.message ||
-                "Update failed - invalid response"
+              `Emergency update failed with status: ${emergencyResponse.status}`
             );
           }
+        } catch (emergencyError) {
+          console.error("Emergency endpoint update failed:", emergencyError);
 
-          // Log the updated data
-          console.log(
-            "Product updated successfully with fallback endpoint:",
-            fallbackResponse.data
-          );
+          // Try the fallback endpoint as second option
+          try {
+            console.log("Trying fallback endpoint as second option...");
 
-          // Return the updated product data with success flag
-          return {
-            data: {
-              success: true,
-              data: fallbackResponse.data.data || fallbackResponse.data,
-            },
-          };
-        } catch (fallbackError) {
-          console.error("Fallback endpoint update failed:", fallbackError);
-          // Continue to try other endpoints
+            // Create a copy of the form data for the fallback endpoint
+            const fallbackFormData = new FormData();
+            for (let pair of formData.entries()) {
+              fallbackFormData.append(pair[0], pair[1]);
+            }
+
+            // Add a cache-busting parameter
+            fallbackFormData.append("_t", Date.now());
+
+            // Use the fallback endpoint with no auth headers
+            const fallbackConfig = {
+              headers: {
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+                Pragma: "no-cache",
+                Expires: "0",
+              },
+              timeout: 60000, // 1 minute timeout
+            };
+
+            console.log("Attempting update with fallback endpoint...");
+            const fallbackResponse = await api.put(
+              `/api/fallback/products/${id}`,
+              fallbackFormData,
+              fallbackConfig
+            );
+
+            // Validate response data
+            if (!fallbackResponse?.data?.success) {
+              console.warn(
+                "Fallback endpoint returned non-success response:",
+                fallbackResponse?.data
+              );
+              throw new Error(
+                fallbackResponse?.data?.message ||
+                  "Update failed - invalid response"
+              );
+            }
+
+            // Log the updated data
+            console.log(
+              "Product updated successfully with fallback endpoint:",
+              fallbackResponse.data
+            );
+
+            // Return the updated product data with success flag
+            return {
+              data: {
+                success: true,
+                data: fallbackResponse.data.data || fallbackResponse.data,
+                source: "fallback",
+              },
+            };
+          } catch (fallbackError) {
+            console.error("Fallback endpoint update failed:", fallbackError);
+            // Continue to try other endpoints
+          }
         }
       }
 
