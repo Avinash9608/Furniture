@@ -1,16 +1,16 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { formatPrice } from '../../utils/format';
+import React from "react";
+import { Link } from "react-router-dom";
+import { motion } from "framer-motion";
+import { formatPrice } from "../../utils/format";
 
 /**
  * A hybrid product table component that uses database data with reliable image display.
  * Uses client-side placeholder images when server images fail to load.
  */
-const HybridProductTable = ({ 
-  products = [], 
+const HybridProductTable = ({
+  products = [],
   onDeleteClick,
-  isLoading = false
+  isLoading = false,
 }) => {
   // Function to get a placeholder image based on product type
   const getPlaceholderImage = (product) => {
@@ -42,9 +42,11 @@ const HybridProductTable = ({
 
     // Create a display name (either the type or a shortened product name)
     const displayName = encodeURIComponent(
-      product.name.length > 20 ? product.name.substring(0, 20) + "..." : product.name
+      product.name.length > 20
+        ? product.name.substring(0, 20) + "..."
+        : product.name
     );
-    
+
     // Return the placeholder URL
     return `https://placehold.co/300x300/${color}/white?text=${displayName}`;
   };
@@ -52,31 +54,35 @@ const HybridProductTable = ({
   // Function to get category color
   const getCategoryColor = (categoryName) => {
     if (!categoryName) return "gray";
-    
+
     const name = categoryName.toLowerCase();
-    
+
     if (name.includes("sofa")) return "indigo";
     if (name.includes("table")) return "blue";
     if (name.includes("chair")) return "green";
     if (name.includes("wardrobe")) return "purple";
     if (name.includes("bed")) return "pink";
-    
+
     return "gray";
   };
 
   // Color classes for different categories
   const getCategoryColorClass = (color) => {
     const colorClasses = {
-      indigo: "bg-indigo-100 text-indigo-800 border-indigo-300 dark:bg-indigo-900/30 dark:text-indigo-300 dark:border-indigo-700",
+      indigo:
+        "bg-indigo-100 text-indigo-800 border-indigo-300 dark:bg-indigo-900/30 dark:text-indigo-300 dark:border-indigo-700",
       blue: "bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700",
-      green: "bg-green-100 text-green-800 border-green-300 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700",
-      purple: "bg-purple-100 text-purple-800 border-purple-300 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-700",
+      green:
+        "bg-green-100 text-green-800 border-green-300 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700",
+      purple:
+        "bg-purple-100 text-purple-800 border-purple-300 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-700",
       pink: "bg-pink-100 text-pink-800 border-pink-300 dark:bg-pink-900/30 dark:text-pink-300 dark:border-pink-700",
       red: "bg-red-100 text-red-800 border-red-300 dark:bg-red-900/30 dark:text-red-300 dark:border-red-700",
-      orange: "bg-orange-100 text-orange-800 border-orange-300 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-700",
+      orange:
+        "bg-orange-100 text-orange-800 border-orange-300 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-700",
       gray: "bg-gray-100 text-gray-800 border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700",
     };
-    
+
     return colorClasses[color] || colorClasses.gray;
   };
 
@@ -84,7 +90,9 @@ const HybridProductTable = ({
     return (
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-8 text-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-500 mx-auto"></div>
-        <p className="mt-4 text-gray-600 dark:text-gray-300">Loading products...</p>
+        <p className="mt-4 text-gray-600 dark:text-gray-300">
+          Loading products...
+        </p>
       </div>
     );
   }
@@ -158,36 +166,23 @@ const HybridProductTable = ({
               >
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="flex-shrink-0 w-16 h-16 rounded-md overflow-hidden">
-                    {/* Try to use the first product image if available, otherwise use placeholder */}
-                    {product.images && product.images.length > 0 ? (
-                      <img
-                        src={product.images[0]}
-                        alt={`${product.name || 'Product'}`}
-                        className="w-full h-full object-cover hover:opacity-75 transition-opacity duration-150"
-                        onError={(e) => {
-                          console.error("Image load error:", {
-                            originalSrc: e.target.src,
-                            productName: product.name,
-                          });
-                          e.target.onerror = null;
-                          e.target.src = getPlaceholderImage(product);
-                        }}
-                      />
-                    ) : (
-                      <img
-                        src={getPlaceholderImage(product)}
-                        alt={`${product.name || 'Product'}`}
-                        className="w-full h-full object-cover hover:opacity-75 transition-opacity duration-150"
-                      />
-                    )}
+                    {/* Always use placeholder images for reliability */}
+                    <img
+                      src={getPlaceholderImage(product)}
+                      alt={`${product.name || "Product"}`}
+                      className="w-full h-full object-cover hover:opacity-75 transition-opacity duration-150"
+                    />
                   </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="text-sm font-medium text-gray-900 dark:text-white">
-                    {product.name || 'Unnamed Product'}
+                    {product.name || "Unnamed Product"}
                   </div>
                   <div className="text-sm text-gray-500 dark:text-gray-400">
-                    ID: {product._id ? product._id.substring(product._id.length - 6) : 'N/A'}
+                    ID:{" "}
+                    {product._id
+                      ? product._id.substring(product._id.length - 6)
+                      : "N/A"}
                   </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
@@ -197,7 +192,7 @@ const HybridProductTable = ({
 
                     // Try to get the category name
                     if (product.category) {
-                      if (typeof product.category === 'string') {
+                      if (typeof product.category === "string") {
                         categoryName = product.category;
                       } else if (product.category.name) {
                         categoryName = product.category.name;

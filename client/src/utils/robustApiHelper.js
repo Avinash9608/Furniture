@@ -302,13 +302,33 @@ export const updateProduct = async (productId, productData) => {
     for (const endpoint of endpoints) {
       try {
         console.log(`Trying endpoint: ${endpoint}`);
-        const response = await axios.put(endpoint, productData, {
-          headers,
+
+        // Check if productData is FormData
+        const isFormData = productData instanceof FormData;
+        console.log("Is FormData:", isFormData);
+
+        // Set up request config
+        let requestConfig = {
+          headers: {
+            ...headers,
+          },
           timeout: 15000,
-        });
+        };
+
+        // If it's FormData, don't set Content-Type (let axios set it with boundary)
+        if (isFormData) {
+          console.log("Using FormData for update");
+        } else {
+          requestConfig.headers["Content-Type"] = "application/json";
+        }
+
+        // Make the request
+        const response = await axios.put(endpoint, productData, requestConfig);
 
         // Check if we got valid data
         if (response.data) {
+          console.log("Update response:", response.data);
+
           // Extract product from various response formats
           if (response.data.data) {
             updatedProduct = response.data.data;
@@ -324,6 +344,12 @@ export const updateProduct = async (productId, productData) => {
         }
       } catch (endpointError) {
         console.log(`Endpoint ${endpoint} failed:`, endpointError);
+        console.log(
+          "Error details:",
+          endpointError.response
+            ? endpointError.response.data
+            : endpointError.message
+        );
         error = endpointError;
         // Continue to next endpoint
       }

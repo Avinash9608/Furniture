@@ -7,6 +7,10 @@ import Loading from "../../components/Loading";
 import Alert from "../../components/Alert";
 import { getProductById, updateProduct } from "../../utils/robustApiHelper";
 import { getCategoriesFromLocalStorage } from "../../utils/localStorageHelper";
+import {
+  getPlaceholderByType,
+  getProductType,
+} from "../../utils/reliableImageHelper";
 
 /**
  * A hybrid product edit page that uses database data with reliable fallbacks.
@@ -30,12 +34,15 @@ const HybridEditProduct = () => {
     dimensions: {
       length: 0,
       width: 0,
-      height: 0
-    }
+      height: 0,
+    },
   });
 
   // State for categories
   const [categories, setCategories] = useState([]);
+
+  // State for image preview
+  const [imagePreview, setImagePreview] = useState(null);
 
   // State for loading and errors
   const [loading, setLoading] = useState(true);
@@ -53,22 +60,29 @@ const HybridEditProduct = () => {
     try {
       setLoading(true);
       setError(null);
-      
+
       // Get product from database with fallbacks
       const productData = await getProductById(id);
-      
+
       if (productData) {
         // Format the product data for the form
         setProduct({
           ...productData,
-          category: typeof productData.category === 'object' ? productData.category._id : productData.category,
-          dimensions: productData.dimensions || { length: 0, width: 0, height: 0 }
+          category:
+            typeof productData.category === "object"
+              ? productData.category._id
+              : productData.category,
+          dimensions: productData.dimensions || {
+            length: 0,
+            width: 0,
+            height: 0,
+          },
         });
-        
+
         setSuccessMessage("Product loaded successfully");
       } else {
         setError(`Product with ID ${id} not found`);
-        
+
         // Navigate back to products page after 3 seconds
         setTimeout(() => {
           navigate("/admin/products");
@@ -90,14 +104,14 @@ const HybridEditProduct = () => {
       setCategories(localCategories);
     } catch (error) {
       console.error("Error loading categories:", error);
-      
+
       // Use default categories as fallback
       setCategories([
-        { _id: 'cat1', name: 'Sofa Beds' },
-        { _id: 'cat2', name: 'Tables' },
-        { _id: 'cat3', name: 'Chairs' },
-        { _id: 'cat4', name: 'Wardrobes' },
-        { _id: 'cat5', name: 'Beds' }
+        { _id: "cat1", name: "Sofa Beds" },
+        { _id: "cat2", name: "Tables" },
+        { _id: "cat3", name: "Chairs" },
+        { _id: "cat4", name: "Wardrobes" },
+        { _id: "cat5", name: "Beds" },
       ]);
     }
   };
@@ -105,35 +119,73 @@ const HybridEditProduct = () => {
   // Function to handle form input changes
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    
-    if (name.includes('.')) {
+
+    if (name.includes(".")) {
       // Handle nested properties (e.g., dimensions.length)
-      const [parent, child] = name.split('.');
+      const [parent, child] = name.split(".");
       setProduct({
         ...product,
         [parent]: {
           ...product[parent],
-          [child]: type === 'number' ? Number(value) : value
-        }
+          [child]: type === "number" ? Number(value) : value,
+        },
       });
     } else {
       // Handle regular properties
       setProduct({
         ...product,
-        [name]: type === 'checkbox' ? checked : type === 'number' ? Number(value) : value
+        [name]:
+          type === "checkbox"
+            ? checked
+            : type === "number"
+            ? Number(value)
+            : value,
       });
     }
+  };
+
+  // Function to handle image upload
+  const handleImageUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Create a preview URL for the image
+    const previewUrl = URL.createObjectURL(file);
+    setImagePreview(previewUrl);
+
+    // Store the file in the product state
+    setProduct({
+      ...product,
+      imageFile: file,
+    });
+  };
+
+  // Function to get a placeholder image based on product type
+  const getProductImageUrl = () => {
+    // If we have a preview image, use it
+    if (imagePreview) {
+      return imagePreview;
+    }
+
+    // If the product has images, use the first one
+    if (product.images && product.images.length > 0) {
+      return product.images[0];
+    }
+
+    // Otherwise, use a placeholder based on product type
+    const productType = getProductType(product.name);
+    return getPlaceholderByType(productType, product.name);
   };
 
   // Function to handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     try {
       // Show loading indicator
       setLoading(true);
       setError(null);
-      
+
       // Show loading state
       Swal.fire({
         title: "Updating...",
@@ -144,66 +196,95 @@ const HybridEditProduct = () => {
         showConfirmButton: false,
         didOpen: () => {
           Swal.showLoading();
-        }
+        },
       });
-      
+
       // Format the product data for saving
-      const productToSave = {
+      let productToSave = {
         ...product,
-        // Keep the original images
+        // Keep the original images if no new image is uploaded
         images: product.images || [],
         // Keep the original category if it's an object
-        category: typeof product.category === 'object' ? product.category : product.category
+        category:
+          typeof product.category === "object"
+            ? product.category
+            : product.category,
       };
-      
+
+      // If a new image file was uploaded, create a FormData object
+      if (product.imageFile) {
+        const formData = new FormData();
+
+        // Add all product data to FormData
+        Object.keys(productToSave).forEach((key) => {
+          if (key !== "imageFile" && key !== "images" && key !== "dimensions") {
+            formData.append(key, productToSave[key]);
+          }
+        });
+
+        // Add dimensions as JSON string
+        if (productToSave.dimensions) {
+          formData.append(
+            "dimensions",
+            JSON.stringify(productToSave.dimensions)
+          );
+        }
+
+        // Add the image file
+        formData.append("images", product.imageFile);
+
+        // Use FormData instead of JSON
+        productToSave = formData;
+      }
+
       // Update product in database with fallbacks
       const updatedProduct = await updateProduct(id, productToSave);
-      
+
       if (updatedProduct) {
         // Close loading dialog
         Swal.close();
-        
+
         // Show success message
         Swal.fire({
           title: "Success!",
           text: "Product updated successfully",
           icon: "success",
-          confirmButtonText: "OK"
+          confirmButtonText: "OK",
         }).then(() => {
           // Navigate back to products page
-          navigate("/admin/products", { 
-            state: { successMessage: "Product updated successfully" } 
+          navigate("/admin/products", {
+            state: { successMessage: "Product updated successfully" },
           });
         });
       } else {
         // Close loading dialog
         Swal.close();
-        
+
         // Show error message
         Swal.fire({
           title: "Error!",
           text: "Failed to update product",
           icon: "error",
-          confirmButtonText: "OK"
+          confirmButtonText: "OK",
         });
-        
+
         setError("Failed to update product");
         setLoading(false);
       }
     } catch (error) {
       console.error("Error updating product:", error);
-      
+
       // Close loading dialog
       Swal.close();
-      
+
       // Show error message
       Swal.fire({
         title: "Error!",
         text: "Failed to update product",
         icon: "error",
-        confirmButtonText: "OK"
+        confirmButtonText: "OK",
       });
-      
+
       setError("Failed to update product");
       setLoading(false);
     }
@@ -213,7 +294,9 @@ const HybridEditProduct = () => {
     <AdminLayout>
       <div className="container mx-auto px-4 py-8">
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Edit Product</h1>
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-white">
+            Edit Product
+          </h1>
           <Button color="blue" onClick={() => navigate("/admin/products")}>
             Back to Products
           </Button>
@@ -225,15 +308,16 @@ const HybridEditProduct = () => {
         )}
 
         {/* Error message */}
-        {error && (
-          <Alert type="error" message={error} className="mb-4" />
-        )}
+        {error && <Alert type="error" message={error} className="mb-4" />}
 
         {/* Loading indicator */}
         {loading ? (
           <Loading />
         ) : (
-          <form onSubmit={handleSubmit} className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+          <form
+            onSubmit={handleSubmit}
+            className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6"
+          >
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Product Name */}
               <div>
@@ -348,6 +432,96 @@ const HybridEditProduct = () => {
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white"
                 required
               ></textarea>
+            </div>
+
+            {/* Product Image */}
+            <div className="mt-6">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Product Image
+              </label>
+              <div className="flex flex-col md:flex-row items-start gap-4">
+                {/* Image Preview */}
+                <div className="w-full md:w-1/3 mb-4 md:mb-0">
+                  <div className="border border-gray-300 dark:border-gray-600 rounded-md overflow-hidden h-64 bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+                    <img
+                      src={getProductImageUrl()}
+                      alt={product.name || "Product"}
+                      className="w-full h-full object-contain"
+                      onError={(e) => {
+                        e.target.onerror = null;
+                        const productType = getProductType(product.name);
+                        e.target.src = getPlaceholderByType(
+                          productType,
+                          product.name
+                        );
+                      }}
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    {imagePreview
+                      ? "New image preview"
+                      : product.images && product.images.length > 0
+                      ? "Current image"
+                      : "No image available"}
+                  </p>
+                </div>
+
+                {/* Image Upload */}
+                <div className="w-full md:w-2/3">
+                  <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-md p-6 flex flex-col items-center justify-center">
+                    <svg
+                      className="w-12 h-12 text-gray-400 dark:text-gray-500 mb-3"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                      ></path>
+                    </svg>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                      Drag and drop an image, or click to select
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-500 mb-4">
+                      PNG, JPG, JPEG up to 5MB
+                    </p>
+                    <input
+                      type="file"
+                      id="image-upload"
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                      className="hidden"
+                    />
+                    <label
+                      htmlFor="image-upload"
+                      className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors cursor-pointer"
+                    >
+                      Select Image
+                    </label>
+                  </div>
+                  {imagePreview && (
+                    <div className="mt-2 flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setImagePreview(null);
+                          setProduct({
+                            ...product,
+                            imageFile: null,
+                          });
+                        }}
+                        className="text-sm text-red-600 hover:text-red-800"
+                      >
+                        Remove new image
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
 
             {/* Submit Button */}
