@@ -107,16 +107,19 @@ const FileUpload = ({
                   file instanceof File
                     ? file.preview // Use preview URL for File objects
                     : typeof file === "string"
-                    ? getImageUrl(file) // Use the string URL with proper domain
-                    : file.preview || getAssetUrl(file) // Fallback for other object types
+                    ? file.includes("placehold.co") ||
+                      file.includes("cloudinary.com")
+                      ? file // Use the string URL directly if it's from a reliable source
+                      : "https://placehold.co/300x300/gray/white?text=Image" // Use placeholder for server URLs
+                    : "https://placehold.co/300x300/gray/white?text=Image" // Fallback for other object types
                 }
                 alt={`Preview ${index + 1}`}
                 className="object-cover object-center w-full h-full"
                 onError={(e) => {
                   console.log("Image load error:", e.target.src);
-                  // If preview fails, try using a fallback
+                  // If preview fails, use a simple placeholder
                   e.target.src =
-                    "https://placehold.co/300x300/gray/white?text=Image+Error";
+                    "https://placehold.co/300x300/gray/white?text=Image";
                 }}
                 onLoad={() => console.log("Image loaded successfully:", index)}
               />

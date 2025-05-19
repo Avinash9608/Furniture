@@ -17,32 +17,33 @@ export const getImageUrl = (imagePath, options = {}) => {
   }
 
   try {
-    // ALWAYS use the production URL in all environments for consistency
-    const productionBaseUrl = "https://furniture-q3nb.onrender.com";
-
-    // If it's already a full URL
+    // If it's already a full URL and it's from a reliable source like Cloudinary or placeholder
     if (imagePath.startsWith("http://") || imagePath.startsWith("https://")) {
-      // Fix localhost URLs to use production URL
-      if (imagePath.includes("localhost")) {
-        return imagePath.replace(
-          /http:\/\/localhost(:\d+)?/g,
-          productionBaseUrl
+      // If it's a Cloudinary URL, return it as is
+      if (
+        imagePath.includes("cloudinary.com") ||
+        imagePath.includes("placehold.co") ||
+        imagePath.includes("placeholder.com")
+      ) {
+        return imagePath;
+      }
+
+      // If it's a localhost URL, use a default image instead
+      if (
+        imagePath.includes("localhost") ||
+        imagePath.includes("furniture-q3nb.onrender.com")
+      ) {
+        return getDefaultImageForProduct(
+          options.productName,
+          options.productId
         );
       }
 
-      // If it's already a full URL and doesn't need fixing, return it as is
+      // For any other URL, return it as is
       return imagePath;
     }
 
-    // Extract the filename from the path
-    const filename = imagePath.split("/").pop();
-
-    // Always use the direct filename approach for maximum compatibility
-    if (filename) {
-      return `${productionBaseUrl}/uploads/${filename}`;
-    }
-
-    // If we couldn't extract a filename, use a default image
+    // For relative paths, use a default image based on product type
     return getDefaultImageForProduct(options.productName, options.productId);
   } catch (error) {
     console.error("Error processing image URL:", error);
@@ -58,7 +59,7 @@ export const getImageUrl = (imagePath, options = {}) => {
  * @returns {string} - The default image URL
  */
 export const getDefaultImageForProduct = (productName, productId) => {
-  // Default placeholder
+  // Default placeholder using a reliable external service
   const defaultPlaceholder =
     "https://placehold.co/300x300/gray/white?text=No+Image";
 
@@ -72,22 +73,18 @@ export const getDefaultImageForProduct = (productName, productId) => {
     if (productName) {
       const lowerName = productName.toLowerCase();
 
-      // Map of product types to default images
+      // Map of product types to reliable external default images
       const productTypeImages = {
         "dinner set":
-          "https://furniture-q3nb.onrender.com/uploads/dinner-set-default.jpg",
-        dinning:
-          "https://furniture-q3nb.onrender.com/uploads/dinner-set-default.jpg",
-        beds: "https://furniture-q3nb.onrender.com/uploads/bed-default.jpg",
-        "bed set":
-          "https://furniture-q3nb.onrender.com/uploads/bed-default.jpg",
-        wardroom:
-          "https://furniture-q3nb.onrender.com/uploads/wardrobe-default.jpg",
-        wardrobe:
-          "https://furniture-q3nb.onrender.com/uploads/wardrobe-default.jpg",
-        sofa: "https://furniture-q3nb.onrender.com/uploads/sofa-default.jpg",
-        chair: "https://furniture-q3nb.onrender.com/uploads/chair-default.jpg",
-        table: "https://furniture-q3nb.onrender.com/uploads/table-default.jpg",
+          "https://placehold.co/300x300/brown/white?text=Dinner+Set",
+        dinning: "https://placehold.co/300x300/brown/white?text=Dining+Table",
+        beds: "https://placehold.co/300x300/blue/white?text=Bed",
+        "bed set": "https://placehold.co/300x300/blue/white?text=Bed+Set",
+        wardroom: "https://placehold.co/300x300/purple/white?text=Wardrobe",
+        wardrobe: "https://placehold.co/300x300/purple/white?text=Wardrobe",
+        sofa: "https://placehold.co/300x300/red/white?text=Sofa",
+        chair: "https://placehold.co/300x300/green/white?text=Chair",
+        table: "https://placehold.co/300x300/orange/white?text=Table",
       };
 
       // Check if the product name contains any of the keys
@@ -97,12 +94,18 @@ export const getDefaultImageForProduct = (productName, productId) => {
         }
       }
 
-      // If no match found, use a generic furniture image
-      return "https://furniture-q3nb.onrender.com/uploads/furniture-default.jpg";
+      // If no match found, create a placeholder with the product name
+      const encodedName = encodeURIComponent(productName.substring(0, 20));
+      return `https://placehold.co/300x300/gray/white?text=${encodedName}`;
     }
 
-    // If we have a product ID but no name, use a generic image
-    return "https://furniture-q3nb.onrender.com/uploads/furniture-default.jpg";
+    // If we have a product ID but no name, use a generic image with the ID
+    if (productId) {
+      const shortId = productId.substring(productId.length - 6);
+      return `https://placehold.co/300x300/gray/white?text=Product+${shortId}`;
+    }
+
+    return defaultPlaceholder;
   } catch (error) {
     console.error("Error getting default image:", error);
     return defaultPlaceholder;
@@ -163,24 +166,25 @@ export const validateImageUrl = async (imageUrl, options = {}) => {
   if (!imageUrl) return fallbackUrl;
 
   try {
-    // Extract the filename from the URL
-    const filename = imageUrl.split("/").pop();
-
-    // Always use the direct filename approach for maximum compatibility
-    if (filename && !filename.includes("://")) {
-      const directUrl = `https://furniture-q3nb.onrender.com/uploads/${filename}`;
-
-      try {
-        // Skip the HEAD request to avoid CORS issues
-        // Just return the direct URL immediately
-        return directUrl;
-      } catch (directError) {
-        console.error("Error with direct URL approach:", directError);
-      }
+    // If it's already a reliable external URL, return it immediately
+    if (
+      imageUrl.includes("placehold.co") ||
+      imageUrl.includes("placeholder.com") ||
+      imageUrl.includes("cloudinary.com")
+    ) {
+      return imageUrl;
     }
 
-    // If we couldn't extract a filename or the direct approach failed,
-    // return the fallback URL based on product type
+    // If it's a server URL (either localhost or render.com), use the fallback
+    if (
+      imageUrl.includes("localhost") ||
+      imageUrl.includes("furniture-q3nb.onrender.com") ||
+      imageUrl.includes("/uploads/")
+    ) {
+      return fallbackUrl;
+    }
+
+    // For any other URL, return the fallback to be safe
     return fallbackUrl;
   } catch (error) {
     console.error("Error validating image URL:", error);

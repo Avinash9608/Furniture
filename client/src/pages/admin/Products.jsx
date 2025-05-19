@@ -1493,48 +1493,24 @@ const AdminProducts = () => {
                       >
                         {/* Simplified and more reliable image display */}
                         <div className="flex-shrink-0 w-16 h-16 rounded-md overflow-hidden">
-                          {(() => {
-                            // Extract the filename if it exists
-                            let imageUrl = "";
-                            let filename = "";
-
-                            if (product.images && product.images.length > 0) {
-                              // Get the first image URL
-                              imageUrl = product.images[0];
-
-                              // Extract the filename
-                              if (typeof imageUrl === "string") {
-                                filename = imageUrl.split("/").pop();
-                              }
-                            }
-
-                            // Create the direct URL using the filename
-                            const directUrl = filename
-                              ? `https://furniture-q3nb.onrender.com/uploads/${filename}`
-                              : getDefaultImageForProduct(
-                                  product.name,
-                                  product._id
-                                );
-
-                            return (
-                              <img
-                                src={directUrl}
-                                alt={`${product.name} - Image`}
-                                className="w-full h-full object-cover hover:opacity-75 transition-opacity duration-150"
-                                onError={(e) => {
-                                  console.error("Image load error:", {
-                                    originalSrc: e.target.src,
-                                    productName: product.name,
-                                  });
-                                  e.target.onerror = null;
-                                  e.target.src = getDefaultImageForProduct(
-                                    product.name,
-                                    product._id
-                                  );
-                                }}
-                              />
-                            );
-                          })()}
+                          <img
+                            src={getDefaultImageForProduct(
+                              product.name,
+                              product._id
+                            )}
+                            alt={`${product.name} - Image`}
+                            className="w-full h-full object-cover hover:opacity-75 transition-opacity duration-150"
+                            onError={(e) => {
+                              console.error("Image load error:", {
+                                originalSrc: e.target.src,
+                                productName: product.name,
+                              });
+                              e.target.onerror = null;
+                              // Use a very simple placeholder as last resort
+                              e.target.src =
+                                "https://placehold.co/300x300/gray/white?text=No+Image";
+                            }}
+                          />
                         </div>
                       </div>
                     </td>
