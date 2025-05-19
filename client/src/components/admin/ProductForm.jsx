@@ -209,8 +209,17 @@ const ProductForm = ({
             }/api/products?_t=${Date.now()}`;
             console.log("Using product endpoint for image upload:", uploadUrl);
 
-            // Get the auth token
+            // Get the auth token - try both admin and regular tokens
+            const adminToken =
+              localStorage.getItem("adminToken") ||
+              sessionStorage.getItem("adminToken");
             const token = localStorage.getItem("token");
+            const authToken = adminToken || token;
+
+            console.log(
+              "Using auth token:",
+              authToken ? "Token found" : "No token found"
+            );
 
             uploadResponse = await fetch(uploadUrl, {
               method: "POST",
@@ -218,7 +227,7 @@ const ProductForm = ({
               headers: {
                 Accept: "application/json",
                 "Cache-Control": "no-cache",
-                Authorization: token ? `Bearer ${token}` : "",
+                Authorization: authToken ? `Bearer ${authToken}` : "",
               },
             });
 
@@ -260,7 +269,18 @@ const ProductForm = ({
 
               // Delete the temporary product
               try {
+                // Get the auth token - try both admin and regular tokens
+                const adminToken =
+                  localStorage.getItem("adminToken") ||
+                  sessionStorage.getItem("adminToken");
                 const token = localStorage.getItem("token");
+                const authToken = adminToken || token;
+
+                console.log(
+                  "Using auth token for delete:",
+                  authToken ? "Token found" : "No token found"
+                );
+
                 const deleteUrl = `${window.location.origin}/api/products/${data.data._id}`;
 
                 console.log("Deleting temporary product:", deleteUrl);
@@ -269,7 +289,7 @@ const ProductForm = ({
                   method: "DELETE",
                   headers: {
                     Accept: "application/json",
-                    Authorization: token ? `Bearer ${token}` : "",
+                    Authorization: authToken ? `Bearer ${authToken}` : "",
                   },
                 });
 

@@ -349,11 +349,21 @@ const productsAPI = {
 
   update: async (id, formData) => {
     try {
-      // Get admin token
-      const adminToken = localStorage.getItem("adminToken");
-      if (!adminToken) {
-        throw new Error("Admin authentication required");
+      // Get admin token - try both admin and regular tokens
+      const adminToken =
+        localStorage.getItem("adminToken") ||
+        sessionStorage.getItem("adminToken");
+      const token = localStorage.getItem("token");
+      const authToken = adminToken || token;
+
+      if (!authToken) {
+        throw new Error("Authentication required");
       }
+
+      console.log(
+        "Using auth token for update:",
+        authToken ? "Token found" : "No token found"
+      );
 
       // Log form data for debugging
       console.log("Updating product with form data:");
@@ -372,7 +382,7 @@ const productsAPI = {
       // Set up request config with proper headers
       const config = {
         headers: {
-          Authorization: `Bearer ${adminToken}`,
+          Authorization: `Bearer ${authToken}`,
           // Let axios handle the Content-Type for FormData
         },
         timeout: isProduction ? 600000 : 300000, // 10 minutes timeout in production, 5 minutes in development
@@ -408,10 +418,11 @@ const productsAPI = {
           // Add a cache-busting parameter
           emergencyFormData.append("_t", Date.now());
 
-          // Use the emergency endpoint with minimal headers
+          // Use the emergency endpoint with auth and minimal headers
           const emergencyConfig = {
             headers: {
               "Cache-Control": "no-cache",
+              Authorization: `Bearer ${authToken}`,
             },
             timeout: 60000, // 1 minute timeout
           };
@@ -430,6 +441,7 @@ const productsAPI = {
             headers: {
               Accept: "application/json",
               "Cache-Control": "no-cache",
+              Authorization: `Bearer ${authToken}`,
             },
           });
 
@@ -471,12 +483,13 @@ const productsAPI = {
             // Add a cache-busting parameter
             fallbackFormData.append("_t", Date.now());
 
-            // Use the fallback endpoint with no auth headers
+            // Use the fallback endpoint with auth headers
             const fallbackConfig = {
               headers: {
                 "Cache-Control": "no-cache, no-store, must-revalidate",
                 Pragma: "no-cache",
                 Expires: "0",
+                Authorization: `Bearer ${authToken}`,
               },
               timeout: 60000, // 1 minute timeout
             };
@@ -643,6 +656,7 @@ const productsAPI = {
                     headers: {
                       Accept: "application/json",
                       "Cache-Control": "no-cache",
+                      Authorization: `Bearer ${authToken}`,
                     },
                   }
                 );
@@ -699,6 +713,7 @@ const productsAPI = {
                   headers: {
                     Accept: "application/json",
                     "Cache-Control": "no-cache",
+                    Authorization: `Bearer ${authToken}`,
                   },
                 }
               );

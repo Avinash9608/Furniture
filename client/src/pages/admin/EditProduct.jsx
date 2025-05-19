@@ -322,8 +322,17 @@ const EditProduct = () => {
               imageFormData.append("replaceImages", "true");
               imageFormData.append("_t", Date.now());
 
-              // Get the auth token
+              // Get the auth token - try both admin and regular tokens
+              const adminToken =
+                localStorage.getItem("adminToken") ||
+                sessionStorage.getItem("adminToken");
               const token = localStorage.getItem("token");
+              const authToken = adminToken || token;
+
+              console.log(
+                "Using auth token for image update:",
+                authToken ? "Token found" : "No token found"
+              );
 
               let imageUpdateSuccess = false;
               let imageUpdateResponse;
@@ -344,7 +353,7 @@ const EditProduct = () => {
                   headers: {
                     Accept: "application/json",
                     "Cache-Control": "no-cache",
-                    Authorization: token ? `Bearer ${token}` : "",
+                    Authorization: authToken ? `Bearer ${authToken}` : "",
                   },
                 });
 
@@ -404,8 +413,17 @@ const EditProduct = () => {
                   "Using main product endpoint as emergency fallback"
                 );
 
-                // Get the auth token
+                // Get the auth token - try both admin and regular tokens
+                const adminToken =
+                  localStorage.getItem("adminToken") ||
+                  sessionStorage.getItem("adminToken");
                 const token = localStorage.getItem("token");
+                const authToken = adminToken || token;
+
+                console.log(
+                  "Using auth token for emergency update:",
+                  authToken ? "Token found" : "No token found"
+                );
 
                 let emergencySuccess = false;
                 let emergencyResponse;
@@ -429,7 +447,7 @@ const EditProduct = () => {
                     headers: {
                       Accept: "application/json",
                       "Cache-Control": "no-cache",
-                      Authorization: token ? `Bearer ${token}` : "",
+                      Authorization: authToken ? `Bearer ${authToken}` : "",
                     },
                   });
 
@@ -461,7 +479,7 @@ const EditProduct = () => {
                         "Content-Type": "application/json",
                         Accept: "application/json",
                         "Cache-Control": "no-cache",
-                        Authorization: token ? `Bearer ${token}` : "",
+                        Authorization: authToken ? `Bearer ${authToken}` : "",
                       },
                     });
 
@@ -553,8 +571,17 @@ const EditProduct = () => {
           // Use the main product update endpoint
           console.log("Using main product endpoint for update");
 
-          // Get the auth token
+          // Get the auth token - try both admin and regular tokens
+          const adminToken =
+            localStorage.getItem("adminToken") ||
+            sessionStorage.getItem("adminToken");
           const token = localStorage.getItem("token");
+          const authToken = adminToken || token;
+
+          console.log(
+            "Using auth token for update:",
+            authToken ? "Token found" : "No token found"
+          );
 
           let emergencySuccess = false;
           let emergencyResponse;
@@ -575,7 +602,7 @@ const EditProduct = () => {
               headers: {
                 Accept: "application/json",
                 "Cache-Control": "no-cache",
-                Authorization: token ? `Bearer ${token}` : "",
+                Authorization: authToken ? `Bearer ${authToken}` : "",
               },
             });
 
@@ -603,7 +630,7 @@ const EditProduct = () => {
                   "Content-Type": "application/json",
                   Accept: "application/json",
                   "Cache-Control": "no-cache",
-                  Authorization: token ? `Bearer ${token}` : "",
+                  Authorization: authToken ? `Bearer ${authToken}` : "",
                 },
               });
 
@@ -704,8 +731,17 @@ const EditProduct = () => {
             // Use the main product endpoint as last resort
             console.log("Using main product endpoint as last resort");
 
-            // Get the auth token
+            // Get the auth token - try both admin and regular tokens
+            const adminToken =
+              localStorage.getItem("adminToken") ||
+              sessionStorage.getItem("adminToken");
             const token = localStorage.getItem("token");
+            const authToken = adminToken || token;
+
+            console.log(
+              "Using auth token for last resort update:",
+              authToken ? "Token found" : "No token found"
+            );
 
             let lastResortSuccess = false;
             let lastResortResponse;
@@ -729,7 +765,7 @@ const EditProduct = () => {
                 headers: {
                   Accept: "application/json",
                   "Cache-Control": "no-cache",
-                  Authorization: token ? `Bearer ${token}` : "",
+                  Authorization: authToken ? `Bearer ${authToken}` : "",
                 },
               });
 
@@ -761,7 +797,7 @@ const EditProduct = () => {
                     "Content-Type": "application/json",
                     Accept: "application/json",
                     "Cache-Control": "no-cache",
-                    Authorization: token ? `Bearer ${token}` : "",
+                    Authorization: authToken ? `Bearer ${authToken}` : "",
                   },
                 });
 
