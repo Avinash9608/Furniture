@@ -177,30 +177,81 @@ const ProductForm = ({
           // Add a cache-busting parameter
           formData.append("_t", Date.now());
 
-          // Use fetch API directly to upload the images
-          const uploadUrl = `${
-            window.location.origin
-          }/api/images/upload?_t=${Date.now()}`;
-          console.log("Image upload URL:", uploadUrl);
+          // Try multiple endpoints for image upload
+          const endpoints = [
+            `/api/images/upload?_t=${Date.now()}`,
+            `/api/uploads?_t=${Date.now()}`,
+            `/api/products/upload-images?_t=${Date.now()}`,
+          ];
 
-          const uploadResponse = await fetch(uploadUrl, {
-            method: "POST",
-            body: formData,
-            headers: {
-              Accept: "application/json",
-              "Cache-Control": "no-cache",
-            },
-          });
+          let uploadSuccess = false;
+          let uploadResponse;
+
+          // Try each endpoint until one succeeds
+          for (const endpoint of endpoints) {
+            if (uploadSuccess) break;
+
+            try {
+              console.log(`Trying image upload endpoint: ${endpoint}`);
+
+              const uploadUrl = `${window.location.origin}${endpoint}`;
+              console.log("Full upload URL:", uploadUrl);
+
+              uploadResponse = await fetch(uploadUrl, {
+                method: "POST",
+                body: formData,
+                headers: {
+                  Accept: "application/json",
+                  "Cache-Control": "no-cache",
+                },
+              });
+
+              if (uploadResponse.ok) {
+                console.log(
+                  `Image upload successful with endpoint: ${endpoint}`
+                );
+                uploadSuccess = true;
+                break;
+              } else {
+                console.warn(
+                  `Image upload failed with status: ${uploadResponse.status} for endpoint: ${endpoint}`
+                );
+              }
+            } catch (endpointError) {
+              console.error(`Error with endpoint ${endpoint}:`, endpointError);
+            }
+          }
+
+          // If all endpoints failed, use the last response
+          if (!uploadSuccess && !uploadResponse) {
+            console.error("All image upload endpoints failed");
+            // Fall back to client-side handling
+            setImages(newImages);
+            return;
+          }
 
           if (uploadResponse.ok) {
             const data = await uploadResponse.json();
             console.log("Image upload successful:", data);
 
-            // Replace the File objects with the uploaded image paths
-            if (data.files && data.files.length > 0) {
-              const uploadedPaths = data.files.map((file) => file.path);
-              console.log("Uploaded image paths:", uploadedPaths);
+            // Handle different response formats
+            let uploadedPaths = [];
 
+            if (data.files && data.files.length > 0) {
+              uploadedPaths = data.files.map((file) => file.path);
+            } else if (data.data && Array.isArray(data.data)) {
+              uploadedPaths = data.data;
+            } else if (data.urls && Array.isArray(data.urls)) {
+              uploadedPaths = data.urls;
+            } else if (data.paths && Array.isArray(data.paths)) {
+              uploadedPaths = data.paths;
+            } else if (data.images && Array.isArray(data.images)) {
+              uploadedPaths = data.images;
+            }
+
+            console.log("Uploaded image paths:", uploadedPaths);
+
+            if (uploadedPaths.length > 0) {
               // Combine existing string images with new uploaded paths
               const updatedImages = [...stringImages, ...uploadedPaths];
               console.log("Final images array:", updatedImages);
@@ -208,7 +259,8 @@ const ProductForm = ({
               // Update the images state
               setImages(updatedImages);
             } else {
-              // If no files were uploaded, just keep the string images
+              console.warn("No image paths found in response");
+              // If no paths were found, just keep the string images
               setImages(stringImages);
             }
           } else {

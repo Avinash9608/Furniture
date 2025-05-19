@@ -716,6 +716,9 @@ if (!staticPath) {
     const orderRoutes = require("./server/routes/orders");
     const paymentSettingsRoutes = require("./server/routes/paymentSettings");
     const paymentRequestsRoutes = require("./server/routes/paymentRequests");
+    const imageRoutes = require("./server/routes/images");
+    const emergencyRoutes = require("./server/routes/emergency");
+    const fallbackRoutes = require("./server/routes/fallback");
 
     // Import simplified contact controller for standalone MongoDB connection
     const contactController = require("./server/controllers/simplifiedContactController");
@@ -769,6 +772,9 @@ if (!staticPath) {
     app.use("/api/orders", orderRoutes);
     app.use("/api/payment-settings", paymentSettingsRoutes);
     app.use("/api/payment-requests", paymentRequestsRoutes);
+    app.use("/api/images", imageRoutes);
+    app.use("/api/emergency", emergencyRoutes);
+    app.use("/api/fallback", fallbackRoutes);
 
     // Import direct database access controllers
     const {
