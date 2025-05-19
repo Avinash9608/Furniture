@@ -65,16 +65,27 @@ export const getProductType = (productName) => {
 export const getPlaceholderByType = (type, name = "") => {
   // Color mapping for different product types
   const colorMap = {
-    sofa: "red",
-    bed: "blue",
-    table: "orange",
-    chair: "green",
-    wardrobe: "purple",
-    furniture: "gray",
+    sofa: "8B4513", // Brown
+    bed: "4169E1", // Royal Blue
+    table: "CD853F", // Peru (wood color)
+    chair: "2E8B57", // Sea Green
+    wardrobe: "800080", // Purple
+    furniture: "708090", // Slate Gray
   };
 
-  // Get the color for this product type
-  const color = colorMap[type] || "gray";
+  // Background color mapping for different product types
+  const bgColorMap = {
+    sofa: "FFF0E6", // Light peach
+    bed: "E6F0FF", // Light blue
+    table: "FFF5E6", // Light tan
+    chair: "E6FFF0", // Light mint
+    wardrobe: "F5E6FF", // Light lavender
+    furniture: "F0F0F0", // Light gray
+  };
+
+  // Get the colors for this product type
+  const color = colorMap[type] || colorMap.furniture;
+  const bgColor = bgColorMap[type] || bgColorMap.furniture;
 
   // Create a display name (either the type or a shortened product name)
   let displayName = type.charAt(0).toUpperCase() + type.slice(1);
@@ -87,8 +98,28 @@ export const getPlaceholderByType = (type, name = "") => {
   // Encode the display name for use in a URL
   const encodedName = encodeURIComponent(displayName);
 
-  // Return the placeholder URL
-  return `https://placehold.co/300x300/${color}/white?text=${encodedName}`;
+  // Try to use a more visually appealing placeholder service
+  try {
+    // First try DiceBear for furniture-themed avatars
+    const seed = encodeURIComponent(name || type);
+    const style =
+      type === "sofa"
+        ? "lorelei"
+        : type === "bed"
+        ? "notionists"
+        : type === "table"
+        ? "shapes"
+        : type === "chair"
+        ? "thumbs"
+        : type === "wardrobe"
+        ? "initials"
+        : "identicon";
+
+    return `https://api.dicebear.com/7.x/${style}/svg?seed=${seed}&backgroundColor=${bgColor}&radius=10`;
+  } catch (error) {
+    // Fallback to placehold.co
+    return `https://placehold.co/300x300/${color}/${bgColor}?text=${encodedName}`;
+  }
 };
 
 /**

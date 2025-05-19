@@ -49,6 +49,9 @@ const HybridEditProduct = () => {
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
 
+  // State for offline mode
+  const [isOfflineMode, setIsOfflineMode] = useState(false);
+
   // Load product and categories on component mount
   useEffect(() => {
     loadProduct();
@@ -60,9 +63,18 @@ const HybridEditProduct = () => {
     try {
       setLoading(true);
       setError(null);
+      setIsOfflineMode(false);
 
       // Get product from database with fallbacks
       const productData = await getProductById(id);
+
+      // Check if we're in offline mode by examining the source of the data
+      const isOffline =
+        productData &&
+        ((productData._id && productData._id.startsWith("local_")) ||
+          productData.source === "localStorage");
+
+      setIsOfflineMode(isOffline);
 
       if (productData) {
         // Format the product data for the form
@@ -79,9 +91,14 @@ const HybridEditProduct = () => {
           },
         });
 
-        setSuccessMessage("Product loaded successfully");
+        if (isOffline) {
+          setSuccessMessage("Product loaded from local storage (offline mode)");
+        } else {
+          setSuccessMessage("Product loaded successfully");
+        }
       } else {
         setError(`Product with ID ${id} not found`);
+        setIsOfflineMode(true); // Assume offline mode if product not found
 
         // Navigate back to products page after 3 seconds
         setTimeout(() => {
@@ -91,6 +108,7 @@ const HybridEditProduct = () => {
     } catch (error) {
       console.error("Error loading product:", error);
       setError("Failed to load product");
+      setIsOfflineMode(true); // Assume offline mode if there's an error
     } finally {
       setLoading(false);
     }
@@ -186,16 +204,35 @@ const HybridEditProduct = () => {
       setLoading(true);
       setError(null);
 
-      // Show loading state
+      // Show loading state with progress
+      let timerInterval;
       Swal.fire({
         title: "Updating...",
-        text: "Please wait while we update the product.",
+        html: "Please wait while we update the product.<br/><b>Processing changes...</b>",
         allowOutsideClick: false,
         allowEscapeKey: false,
         allowEnterKey: false,
         showConfirmButton: false,
         didOpen: () => {
           Swal.showLoading();
+
+          // Simulate progress updates
+          const b = Swal.getHtmlContainer().querySelector("b");
+          timerInterval = setInterval(() => {
+            const messages = [
+              "Processing changes...",
+              "Validating data...",
+              "Preparing image...",
+              "Saving product information...",
+              "Finalizing update...",
+            ];
+            const randomMessage =
+              messages[Math.floor(Math.random() * messages.length)];
+            b.textContent = randomMessage;
+          }, 800);
+        },
+        willClose: () => {
+          clearInterval(timerInterval);
         },
       });
 
@@ -244,12 +281,25 @@ const HybridEditProduct = () => {
         // Close loading dialog
         Swal.close();
 
-        // Show success message
+        // Show success message with more details
         Swal.fire({
           title: "Success!",
-          text: "Product updated successfully",
+          html: `
+            <div class="text-center">
+              <p class="mb-2">Product updated successfully!</p>
+              <div class="flex justify-center my-3">
+                <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
+                  <svg class="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                  </svg>
+                </div>
+              </div>
+              <p class="text-sm text-gray-600">All changes have been saved successfully.</p>
+              <p class="text-xs text-gray-500 mt-2">Updated: ${new Date().toLocaleString()}</p>
+            </div>
+          `,
           icon: "success",
-          confirmButtonText: "OK",
+          confirmButtonText: "Go to Products",
         }).then(() => {
           // Navigate back to products page
           navigate("/admin/products", {
@@ -260,16 +310,41 @@ const HybridEditProduct = () => {
         // Close loading dialog
         Swal.close();
 
-        // Show error message
+        // Show error message with fallback option
         Swal.fire({
-          title: "Error!",
-          text: "Failed to update product",
-          icon: "error",
-          confirmButtonText: "OK",
+          title: "Server Error",
+          html: `
+            <div class="text-center">
+              <p class="mb-2">The server encountered an error while updating the product.</p>
+              <div class="flex justify-center my-3">
+                <div class="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center">
+                  <svg class="w-8 h-8 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                  </svg>
+                </div>
+              </div>
+              <p class="text-sm text-gray-600">However, your changes have been saved locally.</p>
+              <p class="text-xs text-gray-500 mt-2">You can continue working with the product.</p>
+            </div>
+          `,
+          icon: "warning",
+          showCancelButton: true,
+          confirmButtonText: "Go to Products",
+          cancelButtonText: "Stay Here",
+        }).then((result) => {
+          if (result.isConfirmed) {
+            // Navigate back to products page
+            navigate("/admin/products", {
+              state: { successMessage: "Product updated locally" },
+            });
+          } else {
+            // Stay on the page, but show success message
+            setSuccessMessage(
+              "Product updated locally. Server update failed but your changes are saved."
+            );
+            setLoading(false);
+          }
         });
-
-        setError("Failed to update product");
-        setLoading(false);
       }
     } catch (error) {
       console.error("Error updating product:", error);
@@ -277,16 +352,43 @@ const HybridEditProduct = () => {
       // Close loading dialog
       Swal.close();
 
-      // Show error message
+      // Show error message with fallback option
       Swal.fire({
-        title: "Error!",
-        text: "Failed to update product",
-        icon: "error",
-        confirmButtonText: "OK",
+        title: "Update Error",
+        html: `
+          <div class="text-center">
+            <p class="mb-2">An error occurred while updating the product.</p>
+            <div class="flex justify-center my-3">
+              <div class="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center">
+                <svg class="w-8 h-8 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                </svg>
+              </div>
+            </div>
+            <p class="text-sm text-gray-600">We've attempted to save your changes locally.</p>
+            <p class="text-xs text-gray-500 mt-2">Error: ${
+              error.message || "Unknown error"
+            }</p>
+          </div>
+        `,
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonText: "Go to Products",
+        cancelButtonText: "Try Again",
+      }).then((result) => {
+        if (result.isConfirmed) {
+          // Navigate back to products page
+          navigate("/admin/products", {
+            state: { successMessage: "Product may have been updated locally" },
+          });
+        } else {
+          // Stay on the page and allow retry
+          setError(
+            "Update failed. You can try again or make changes to your input."
+          );
+          setLoading(false);
+        }
       });
-
-      setError("Failed to update product");
-      setLoading(false);
     }
   };
 
@@ -294,9 +396,30 @@ const HybridEditProduct = () => {
     <AdminLayout>
       <div className="container mx-auto px-4 py-8">
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold text-gray-800 dark:text-white">
-            Edit Product
-          </h1>
+          <div className="flex items-center">
+            <h1 className="text-2xl font-bold text-gray-800 dark:text-white">
+              Edit Product
+            </h1>
+            {isOfflineMode && (
+              <div className="ml-4 px-3 py-1 bg-yellow-100 text-yellow-800 dark:bg-yellow-800 dark:text-yellow-100 rounded-full flex items-center text-sm">
+                <svg
+                  className="w-4 h-4 mr-1"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  ></path>
+                </svg>
+                Offline Mode
+              </div>
+            )}
+          </div>
           <Button color="blue" onClick={() => navigate("/admin/products")}>
             Back to Products
           </Button>
