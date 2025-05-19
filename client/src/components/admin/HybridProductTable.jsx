@@ -2,6 +2,10 @@ import React from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { formatPrice } from "../../utils/format";
+import {
+  getPlaceholderByType,
+  getProductType,
+} from "../../utils/reliableImageHelper";
 
 /**
  * A hybrid product table component that uses database data with reliable image display.
@@ -18,37 +22,9 @@ const HybridProductTable = ({
       return "https://placehold.co/300x300/gray/white?text=No+Product";
     }
 
-    const name = product.name.toLowerCase();
-    let color = "gray";
-    let type = "Product";
-
-    // Determine product type and color based on name
-    if (name.includes("sofa") || name.includes("couch")) {
-      color = "red";
-      type = "Sofa";
-    } else if (name.includes("bed")) {
-      color = "blue";
-      type = "Bed";
-    } else if (name.includes("table") || name.includes("dining")) {
-      color = "orange";
-      type = "Table";
-    } else if (name.includes("chair")) {
-      color = "green";
-      type = "Chair";
-    } else if (name.includes("wardrobe") || name.includes("cabinet")) {
-      color = "purple";
-      type = "Wardrobe";
-    }
-
-    // Create a display name (either the type or a shortened product name)
-    const displayName = encodeURIComponent(
-      product.name.length > 20
-        ? product.name.substring(0, 20) + "..."
-        : product.name
-    );
-
-    // Return the placeholder URL
-    return `https://placehold.co/300x300/${color}/white?text=${displayName}`;
+    // Use the reliable image helper functions
+    const productType = getProductType(product.name);
+    return getPlaceholderByType(productType, product.name);
   };
 
   // Function to get category color

@@ -80,6 +80,7 @@ app.use("/api/auth", require("./routes/auth"));
 app.use("/api/payment-settings", require("./routes/paymentSettings"));
 app.use("/api/payment-requests", require("./routes/paymentRequests"));
 app.use("/api/contact", require("./routes/contact"));
+app.use("/api/direct", require("./routes/directAccess"));
 
 // For direct access without /api prefix
 app.use("/products", require("./routes/products"));

@@ -1,6 +1,6 @@
 /**
  * Reliable Image Helper Utility
- * 
+ *
  * This utility provides reliable image handling functions that work even when the server is having issues.
  * It uses external placeholder services instead of relying on the server's /uploads directory.
  */
@@ -40,7 +40,7 @@ export const getProductType = (productName) => {
   if (!productName) return "unknown";
 
   const lowerName = productName.toLowerCase();
-  
+
   if (lowerName.includes("sofa") || lowerName.includes("couch")) {
     return "sofa";
   } else if (lowerName.includes("bed")) {
@@ -70,23 +70,23 @@ export const getPlaceholderByType = (type, name = "") => {
     table: "orange",
     chair: "green",
     wardrobe: "purple",
-    furniture: "gray"
+    furniture: "gray",
   };
 
   // Get the color for this product type
   const color = colorMap[type] || "gray";
-  
+
   // Create a display name (either the type or a shortened product name)
   let displayName = type.charAt(0).toUpperCase() + type.slice(1);
-  
+
   if (name && name.length > 0) {
     // Use the product name, but limit it to 20 characters
     displayName = name.length > 20 ? name.substring(0, 20) + "..." : name;
   }
-  
+
   // Encode the display name for use in a URL
   const encodedName = encodeURIComponent(displayName);
-  
+
   // Return the placeholder URL
   return `https://placehold.co/300x300/${color}/white?text=${encodedName}`;
 };
@@ -101,9 +101,9 @@ export const processProductsWithReliableImages = (products) => {
     return [];
   }
 
-  return products.map(product => ({
+  return products.map((product) => ({
     ...product,
-    reliableImageUrl: getReliableProductImage(product)
+    reliableImageUrl: getReliableProductImage(product),
   }));
 };
 
@@ -120,27 +120,84 @@ export const createReliableImageObject = (file, index) => {
       id: `file_${index}_${Date.now()}`,
       preview: URL.createObjectURL(file),
       file: file,
-      isReliable: true
+      isReliable: true,
     };
   }
-  
+
   // If it's a string URL from a reliable source, use it directly
-  if (typeof file === 'string' && (
-    file.includes('placehold.co') || 
-    file.includes('placeholder.com') ||
-    file.includes('cloudinary.com')
-  )) {
+  if (
+    typeof file === "string" &&
+    (file.includes("placehold.co") ||
+      file.includes("placeholder.com") ||
+      file.includes("cloudinary.com"))
+  ) {
     return {
       id: `url_${index}_${Date.now()}`,
       url: file,
-      isReliable: true
+      isReliable: true,
     };
   }
-  
+
   // For any other case, use a placeholder
   return {
     id: `placeholder_${index}_${Date.now()}`,
     url: `https://placehold.co/300x300/gray/white?text=Image+${index + 1}`,
-    isReliable: true
+    isReliable: true,
   };
+};
+
+/**
+ * Create a data URL from a file
+ * @param {File} file - The file to create a data URL from
+ * @returns {Promise<string>} - A promise that resolves to the data URL
+ */
+export const createDataUrl = (file) => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      resolve(reader.result);
+    };
+
+    reader.onerror = (error) => {
+      reject(error);
+    };
+
+    reader.readAsDataURL(file);
+  });
+};
+
+/**
+ * Get a reliable image URL for a product with a fallback
+ * @param {Object} product - The product object
+ * @param {string} fallbackUrl - The fallback URL to use if the product has no images
+ * @returns {string} - The image URL
+ */
+export const getReliableImageUrlWithFallback = (product, fallbackUrl) => {
+  // If the product has images, try to use the first one
+  if (product && product.images && product.images.length > 0) {
+    const imageUrl = product.images[0];
+
+    // If the image URL is a full URL, use it
+    if (imageUrl.startsWith("http")) {
+      return imageUrl;
+    }
+
+    // If the image URL is a relative path, try to use the server URL
+    const hostname = window.location.hostname;
+    const isProduction =
+      hostname.includes("render.com") ||
+      hostname === "furniture-q3nb.onrender.com";
+    const baseUrl = isProduction
+      ? "https://furniture-q3nb.onrender.com"
+      : "http://localhost:5000";
+
+    return `${baseUrl}${imageUrl}`;
+  }
+
+  // If the product has no images, use the fallback URL
+  return (
+    fallbackUrl ||
+    getPlaceholderByType("furniture", product ? product.name : null)
+  );
 };
