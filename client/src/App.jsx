@@ -18,6 +18,7 @@ import MyPaymentRequests from "./pages/MyPaymentRequests";
 import AdminLogin from "./pages/admin/AdminLoginNew";
 import AdminDashboard from "./pages/admin/Dashboard";
 import AdminProducts from "./pages/admin/Products";
+import ReliableProducts from "./pages/admin/ReliableProducts";
 import AdminAddProduct from "./pages/admin/AddProduct";
 import AdminEditProduct from "./pages/admin/EditProduct";
 import AdminCategories from "./pages/admin/CategoriesSimple";
@@ -133,7 +134,7 @@ function App() {
             path="/admin/products"
             element={
               <ProtectedRoute>
-                <AdminProducts />
+                <ReliableProducts />
               </ProtectedRoute>
             }
           />
