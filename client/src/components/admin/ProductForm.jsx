@@ -177,67 +177,114 @@ const ProductForm = ({
           // Add a cache-busting parameter
           formData.append("_t", Date.now());
 
-          // Try multiple endpoints for image upload
-          const endpoints = [
-            `/api/images/upload?_t=${Date.now()}`,
-            `/api/uploads?_t=${Date.now()}`,
-            `/api/products/upload-images?_t=${Date.now()}`,
-          ];
+          // Use the existing product endpoint for image handling
+          console.log("Using temporary product endpoint for image upload");
+
+          // Create a temporary product to upload the images
+          const tempFormData = new FormData();
+          tempFormData.append("name", "Temp Product For Image Upload");
+          tempFormData.append(
+            "description",
+            "Temporary product for image upload"
+          );
+          tempFormData.append("price", "1");
+          tempFormData.append("stock", "1");
+          tempFormData.append("category", "680c9481ab11e96a288ef6d9"); // Use a known category ID
+
+          // Add the images to the form data
+          fileImages.forEach((file) => {
+            tempFormData.append("images", file);
+          });
+
+          // Add a cache-busting parameter
+          tempFormData.append("_t", Date.now());
 
           let uploadSuccess = false;
           let uploadResponse;
 
-          // Try each endpoint until one succeeds
-          for (const endpoint of endpoints) {
-            if (uploadSuccess) break;
+          try {
+            // Use the products endpoint which we know works
+            const uploadUrl = `${
+              window.location.origin
+            }/api/products?_t=${Date.now()}`;
+            console.log("Using product endpoint for image upload:", uploadUrl);
 
-            try {
-              console.log(`Trying image upload endpoint: ${endpoint}`);
+            // Get the auth token
+            const token = localStorage.getItem("token");
 
-              const uploadUrl = `${window.location.origin}${endpoint}`;
-              console.log("Full upload URL:", uploadUrl);
+            uploadResponse = await fetch(uploadUrl, {
+              method: "POST",
+              body: tempFormData,
+              headers: {
+                Accept: "application/json",
+                "Cache-Control": "no-cache",
+                Authorization: token ? `Bearer ${token}` : "",
+              },
+            });
 
-              uploadResponse = await fetch(uploadUrl, {
-                method: "POST",
-                body: formData,
-                headers: {
-                  Accept: "application/json",
-                  "Cache-Control": "no-cache",
-                },
-              });
-
-              if (uploadResponse.ok) {
-                console.log(
-                  `Image upload successful with endpoint: ${endpoint}`
-                );
-                uploadSuccess = true;
-                break;
-              } else {
-                console.warn(
-                  `Image upload failed with status: ${uploadResponse.status} for endpoint: ${endpoint}`
-                );
-              }
-            } catch (endpointError) {
-              console.error(`Error with endpoint ${endpoint}:`, endpointError);
+            if (uploadResponse.ok) {
+              console.log("Image upload successful via product endpoint");
+              uploadSuccess = true;
+            } else {
+              console.warn(
+                `Image upload failed with status: ${uploadResponse.status}`
+              );
             }
+          } catch (uploadError) {
+            console.error("Error uploading images:", uploadError);
           }
 
-          // If all endpoints failed, use the last response
-          if (!uploadSuccess && !uploadResponse) {
-            console.error("All image upload endpoints failed");
+          // If upload failed, fall back to client-side handling
+          if (!uploadSuccess) {
+            console.error("Image upload failed");
             // Fall back to client-side handling
             setImages(newImages);
             return;
           }
 
-          if (uploadResponse.ok) {
+          try {
             const data = await uploadResponse.json();
-            console.log("Image upload successful:", data);
+            console.log("Image upload response:", data);
 
-            // Handle different response formats
+            // Extract the image paths from the created product
             let uploadedPaths = [];
 
-            if (data.files && data.files.length > 0) {
+            if (
+              data.data &&
+              data.data.images &&
+              Array.isArray(data.data.images)
+            ) {
+              // Get images from the created product
+              uploadedPaths = data.data.images;
+              console.log("Extracted image paths from product:", uploadedPaths);
+
+              // Delete the temporary product
+              try {
+                const token = localStorage.getItem("token");
+                const deleteUrl = `${window.location.origin}/api/products/${data.data._id}`;
+
+                console.log("Deleting temporary product:", deleteUrl);
+
+                const deleteResponse = await fetch(deleteUrl, {
+                  method: "DELETE",
+                  headers: {
+                    Accept: "application/json",
+                    Authorization: token ? `Bearer ${token}` : "",
+                  },
+                });
+
+                if (deleteResponse.ok) {
+                  console.log("Temporary product deleted successfully");
+                } else {
+                  console.warn(
+                    "Failed to delete temporary product:",
+                    deleteResponse.status
+                  );
+                }
+              } catch (deleteError) {
+                console.error("Error deleting temporary product:", deleteError);
+              }
+            } else if (data.files && data.files.length > 0) {
               uploadedPaths = data.files.map((file) => file.path);
             } else if (data.data && Array.isArray(data.data)) {
               uploadedPaths = data.data;
@@ -249,7 +296,7 @@ const ProductForm = ({
               uploadedPaths = data.images;
             }
 
-            console.log("Uploaded image paths:", uploadedPaths);
+            console.log("Final uploaded image paths:", uploadedPaths);
 
             if (uploadedPaths.length > 0) {
               // Combine existing string images with new uploaded paths
@@ -263,14 +310,8 @@ const ProductForm = ({
               // If no paths were found, just keep the string images
               setImages(stringImages);
             }
-          } else {
-            console.warn(
-              "Image upload failed with status:",
-              uploadResponse.status
-            );
-            const errorText = await uploadResponse.text();
-            console.warn("Image upload error:", errorText);
-
+          } catch (parseError) {
+            console.error("Error parsing upload response:", parseError);
             // Fall back to client-side handling
             setImages(newImages);
           }

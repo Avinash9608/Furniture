@@ -308,59 +308,62 @@ const EditProduct = () => {
                 imagePaths: JSON.stringify(imagePaths),
               };
 
-              // Try multiple endpoints for image update
-              const imageEndpoints = [
-                `/api/images/product/${id}?_t=${Date.now()}`,
-                `/api/products/${id}/images?_t=${Date.now()}`,
-                `/api/direct/products/${id}/images?_t=${Date.now()}`,
-              ];
+              // Use the main product update endpoint
+              console.log("Using main product update endpoint for images");
+
+              // Create a form data object with just the images
+              const imageFormData = new FormData();
+
+              // Add the images as JSON string
+              imageFormData.append(
+                "existingImages",
+                JSON.stringify(imagePaths)
+              );
+              imageFormData.append("replaceImages", "true");
+              imageFormData.append("_t", Date.now());
+
+              // Get the auth token
+              const token = localStorage.getItem("token");
 
               let imageUpdateSuccess = false;
               let imageUpdateResponse;
 
-              // Try each endpoint until one succeeds
-              for (const endpoint of imageEndpoints) {
-                if (imageUpdateSuccess) break;
+              try {
+                // Use the main product endpoint which we know works
+                const imageUpdateUrl = `${
+                  window.location.origin
+                }/api/products/${id}?_t=${Date.now()}`;
+                console.log(
+                  "Using product endpoint for image update:",
+                  imageUpdateUrl
+                );
 
-                try {
-                  console.log(`Trying image update endpoint: ${endpoint}`);
+                imageUpdateResponse = await fetch(imageUpdateUrl, {
+                  method: "PUT",
+                  body: imageFormData,
+                  headers: {
+                    Accept: "application/json",
+                    "Cache-Control": "no-cache",
+                    Authorization: token ? `Bearer ${token}` : "",
+                  },
+                });
 
-                  const imageUpdateUrl = `${window.location.origin}${endpoint}`;
-                  console.log("Full image update URL:", imageUpdateUrl);
-
-                  imageUpdateResponse = await fetch(imageUpdateUrl, {
-                    method: "PUT",
-                    body: JSON.stringify(imageUpdateBody),
-                    headers: {
-                      "Content-Type": "application/json",
-                      Accept: "application/json",
-                      "Cache-Control": "no-cache",
-                    },
-                  });
-
-                  if (imageUpdateResponse.ok) {
-                    console.log(
-                      `Image update successful with endpoint: ${endpoint}`
-                    );
-                    imageUpdateSuccess = true;
-                    break;
-                  } else {
-                    console.warn(
-                      `Image update failed with status: ${imageUpdateResponse.status} for endpoint: ${endpoint}`
-                    );
-                  }
-                } catch (endpointError) {
-                  console.error(
-                    `Error with endpoint ${endpoint}:`,
-                    endpointError
+                if (imageUpdateResponse.ok) {
+                  console.log("Image update successful via product endpoint");
+                  imageUpdateSuccess = true;
+                } else {
+                  console.warn(
+                    `Image update failed with status: ${imageUpdateResponse.status}`
                   );
                 }
+              } catch (updateError) {
+                console.error("Error updating images:", updateError);
               }
 
-              // If all endpoints failed, use the last response or continue with the next approach
-              if (!imageUpdateSuccess && !imageUpdateResponse) {
+              // If the update failed, continue with emergency approach
+              if (!imageUpdateSuccess) {
                 console.error(
-                  "All image update endpoints failed, continuing with emergency approach"
+                  "Image update failed, continuing with emergency approach"
                 );
                 imageUpdateResponse = { ok: false };
               }
@@ -396,59 +399,91 @@ const EditProduct = () => {
                   "Using emergency endpoint for main product data..."
                 );
 
-                // Try multiple emergency endpoints
-                const emergencyEndpoints = [
-                  `/api/emergency/products/${id}?_t=${Date.now()}`,
-                  `/api/direct/products/${id}?_t=${Date.now()}`,
-                  `/api/fallback/products/${id}?_t=${Date.now()}`,
-                ];
+                // Use the main product update endpoint as emergency fallback
+                console.log(
+                  "Using main product endpoint as emergency fallback"
+                );
+
+                // Get the auth token
+                const token = localStorage.getItem("token");
 
                 let emergencySuccess = false;
                 let emergencyResponse;
 
-                // Try each endpoint until one succeeds
-                for (const endpoint of emergencyEndpoints) {
-                  if (emergencySuccess) break;
+                try {
+                  // Use the main product endpoint which we know works
+                  const emergencyUrl = `${
+                    window.location.origin
+                  }/api/products/${id}?_t=${Date.now()}`;
+                  console.log(
+                    "Using product endpoint for emergency update:",
+                    emergencyUrl
+                  );
 
-                  try {
-                    console.log(`Trying emergency endpoint: ${endpoint}`);
+                  // Add authorization header
+                  simplifiedFormData.append("_t", Date.now());
 
-                    const emergencyUrl = `${window.location.origin}${endpoint}`;
-                    console.log("Full emergency URL:", emergencyUrl);
+                  emergencyResponse = await fetch(emergencyUrl, {
+                    method: "PUT",
+                    body: simplifiedFormData,
+                    headers: {
+                      Accept: "application/json",
+                      "Cache-Control": "no-cache",
+                      Authorization: token ? `Bearer ${token}` : "",
+                    },
+                  });
 
-                    emergencyResponse = await fetch(emergencyUrl, {
+                  if (emergencyResponse.ok) {
+                    console.log(
+                      "Emergency update successful via product endpoint"
+                    );
+                    emergencySuccess = true;
+                  } else {
+                    console.warn(
+                      `Emergency update failed with status: ${emergencyResponse.status}`
+                    );
+
+                    // Try one more time with a different content type
+                    console.log(
+                      "Trying emergency update with different content type"
+                    );
+
+                    // Convert FormData to JSON
+                    const formDataObj = {};
+                    for (let [key, value] of simplifiedFormData.entries()) {
+                      formDataObj[key] = value;
+                    }
+
+                    const jsonResponse = await fetch(emergencyUrl, {
                       method: "PUT",
-                      body: simplifiedFormData,
+                      body: JSON.stringify(formDataObj),
                       headers: {
+                        "Content-Type": "application/json",
                         Accept: "application/json",
                         "Cache-Control": "no-cache",
+                        Authorization: token ? `Bearer ${token}` : "",
                       },
                     });
 
-                    if (emergencyResponse.ok) {
-                      console.log(
-                        `Emergency update successful with endpoint: ${endpoint}`
-                      );
+                    if (jsonResponse.ok) {
+                      console.log("Emergency JSON update successful");
+                      emergencyResponse = jsonResponse;
                       emergencySuccess = true;
-                      break;
                     } else {
                       console.warn(
-                        `Emergency update failed with status: ${emergencyResponse.status} for endpoint: ${endpoint}`
+                        `Emergency JSON update failed with status: ${jsonResponse.status}`
                       );
                     }
-                  } catch (endpointError) {
-                    console.error(
-                      `Error with endpoint ${endpoint}:`,
-                      endpointError
-                    );
                   }
+                } catch (emergencyError) {
+                  console.error("Error with emergency update:", emergencyError);
                 }
 
-                // If all endpoints failed, use the last response
-                if (!emergencySuccess && !emergencyResponse) {
-                  console.error("All emergency endpoints failed");
+                // If all attempts failed, throw an error
+                if (!emergencySuccess) {
+                  console.error("All emergency update attempts failed");
                   throw new Error(
-                    "Failed to update product after trying multiple endpoints"
+                    "Failed to update product after trying all approaches"
                   );
                 }
 
@@ -515,54 +550,80 @@ const EditProduct = () => {
           // Add a cache-busting parameter
           simplifiedFormData.append("_t", Date.now());
 
-          // Try multiple emergency endpoints
-          const emergencyEndpoints = [
-            `/api/emergency/products/${id}?_t=${Date.now()}`,
-            `/api/direct/products/${id}?_t=${Date.now()}`,
-            `/api/fallback/products/${id}?_t=${Date.now()}`,
-          ];
+          // Use the main product update endpoint
+          console.log("Using main product endpoint for update");
+
+          // Get the auth token
+          const token = localStorage.getItem("token");
 
           let emergencySuccess = false;
           let emergencyResponse;
 
-          // Try each endpoint until one succeeds
-          for (const endpoint of emergencyEndpoints) {
-            if (emergencySuccess) break;
+          try {
+            // Use the main product endpoint which we know works
+            const emergencyUrl = `${
+              window.location.origin
+            }/api/products/${id}?_t=${Date.now()}`;
+            console.log("Using product endpoint for update:", emergencyUrl);
 
-            try {
-              console.log(`Trying emergency endpoint: ${endpoint}`);
+            // Add authorization header
+            simplifiedFormData.append("_t", Date.now());
 
-              const emergencyUrl = `${window.location.origin}${endpoint}`;
-              console.log("Full emergency URL:", emergencyUrl);
+            emergencyResponse = await fetch(emergencyUrl, {
+              method: "PUT",
+              body: simplifiedFormData,
+              headers: {
+                Accept: "application/json",
+                "Cache-Control": "no-cache",
+                Authorization: token ? `Bearer ${token}` : "",
+              },
+            });
 
-              emergencyResponse = await fetch(emergencyUrl, {
+            if (emergencyResponse.ok) {
+              console.log("Update successful via product endpoint");
+              emergencySuccess = true;
+            } else {
+              console.warn(
+                `Update failed with status: ${emergencyResponse.status}`
+              );
+
+              // Try one more time with a different content type
+              console.log("Trying update with different content type");
+
+              // Convert FormData to JSON
+              const formDataObj = {};
+              for (let [key, value] of simplifiedFormData.entries()) {
+                formDataObj[key] = value;
+              }
+
+              const jsonResponse = await fetch(emergencyUrl, {
                 method: "PUT",
-                body: simplifiedFormData,
+                body: JSON.stringify(formDataObj),
                 headers: {
+                  "Content-Type": "application/json",
                   Accept: "application/json",
                   "Cache-Control": "no-cache",
+                  Authorization: token ? `Bearer ${token}` : "",
                 },
               });
 
-              if (emergencyResponse.ok) {
-                console.log(
-                  `Emergency update successful with endpoint: ${endpoint}`
-                );
+              if (jsonResponse.ok) {
+                console.log("JSON update successful");
+                emergencyResponse = jsonResponse;
                 emergencySuccess = true;
-                break;
               } else {
                 console.warn(
-                  `Emergency update failed with status: ${emergencyResponse.status} for endpoint: ${endpoint}`
+                  `JSON update failed with status: ${jsonResponse.status}`
                 );
               }
-            } catch (endpointError) {
-              console.error(`Error with endpoint ${endpoint}:`, endpointError);
             }
+          } catch (updateError) {
+            console.error("Error with update:", updateError);
           }
 
-          // If all endpoints failed, use the last response
-          if (!emergencySuccess && !emergencyResponse) {
-            console.error("All emergency endpoints failed");
+          // If all attempts failed, continue to standard approach
+          if (!emergencySuccess) {
+            console.error("All update attempts failed");
             // Continue to standard approach
           }
 
@@ -640,60 +701,89 @@ const EditProduct = () => {
             minimalFormData.append("price", formData.get("price") || "0");
             minimalFormData.append("_t", Date.now());
 
-            // Try multiple last-resort endpoints
-            const lastResortEndpoints = [
-              `/api/emergency/products/${id}?_t=${Date.now()}&minimal=true`,
-              `/api/direct/products/${id}?_t=${Date.now()}&minimal=true`,
-              `/api/fallback/products/${id}?_t=${Date.now()}&minimal=true`,
-              `/api/products/${id}?_t=${Date.now()}&minimal=true`,
-            ];
+            // Use the main product endpoint as last resort
+            console.log("Using main product endpoint as last resort");
+
+            // Get the auth token
+            const token = localStorage.getItem("token");
 
             let lastResortSuccess = false;
             let lastResortResponse;
 
-            // Try each endpoint until one succeeds
-            for (const endpoint of lastResortEndpoints) {
-              if (lastResortSuccess) break;
+            try {
+              // Use the main product endpoint which we know works
+              const lastResortUrl = `${
+                window.location.origin
+              }/api/products/${id}?_t=${Date.now()}&minimal=true`;
+              console.log(
+                "Using product endpoint for last resort update:",
+                lastResortUrl
+              );
 
-              try {
-                console.log(`Trying last-resort endpoint: ${endpoint}`);
+              // Add authorization header
+              minimalFormData.append("_t", Date.now());
 
-                const lastResortUrl = `${window.location.origin}${endpoint}`;
-                console.log("Full last-resort URL:", lastResortUrl);
+              lastResortResponse = await fetch(lastResortUrl, {
+                method: "PUT",
+                body: minimalFormData,
+                headers: {
+                  Accept: "application/json",
+                  "Cache-Control": "no-cache",
+                  Authorization: token ? `Bearer ${token}` : "",
+                },
+              });
 
-                lastResortResponse = await fetch(lastResortUrl, {
+              if (lastResortResponse.ok) {
+                console.log(
+                  "Last resort update successful via product endpoint"
+                );
+                lastResortSuccess = true;
+              } else {
+                console.warn(
+                  `Last resort update failed with status: ${lastResortResponse.status}`
+                );
+
+                // Try one more time with a different content type
+                console.log(
+                  "Trying last resort update with different content type"
+                );
+
+                // Convert FormData to JSON
+                const formDataObj = {};
+                for (let [key, value] of minimalFormData.entries()) {
+                  formDataObj[key] = value;
+                }
+
+                const jsonResponse = await fetch(lastResortUrl, {
                   method: "PUT",
-                  body: minimalFormData,
+                  body: JSON.stringify(formDataObj),
                   headers: {
+                    "Content-Type": "application/json",
                     Accept: "application/json",
                     "Cache-Control": "no-cache",
+                    Authorization: token ? `Bearer ${token}` : "",
                   },
                 });
 
-                if (lastResortResponse.ok) {
-                  console.log(
-                    `Last-resort update successful with endpoint: ${endpoint}`
-                  );
+                if (jsonResponse.ok) {
+                  console.log("Last resort JSON update successful");
+                  lastResortResponse = jsonResponse;
                   lastResortSuccess = true;
-                  break;
                 } else {
                   console.warn(
-                    `Last-resort update failed with status: ${lastResortResponse.status} for endpoint: ${endpoint}`
+                    `Last resort JSON update failed with status: ${jsonResponse.status}`
                   );
                 }
-              } catch (endpointError) {
-                console.error(
-                  `Error with endpoint ${endpoint}:`,
-                  endpointError
-                );
               }
+            } catch (lastResortError) {
+              console.error("Error with last resort update:", lastResortError);
             }
 
-            // If all endpoints failed, use the last response
-            if (!lastResortSuccess && !lastResortResponse) {
-              console.error("All last-resort endpoints failed");
+            // If all attempts failed, throw an error
+            if (!lastResortSuccess) {
+              console.error("All last resort update attempts failed");
               throw new Error(
-                "Failed to update product after trying all possible endpoints"
+                "Failed to update product after trying all possible approaches"
               );
             }
 
