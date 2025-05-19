@@ -13,6 +13,7 @@ import {
   fixProductsImageUrls,
   getCachedImageUrl,
   validateImageUrl,
+  getDefaultImageForProduct,
 } from "../../utils/imageHelper";
 import AdminLayout from "../../components/admin/AdminLayout";
 import Button from "../../components/Button";
@@ -1494,8 +1495,17 @@ const AdminProducts = () => {
                       >
                         {product.images && product.images.length > 0 ? (
                           product.images.slice(0, 1).map((imageUrl, index) => {
-                            // Use the cached image URL function to get a validated URL
-                            const cachedUrl = getCachedImageUrl(imageUrl);
+                            // Create options object with product info for better image handling
+                            const options = {
+                              productName: product.name || "",
+                              productId: product._id || "",
+                            };
+
+                            // Use the cached image URL function to get a validated URL with product context
+                            const cachedUrl = getCachedImageUrl(
+                              imageUrl,
+                              options
+                            );
 
                             return (
                               <div
@@ -1531,10 +1541,25 @@ const AdminProducts = () => {
                                         productionUrl
                                       );
                                       e.target.src = productionUrl;
+
+                                      // Add a second error handler for the production URL
+                                      e.onerror = () => {
+                                        console.log(
+                                          "Production URL also failed, using default image for product type"
+                                        );
+                                        e.onerror = null; // Prevent infinite loop
+                                        e.target.src =
+                                          getDefaultImageForProduct(
+                                            product.name,
+                                            product._id
+                                          );
+                                      };
                                     } else {
-                                      // Use placeholder
-                                      e.target.src =
-                                        "https://placehold.co/300x300/gray/white?text=No+Image";
+                                      // Use product-specific default image
+                                      e.target.src = getDefaultImageForProduct(
+                                        product.name,
+                                        product._id
+                                      );
                                     }
                                   }}
                                   onLoad={(e) => {
@@ -1550,9 +1575,19 @@ const AdminProducts = () => {
                           })
                         ) : (
                           <div className="w-16 h-16 bg-gray-200 dark:bg-gray-700 flex items-center justify-center rounded-md">
-                            <span className="text-xs theme-text-secondary">
-                              No Image
-                            </span>
+                            <img
+                              src={getDefaultImageForProduct(
+                                product.name,
+                                product._id
+                              )}
+                              alt={`${product.name} - Default Image`}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.target.onerror = null;
+                                e.target.src =
+                                  "https://placehold.co/300x300/gray/white?text=No+Image";
+                              }}
+                            />
                           </div>
                         )}
                       </div>
