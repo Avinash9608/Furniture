@@ -17,52 +17,13 @@ export const getImageUrl = (imagePath, options = {}) => {
   }
 
   try {
-    // Get the hostname for environment detection
-    const hostname = window.location.hostname;
-    const isProduction =
-      hostname.includes("render.com") ||
-      hostname === "furniture-q3nb.onrender.com";
-
-    // Production base URL
+    // ALWAYS use the production URL in all environments for consistency
     const productionBaseUrl = "https://furniture-q3nb.onrender.com";
-
-    // Development base URL
-    const developmentBaseUrl =
-      import.meta.env.VITE_API_URL || "http://localhost:5000";
-
-    // Current base URL based on environment
-    const baseUrl = isProduction ? productionBaseUrl : developmentBaseUrl;
-
-    // Special handling for problematic products
-    if (options.productName) {
-      const lowerName = options.productName.toLowerCase();
-
-      // Check if this is one of the problematic products
-      if (
-        lowerName.includes("dinner set") ||
-        lowerName.includes("dinning") ||
-        lowerName.includes("beds set") ||
-        lowerName.includes("wardroom") ||
-        lowerName.includes("wardrobe")
-      ) {
-        // For these products, try to use a fixed image path format
-        if (isProduction) {
-          // In production, use a specific format that works
-          if (imagePath.includes("product-")) {
-            // This is likely a dynamically generated filename
-            return `${productionBaseUrl}/uploads/${imagePath.split("/").pop()}`;
-          }
-        }
-      }
-    }
-
-    // Clean up the image path
-    let cleanPath = imagePath;
 
     // If it's already a full URL
     if (imagePath.startsWith("http://") || imagePath.startsWith("https://")) {
-      // Fix localhost URLs in production
-      if (isProduction && imagePath.includes("localhost")) {
+      // Fix localhost URLs to use production URL
+      if (imagePath.includes("localhost")) {
         return imagePath.replace(
           /http:\/\/localhost(:\d+)?/g,
           productionBaseUrl
@@ -73,32 +34,16 @@ export const getImageUrl = (imagePath, options = {}) => {
       return imagePath;
     }
 
-    // Handle relative paths
-    if (imagePath.startsWith("/uploads/")) {
-      // Path already starts with /uploads/, just add the base URL
-      return `${baseUrl}${imagePath}`;
+    // Extract the filename from the path
+    const filename = imagePath.split("/").pop();
+
+    // Always use the direct filename approach for maximum compatibility
+    if (filename) {
+      return `${productionBaseUrl}/uploads/${filename}`;
     }
 
-    // If it's just a filename or a path without /uploads/ prefix
-    if (!imagePath.includes("/uploads/")) {
-      // Check if it's already a path but missing the /uploads/ prefix
-      if (imagePath.startsWith("/")) {
-        // It's a path but doesn't have /uploads/, check if it's in uploads
-        if (imagePath.includes("/uploads")) {
-          // It has uploads somewhere in the path, use as is
-          return `${baseUrl}${imagePath}`;
-        } else {
-          // Add /uploads/ prefix
-          return `${baseUrl}/uploads${imagePath}`;
-        }
-      } else {
-        // It's just a filename, add /uploads/ prefix
-        return `${baseUrl}/uploads/${imagePath}`;
-      }
-    }
-
-    // For any other case, add the base URL
-    return `${baseUrl}${imagePath.startsWith("/") ? "" : "/"}${imagePath}`;
+    // If we couldn't extract a filename, use a default image
+    return getDefaultImageForProduct(options.productName, options.productId);
   } catch (error) {
     console.error("Error processing image URL:", error);
     // Return a placeholder in case of any error
@@ -218,113 +163,24 @@ export const validateImageUrl = async (imageUrl, options = {}) => {
   if (!imageUrl) return fallbackUrl;
 
   try {
-    // Special handling for problematic products
-    if (options.productName) {
-      const lowerName = options.productName.toLowerCase();
+    // Extract the filename from the URL
+    const filename = imageUrl.split("/").pop();
 
-      // Check if this is one of the problematic products
-      if (
-        lowerName.includes("dinner set") ||
-        lowerName.includes("dinning") ||
-        lowerName.includes("beds set") ||
-        lowerName.includes("wardroom") ||
-        lowerName.includes("wardrobe")
-      ) {
-        // For these products, try to use a fixed image path format
-        const hostname = window.location.hostname;
-        const isProduction =
-          hostname.includes("render.com") ||
-          hostname === "furniture-q3nb.onrender.com";
+    // Always use the direct filename approach for maximum compatibility
+    if (filename && !filename.includes("://")) {
+      const directUrl = `https://furniture-q3nb.onrender.com/uploads/${filename}`;
 
-        if (isProduction) {
-          // In production, use a specific format that works
-          if (imageUrl.includes("product-")) {
-            // This is likely a dynamically generated filename
-            const fixedUrl = `https://furniture-q3nb.onrender.com/uploads/${imageUrl
-              .split("/")
-              .pop()}`;
-
-            // Try to fetch the fixed URL
-            try {
-              const fixedResponse = await fetch(fixedUrl, {
-                method: "HEAD",
-                cache: "no-cache",
-                headers: {
-                  "Cache-Control": "no-cache",
-                },
-              });
-
-              if (fixedResponse.ok) {
-                return fixedUrl;
-              }
-            } catch (fixedError) {
-              console.error("Error fetching fixed URL:", fixedError);
-            }
-          }
-
-          // If we couldn't fix the URL, return the product-specific default
-          return fallbackUrl;
-        }
+      try {
+        // Skip the HEAD request to avoid CORS issues
+        // Just return the direct URL immediately
+        return directUrl;
+      } catch (directError) {
+        console.error("Error with direct URL approach:", directError);
       }
     }
 
-    // Try to fetch the image with a HEAD request
-    const response = await fetch(imageUrl, {
-      method: "HEAD",
-      cache: "no-cache",
-      headers: {
-        "Cache-Control": "no-cache",
-      },
-    });
-
-    // If the response is ok, return the original URL
-    if (response.ok) {
-      return imageUrl;
-    }
-
-    // If the response is not ok, try with the production URL
-    const productionUrl = imageUrl.replace(
-      /http:\/\/localhost(:\d+)?/g,
-      "https://furniture-q3nb.onrender.com"
-    );
-
-    if (productionUrl !== imageUrl) {
-      const productionResponse = await fetch(productionUrl, {
-        method: "HEAD",
-        cache: "no-cache",
-        headers: {
-          "Cache-Control": "no-cache",
-        },
-      });
-
-      if (productionResponse.ok) {
-        return productionUrl;
-      }
-    }
-
-    // Try one more approach - extract the filename and use it directly
-    try {
-      const filename = imageUrl.split("/").pop();
-      if (filename && !filename.includes("://")) {
-        const directUrl = `https://furniture-q3nb.onrender.com/uploads/${filename}`;
-
-        const directResponse = await fetch(directUrl, {
-          method: "HEAD",
-          cache: "no-cache",
-          headers: {
-            "Cache-Control": "no-cache",
-          },
-        });
-
-        if (directResponse.ok) {
-          return directUrl;
-        }
-      }
-    } catch (directError) {
-      console.error("Error with direct URL approach:", directError);
-    }
-
-    // If all else fails, return the fallback URL
+    // If we couldn't extract a filename or the direct approach failed,
+    // return the fallback URL based on product type
     return fallbackUrl;
   } catch (error) {
     console.error("Error validating image URL:", error);

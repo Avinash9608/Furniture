@@ -211,7 +211,8 @@ const AdminProducts = () => {
               product.category.name = "Unknown";
             }
 
-            // Ensure product has images array and fix image URLs
+            // Ensure product has images array but don't modify the URLs yet
+            // We'll handle URL processing directly in the render function
             if (
               !product.images ||
               !Array.isArray(product.images) ||
@@ -220,9 +221,6 @@ const AdminProducts = () => {
               product.images = [
                 "https://placehold.co/300x300/gray/white?text=Product",
               ];
-            } else {
-              // Fix image URLs to use the correct domain
-              product.images = product.images.map((img) => getImageUrl(img));
             }
 
             // Ensure product has stock value
@@ -344,7 +342,7 @@ const AdminProducts = () => {
                 product.images &&
                 Array.isArray(product.images) &&
                 product.images.length > 0
-                  ? product.images.map((img) => getImageUrl(img))
+                  ? product.images
                   : ["https://placehold.co/300x300/gray/white?text=Product"],
               stock: product.stock ?? 0,
             }));
@@ -456,7 +454,7 @@ const AdminProducts = () => {
                   product.images &&
                   Array.isArray(product.images) &&
                   product.images.length > 0
-                    ? product.images.map((img) => getImageUrl(img))
+                    ? product.images
                     : ["https://placehold.co/300x300/gray/white?text=Product"],
                 stock: product.stock ?? 0,
               };
@@ -1493,103 +1491,51 @@ const AdminProducts = () => {
                         className="flex space-x-2 overflow-x-auto"
                         style={{ maxWidth: "200px" }}
                       >
-                        {product.images && product.images.length > 0 ? (
-                          product.images.slice(0, 1).map((imageUrl, index) => {
-                            // Create options object with product info for better image handling
-                            const options = {
-                              productName: product.name || "",
-                              productId: product._id || "",
-                            };
+                        {/* Simplified and more reliable image display */}
+                        <div className="flex-shrink-0 w-16 h-16 rounded-md overflow-hidden">
+                          {(() => {
+                            // Extract the filename if it exists
+                            let imageUrl = "";
+                            let filename = "";
 
-                            // Use the cached image URL function to get a validated URL with product context
-                            const cachedUrl = getCachedImageUrl(
-                              imageUrl,
-                              options
-                            );
+                            if (product.images && product.images.length > 0) {
+                              // Get the first image URL
+                              imageUrl = product.images[0];
+
+                              // Extract the filename
+                              if (typeof imageUrl === "string") {
+                                filename = imageUrl.split("/").pop();
+                              }
+                            }
+
+                            // Create the direct URL using the filename
+                            const directUrl = filename
+                              ? `https://furniture-q3nb.onrender.com/uploads/${filename}`
+                              : getDefaultImageForProduct(
+                                  product.name,
+                                  product._id
+                                );
 
                             return (
-                              <div
-                                key={index}
-                                className="flex-shrink-0 w-16 h-16 rounded-md overflow-hidden"
-                              >
-                                <img
-                                  src={cachedUrl}
-                                  alt={`${product.name} - Image ${index + 1}`}
-                                  className="w-full h-full object-cover hover:opacity-75 transition-opacity duration-150"
-                                  onError={(e) => {
-                                    console.error("Image load error:", {
-                                      originalSrc: e.target.src,
-                                      productName: product.name,
-                                      imageIndex: index,
-                                    });
-                                    e.target.onerror = null;
-
-                                    // Try with a different URL format
-                                    const hostname = window.location.hostname;
-                                    const isProduction =
-                                      hostname.includes("render.com") ||
-                                      hostname ===
-                                        "furniture-q3nb.onrender.com";
-
-                                    if (isProduction) {
-                                      // Try with the production URL
-                                      const productionUrl = `https://furniture-q3nb.onrender.com/uploads/${imageUrl
-                                        .split("/")
-                                        .pop()}`;
-                                      console.log(
-                                        "Trying production URL:",
-                                        productionUrl
-                                      );
-                                      e.target.src = productionUrl;
-
-                                      // Add a second error handler for the production URL
-                                      e.onerror = () => {
-                                        console.log(
-                                          "Production URL also failed, using default image for product type"
-                                        );
-                                        e.onerror = null; // Prevent infinite loop
-                                        e.target.src =
-                                          getDefaultImageForProduct(
-                                            product.name,
-                                            product._id
-                                          );
-                                      };
-                                    } else {
-                                      // Use product-specific default image
-                                      e.target.src = getDefaultImageForProduct(
-                                        product.name,
-                                        product._id
-                                      );
-                                    }
-                                  }}
-                                  onLoad={(e) => {
-                                    console.log("Image loaded successfully:", {
-                                      src: e.target.src,
-                                      productName: product.name,
-                                      imageIndex: index,
-                                    });
-                                  }}
-                                />
-                              </div>
+                              <img
+                                src={directUrl}
+                                alt={`${product.name} - Image`}
+                                className="w-full h-full object-cover hover:opacity-75 transition-opacity duration-150"
+                                onError={(e) => {
+                                  console.error("Image load error:", {
+                                    originalSrc: e.target.src,
+                                    productName: product.name,
+                                  });
+                                  e.target.onerror = null;
+                                  e.target.src = getDefaultImageForProduct(
+                                    product.name,
+                                    product._id
+                                  );
+                                }}
+                              />
                             );
-                          })
-                        ) : (
-                          <div className="w-16 h-16 bg-gray-200 dark:bg-gray-700 flex items-center justify-center rounded-md">
-                            <img
-                              src={getDefaultImageForProduct(
-                                product.name,
-                                product._id
-                              )}
-                              alt={`${product.name} - Default Image`}
-                              className="w-full h-full object-cover"
-                              onError={(e) => {
-                                e.target.onerror = null;
-                                e.target.src =
-                                  "https://placehold.co/300x300/gray/white?text=No+Image";
-                              }}
-                            />
-                          </div>
-                        )}
+                          })()}
+                        </div>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
