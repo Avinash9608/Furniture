@@ -20,9 +20,11 @@ import AdminDashboard from "./pages/admin/Dashboard";
 import AdminProducts from "./pages/admin/Products";
 import ReliableProducts from "./pages/admin/ReliableProducts";
 import OfflineProducts from "./pages/admin/OfflineProducts";
+import HybridProducts from "./pages/admin/HybridProducts";
 import AdminAddProduct from "./pages/admin/AddProduct";
 import AdminEditProduct from "./pages/admin/EditProduct";
 import OfflineEditProduct from "./pages/admin/OfflineEditProduct";
+import HybridEditProduct from "./pages/admin/HybridEditProduct";
 import AdminCategories from "./pages/admin/CategoriesSimple";
 import AdminOrders from "./pages/admin/AdminOrders";
 import AdminMessages from "./pages/admin/Messages";
@@ -136,7 +138,7 @@ function App() {
             path="/admin/products"
             element={
               <ProtectedRoute>
-                <OfflineProducts />
+                <HybridProducts />
               </ProtectedRoute>
             }
           />
@@ -152,7 +154,7 @@ function App() {
             path="/admin/products/edit/:id"
             element={
               <ProtectedRoute>
-                <OfflineEditProduct />
+                <HybridEditProduct />
               </ProtectedRoute>
             }
           />
