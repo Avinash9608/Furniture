@@ -18,7 +18,7 @@ const HybridProductTable = ({
   onDeleteClick,
   isLoading = false,
 }) => {
-  // Function to get a reliable product image for both development and production
+  // Function to get a direct placeholder image based on product type
   const getProductImage = (product) => {
     if (!product || !product.name) {
       return "https://placehold.co/300x300/gray/white?text=No+Product";
@@ -30,36 +30,50 @@ const HybridProductTable = ({
       hostname.includes("render.com") ||
       hostname === "furniture-q3nb.onrender.com";
 
-    // If we have product images, process them
+    // In production, always use direct placeholders
+    if (isProduction) {
+      // Create a direct placeholder based on product name
+      const productName = encodeURIComponent(product.name || "Product");
+
+      // Determine product type from name
+      const productNameLower = product.name.toLowerCase();
+      let bgColor, textColor;
+
+      if (productNameLower.includes("sofa")) {
+        bgColor = "8B4513"; // Brown
+        textColor = "FFFFFF"; // White
+      } else if (productNameLower.includes("bed")) {
+        bgColor = "4169E1"; // Royal Blue
+        textColor = "FFFFFF"; // White
+      } else if (productNameLower.includes("table")) {
+        bgColor = "CD853F"; // Peru (wood color)
+        textColor = "FFFFFF"; // White
+      } else if (productNameLower.includes("chair")) {
+        bgColor = "2E8B57"; // Sea Green
+        textColor = "FFFFFF"; // White
+      } else if (productNameLower.includes("wardrobe")) {
+        bgColor = "800080"; // Purple
+        textColor = "FFFFFF"; // White
+      } else if (productNameLower.includes("dinner")) {
+        bgColor = "B22222"; // Firebrick
+        textColor = "FFFFFF"; // White
+      } else {
+        bgColor = "708090"; // Slate Gray
+        textColor = "FFFFFF"; // White
+      }
+
+      // Return a direct placeholder URL
+      return `https://placehold.co/300x300/${bgColor}/${textColor}?text=${productName}`;
+    }
+
+    // In development, try to use the actual image if available
     if (product.images && product.images.length > 0) {
       // If it's a data URL, use it directly
       if (product.images[0].startsWith("data:image")) {
         return product.images[0];
       }
 
-      // If it's a placeholder or external URL, use it directly
-      if (
-        product.images[0].includes("placehold.co") ||
-        product.images[0].includes("placeholder.com") ||
-        product.images[0].includes("cloudinary.com") ||
-        product.images[0].includes("dicebear.com")
-      ) {
-        return product.images[0];
-      }
-
-      // In production, use reliable placeholders for server images
-      if (
-        isProduction &&
-        (product.images[0].includes("/uploads/") ||
-          product.images[0].startsWith("/uploads/") ||
-          product.images[0].startsWith("uploads/"))
-      ) {
-        // Use the reliable image helper functions
-        const productType = getProductType(product.name);
-        return getPlaceholderByType(productType, product.name);
-      }
-
-      // In development, try to use the actual image with fixed URL
+      // Try to use the actual image with fixed URL
       return fixImageUrl(product.images[0]);
     }
 
@@ -183,38 +197,21 @@ const HybridProductTable = ({
               >
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="flex-shrink-0 w-16 h-16 rounded-md overflow-hidden">
-                    {/* Use the reliable product image function for both development and production */}
+                    {/* Use direct placeholder images that always work */}
                     <img
                       src={getProductImage(product)}
                       alt={`${product.name || "Product"}`}
                       className="w-full h-full object-cover hover:opacity-75 transition-opacity duration-150"
                       onError={(e) => {
                         console.log(
-                          "Image load error, using fallback placeholder:",
+                          "Image load error, using super simple fallback:",
                           e.target.src
                         );
                         e.target.onerror = null; // Prevent infinite error loop
 
-                        // Use a simple fallback that always works
-                        const productType =
-                          product.name && product.name.toLowerCase();
-                        let color = "708090"; // Default slate gray
-
-                        if (productType) {
-                          if (productType.includes("sofa")) color = "8B4513";
-                          else if (productType.includes("bed"))
-                            color = "4169E1";
-                          else if (productType.includes("table"))
-                            color = "CD853F";
-                          else if (productType.includes("chair"))
-                            color = "2E8B57";
-                          else if (productType.includes("wardrobe"))
-                            color = "800080";
-                        }
-
-                        e.target.src = `https://placehold.co/300x300/${color}/FFF?text=${encodeURIComponent(
-                          product.name || "Product"
-                        )}`;
+                        // Use the simplest possible fallback
+                        e.target.src =
+                          "https://placehold.co/300x300/gray/white?text=Product";
                       }}
                     />
                   </div>
