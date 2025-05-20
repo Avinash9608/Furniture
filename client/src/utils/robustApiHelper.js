@@ -60,14 +60,11 @@ export const fixImageUrl = (imageUrl) => {
     imageUrl.startsWith("/uploads/") ||
     imageUrl.startsWith("uploads/")
   ) {
-    // Import the placeholder functions
-    const {
-      getProductType,
-      getPlaceholderByType,
-    } = require("./reliableImageHelper");
-
-    // Create a placeholder based on the filename
+    // Use a simple placeholder URL instead of dynamic import
+    // This avoids the require() issue in the browser
     const filename = imageUrl.split("/").pop();
+
+    // Determine product type from filename
     const productType = filename.includes("sofa")
       ? "sofa"
       : filename.includes("bed")
@@ -80,7 +77,34 @@ export const fixImageUrl = (imageUrl) => {
       ? "wardrobe"
       : "furniture";
 
-    return getPlaceholderByType(productType, filename);
+    // Map product types to colors
+    const colorMap = {
+      sofa: "8B4513", // Brown
+      bed: "4169E1", // Royal Blue
+      table: "CD853F", // Peru (wood color)
+      chair: "2E8B57", // Sea Green
+      wardrobe: "800080", // Purple
+      furniture: "708090", // Slate Gray
+    };
+
+    const bgColorMap = {
+      sofa: "FFF0E6", // Light peach
+      bed: "E6F0FF", // Light blue
+      table: "FFF5E6", // Light tan
+      chair: "E6FFF0", // Light mint
+      wardrobe: "F5E6FF", // Light lavender
+      furniture: "F0F0F0", // Light gray
+    };
+
+    // Get colors for this product type
+    const color = colorMap[productType] || colorMap.furniture;
+    const bgColor = bgColorMap[productType] || bgColorMap.furniture;
+
+    // Create a display name
+    const displayName = encodeURIComponent(filename || productType);
+
+    // Return a placeholder URL
+    return `https://placehold.co/300x300/${color}/${bgColor}?text=${displayName}`;
   }
 
   // If it's a relative path, add the base URL
