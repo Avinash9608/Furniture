@@ -25,7 +25,7 @@ const getBaseUrl = () => {
     : "http://localhost:5000";
 };
 
-// Function to fix image URLs
+// Function to fix image URLs with improved handling for production
 export const fixImageUrl = (imageUrl) => {
   if (!imageUrl) return null;
 
@@ -34,9 +34,53 @@ export const fixImageUrl = (imageUrl) => {
     return imageUrl;
   }
 
-  // If it's already a full URL, return it as is
-  if (imageUrl.startsWith("http")) {
+  // If it's a placeholder or Cloudinary URL, return it as is
+  if (
+    imageUrl.includes("placehold.co") ||
+    imageUrl.includes("placeholder.com") ||
+    imageUrl.includes("cloudinary.com") ||
+    imageUrl.includes("dicebear.com")
+  ) {
     return imageUrl;
+  }
+
+  // If it's already a full URL but not from our domain, return it as is
+  if (
+    imageUrl.startsWith("http") &&
+    !imageUrl.includes("localhost") &&
+    !imageUrl.includes("furniture-q3nb.onrender.com")
+  ) {
+    return imageUrl;
+  }
+
+  // For server URLs, use the reliable placeholder instead
+  // This is the key fix for production image issues
+  if (
+    imageUrl.includes("/uploads/") ||
+    imageUrl.startsWith("/uploads/") ||
+    imageUrl.startsWith("uploads/")
+  ) {
+    // Import the placeholder functions
+    const {
+      getProductType,
+      getPlaceholderByType,
+    } = require("./reliableImageHelper");
+
+    // Create a placeholder based on the filename
+    const filename = imageUrl.split("/").pop();
+    const productType = filename.includes("sofa")
+      ? "sofa"
+      : filename.includes("bed")
+      ? "bed"
+      : filename.includes("table")
+      ? "table"
+      : filename.includes("chair")
+      ? "chair"
+      : filename.includes("wardrobe")
+      ? "wardrobe"
+      : "furniture";
+
+    return getPlaceholderByType(productType, filename);
   }
 
   // If it's a relative path, add the base URL

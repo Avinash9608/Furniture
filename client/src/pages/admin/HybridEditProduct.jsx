@@ -419,24 +419,58 @@ const HybridEditProduct = () => {
     reader.readAsDataURL(file);
   };
 
-  // Function to get a placeholder image based on product type
+  // Function to get a reliable product image URL with improved handling for production
   const getProductImageUrl = () => {
-    // If we have a preview image, use it
+    // If we have a preview image from a new upload, use it
     if (imagePreview) {
+      console.log("Using image preview:", imagePreview);
       return imagePreview;
     }
 
     // If the product has images, use the first one with proper URL fixing
     if (product.images && product.images.length > 0) {
-      // Handle data URLs directly
+      // Handle data URLs directly (from newly uploaded images)
       if (product.images[0].startsWith("data:image")) {
+        console.log("Using data URL image");
         return product.images[0];
       }
-      // Fix server URLs
+
+      // For placeholder or Cloudinary URLs, use them directly
+      if (
+        product.images[0].includes("placehold.co") ||
+        product.images[0].includes("placeholder.com") ||
+        product.images[0].includes("cloudinary.com") ||
+        product.images[0].includes("dicebear.com")
+      ) {
+        console.log("Using external placeholder image");
+        return product.images[0];
+      }
+
+      // For server URLs, use the reliable placeholder instead in production
+      // This is the key fix for production image issues
+      const hostname = window.location.hostname;
+      const isProduction =
+        hostname.includes("render.com") ||
+        hostname === "furniture-q3nb.onrender.com";
+
+      if (
+        isProduction &&
+        (product.images[0].includes("/uploads/") ||
+          product.images[0].startsWith("/uploads/") ||
+          product.images[0].startsWith("uploads/"))
+      ) {
+        console.log("In production, using placeholder for server image");
+        const productType = getProductType(product.name);
+        return getPlaceholderByType(productType, product.name);
+      }
+
+      // Fix server URLs for development environment
+      console.log("Using fixed image URL:", product.images[0]);
       return fixImageUrl(product.images[0]);
     }
 
     // Otherwise, use a placeholder based on product type
+    console.log("Using placeholder for product:", product.name);
     const productType = getProductType(product.name);
     return getPlaceholderByType(productType, product.name);
   };
