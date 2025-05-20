@@ -10,6 +10,8 @@ import {
   saveProductsToLocalStorage,
   saveProductToLocalStorage,
   deleteProductFromLocalStorage,
+  getCategoryNameById,
+  getCategoriesFromLocalStorage,
 } from "./localStorageHelper";
 
 // Get the base URL based on environment
@@ -23,21 +25,75 @@ const getBaseUrl = () => {
     : "http://localhost:5000";
 };
 
+// Function to fix image URLs
+export const fixImageUrl = (imageUrl) => {
+  if (!imageUrl) return null;
+
+  // If it's a data URL (base64 encoded image), return it as is
+  if (imageUrl.startsWith("data:image")) {
+    return imageUrl;
+  }
+
+  // If it's already a full URL, return it as is
+  if (imageUrl.startsWith("http")) {
+    return imageUrl;
+  }
+
+  // If it's a relative path, add the base URL
+  const baseUrl = getBaseUrl();
+
+  // Make sure the path starts with a slash
+  const path = imageUrl.startsWith("/") ? imageUrl : `/${imageUrl}`;
+
+  return `${baseUrl}${path}`;
+};
+
+// Global flag to track if we're in offline mode
+let isOfflineMode = false;
+
+// Function to set offline mode
+export const setOfflineMode = (value) => {
+  isOfflineMode = value;
+
+  // Store in localStorage for persistence across page refreshes
+  try {
+    localStorage.setItem("isOfflineMode", value ? "true" : "false");
+  } catch (error) {
+    console.error("Error storing offline mode in localStorage:", error);
+  }
+
+  console.log(`Offline mode ${value ? "enabled" : "disabled"}`);
+};
+
+// Function to check if we're in offline mode
+export const checkOfflineMode = () => {
+  // Check localStorage first
+  try {
+    const storedValue = localStorage.getItem("isOfflineMode");
+    if (storedValue === "true") {
+      isOfflineMode = true;
+    }
+  } catch (error) {
+    console.error("Error reading offline mode from localStorage:", error);
+  }
+
+  return isOfflineMode;
+};
+
 /**
- * Get all products from the database with fallbacks
+ * Get all products directly from the database
  * @returns {Promise<Array>} - Array of product objects
  */
 export const getAllProducts = async () => {
   try {
-    console.log("Fetching products from database...");
+    console.log("Fetching all products directly from database...");
 
     // Try multiple endpoints with fallbacks
     const baseUrl = getBaseUrl();
     const endpoints = [
-      `${baseUrl}/api/products`,
-      `${baseUrl}/api/direct/products`,
-      `${baseUrl}/api/admin/products`,
-      `${baseUrl}/api/fallback/products`,
+      `${baseUrl}/api/products?limit=1000`, // Use high limit to get all products
+      `${baseUrl}/api/direct/products?limit=1000`,
+      `${baseUrl}/api/admin/products?limit=1000`,
     ];
 
     let productsData = null;
@@ -62,7 +118,7 @@ export const getAllProducts = async () => {
 
         const response = await axios.get(endpoint, {
           headers,
-          timeout: 10000,
+          timeout: 30000, // Increased timeout for better reliability
         });
 
         // Check if we got valid data
@@ -136,47 +192,25 @@ export const getAllProducts = async () => {
         return product;
       });
 
-      // Save products to localStorage as backup
-      saveProductsToLocalStorage(processedProducts);
-
       return processedProducts;
     }
 
-    // If all endpoints failed, use localStorage as fallback
-    console.log("All endpoints failed, using localStorage as fallback");
-    const localProducts = getProductsFromLocalStorage();
-
-    if (localProducts && localProducts.length > 0) {
-      console.log(`Found ${localProducts.length} products in localStorage`);
-      return localProducts;
-    }
-
-    // If localStorage is empty, throw the original error
+    // If all endpoints failed, throw an error
     throw error || new Error("Failed to fetch products from all sources");
   } catch (error) {
-    console.error("Error fetching products:", error);
-
-    // Use localStorage as fallback
-    const localProducts = getProductsFromLocalStorage();
-
-    if (localProducts && localProducts.length > 0) {
-      console.log(`Found ${localProducts.length} products in localStorage`);
-      return localProducts;
-    }
-
-    // If localStorage is empty, return an empty array
-    return [];
+    console.error("Error fetching products from database:", error);
+    throw error;
   }
 };
 
 /**
- * Get a product by ID from the database with fallbacks
+ * Get a product by ID directly from the database
  * @param {string} productId - ID of product to get
  * @returns {Promise<Object|null>} - Product object or null if not found
  */
 export const getProductById = async (productId) => {
   try {
-    console.log(`Fetching product with ID: ${productId}`);
+    // Fetch product from database
 
     // Try multiple endpoints with fallbacks
     const baseUrl = getBaseUrl();
@@ -184,7 +218,6 @@ export const getProductById = async (productId) => {
       `${baseUrl}/api/products/${productId}`,
       `${baseUrl}/api/direct/products/${productId}`,
       `${baseUrl}/api/admin/products/${productId}`,
-      `${baseUrl}/api/fallback/products/${productId}`,
     ];
 
     // Add authentication headers
@@ -202,10 +235,10 @@ export const getProductById = async (productId) => {
     // Try each endpoint until one works
     for (const endpoint of endpoints) {
       try {
-        console.log(`Trying endpoint: ${endpoint}`);
+        // Try this endpoint
         const response = await axios.get(endpoint, {
           headers,
-          timeout: 10000,
+          timeout: 15000, // Increased timeout for better reliability
         });
 
         // Check if we got valid data
@@ -213,57 +246,34 @@ export const getProductById = async (productId) => {
           // Extract product from various response formats
           if (response.data.data) {
             productData = response.data.data;
+            // Found product in data.data format
             break;
           } else if (response.data._id) {
             productData = response.data;
+            // Found product in direct format
             break;
           }
         }
       } catch (endpointError) {
-        console.log(`Endpoint ${endpoint} failed:`, endpointError);
+        // Endpoint failed, try next one
         error = endpointError;
         // Continue to next endpoint
       }
     }
 
-    // If we found the product, process it
+    // If we found the product, return it
     if (productData) {
-      console.log("Found product:", productData);
-
-      // Save product to localStorage as backup
-      saveProductToLocalStorage(productData);
-
+      // Successfully retrieved product from database
       return productData;
     }
 
-    // If all endpoints failed, use localStorage as fallback
-    console.log("All endpoints failed, using localStorage as fallback");
-    const localProduct = getProductsFromLocalStorage().find(
-      (p) => p._id === productId
+    // If all endpoints failed, throw an error
+    throw (
+      error || new Error(`Product with ID ${productId} not found in database`)
     );
-
-    if (localProduct) {
-      console.log("Found product in localStorage:", localProduct);
-      return localProduct;
-    }
-
-    // If product not found in localStorage, throw the original error
-    throw error || new Error(`Product with ID ${productId} not found`);
   } catch (error) {
-    console.error("Error fetching product:", error);
-
-    // Use localStorage as fallback
-    const localProduct = getProductsFromLocalStorage().find(
-      (p) => p._id === productId
-    );
-
-    if (localProduct) {
-      console.log("Found product in localStorage:", localProduct);
-      return localProduct;
-    }
-
-    // If product not found in localStorage, return null
-    return null;
+    // Error fetching product from database
+    throw error;
   }
 };
 
@@ -275,7 +285,7 @@ export const getProductById = async (productId) => {
  */
 export const updateProduct = async (productId, productData) => {
   try {
-    console.log(`Updating product with ID: ${productId}`);
+    // Update product in database
 
     // Extract file from FormData if present
     let imageFile = null;
@@ -321,148 +331,153 @@ export const updateProduct = async (productId, productData) => {
         // Store the data URL as the image
         processedProductData.images = [dataUrl];
       } catch (imageError) {
-        console.error("Error creating data URL from image:", imageError);
+        // Error creating data URL from image
       }
     }
 
-    // Simulate a server delay
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    // Try multiple endpoints with fallbacks
+    const baseUrl = getBaseUrl();
+    const endpoints = [
+      `${baseUrl}/api/products/${productId}`,
+      `${baseUrl}/api/direct/products/${productId}`,
+      `${baseUrl}/api/admin/products/${productId}`,
+    ];
 
-    // Skip server requests and go straight to localStorage
-    console.log(
-      "Skipping server requests due to persistent errors, using localStorage"
-    );
+    // Add authentication headers
+    const adminToken =
+      localStorage.getItem("adminToken") ||
+      sessionStorage.getItem("adminToken");
+    const token = localStorage.getItem("token");
+    const authToken = adminToken || token;
 
-    // Get the existing product
-    const existingProducts = getProductsFromLocalStorage();
-    const existingProduct = existingProducts.find((p) => p._id === productId);
+    const headers = authToken
+      ? {
+          Authorization: `Bearer ${authToken}`,
+          "Content-Type": "application/json",
+        }
+      : { "Content-Type": "application/json" };
 
-    if (!existingProduct) {
-      throw new Error(`Product with ID ${productId} not found in localStorage`);
+    let updatedProduct = null;
+    let error = null;
+
+    // Try each endpoint until one works
+    for (const endpoint of endpoints) {
+      try {
+        // Try to update product at this endpoint
+
+        const response = await axios.put(endpoint, processedProductData, {
+          headers,
+          timeout: 15000, // Increased timeout for better reliability
+        });
+
+        // Check if we got valid data
+        if (response.data) {
+          // Extract product from various response formats
+          if (response.data.data) {
+            updatedProduct = response.data.data;
+            // Product updated successfully in data.data format
+            break;
+          } else if (response.data._id) {
+            updatedProduct = response.data;
+            // Product updated successfully in direct format
+            break;
+          }
+        }
+      } catch (endpointError) {
+        // Endpoint failed, try next one
+        error = endpointError;
+        // Continue to next endpoint
+      }
     }
 
-    // Merge the existing product with the updated data
-    const updatedProduct = {
-      ...existingProduct,
-      ...processedProductData,
-      updatedAt: new Date().toISOString(),
-    };
-
-    // Save the updated product to localStorage
-    const savedProduct = saveProductToLocalStorage(updatedProduct);
-
-    if (savedProduct) {
-      console.log("Updated product in localStorage:", savedProduct);
-      return savedProduct;
+    // If we successfully updated the product, return it
+    if (updatedProduct) {
+      // Product updated successfully in database
+      return updatedProduct;
     }
 
-    throw new Error(
-      `Failed to update product with ID ${productId} in localStorage`
+    // If all endpoints failed, throw an error
+    throw (
+      error ||
+      new Error(`Failed to update product with ID ${productId} in database`)
     );
   } catch (error) {
-    console.error("Error updating product:", error);
-
-    // Try one more time with a simplified approach
-    try {
-      // Get the existing product
-      const existingProducts = getProductsFromLocalStorage();
-      const existingProduct = existingProducts.find((p) => p._id === productId);
-
-      if (!existingProduct) {
-        throw new Error(
-          `Product with ID ${productId} not found in localStorage`
-        );
-      }
-
-      // Create a simplified product object
-      const simplifiedProduct = {
-        ...existingProduct,
-        name: productData.name || existingProduct.name,
-        price: productData.price || existingProduct.price,
-        stock: productData.stock || existingProduct.stock,
-        description: productData.description || existingProduct.description,
-        updatedAt: new Date().toISOString(),
-      };
-
-      // Save the simplified product to localStorage
-      const savedProduct = saveProductToLocalStorage(simplifiedProduct);
-
-      if (savedProduct) {
-        console.log(
-          "Updated product in localStorage (simplified):",
-          savedProduct
-        );
-        return savedProduct;
-      }
-    } catch (fallbackError) {
-      console.error("Error in fallback update:", fallbackError);
-    }
-
-    // If all else fails, return a mock success response
-    return {
-      _id: productId,
-      name: productData.name || "Updated Product",
-      updatedAt: new Date().toISOString(),
-      success: true,
-      message: "Product updated successfully (mock response)",
-    };
+    // Error updating product in database
+    throw error;
   }
 };
 
 /**
- * Delete a product from the database with fallbacks
+ * Delete a product directly from the database
  * @param {string} productId - ID of product to delete
  * @returns {Promise<boolean>} - True if product was deleted, false otherwise
  */
 export const deleteProduct = async (productId) => {
   try {
-    console.log(`Deleting product with ID: ${productId}`);
+    // Delete product from database
 
-    // Simulate a server delay
-    await new Promise((resolve) => setTimeout(resolve, 800));
+    // Try multiple endpoints with fallbacks
+    const baseUrl = getBaseUrl();
+    const endpoints = [
+      `${baseUrl}/api/products/${productId}`,
+      `${baseUrl}/api/direct/products/${productId}`,
+      `${baseUrl}/api/admin/products/${productId}`,
+    ];
 
-    // Skip server requests and go straight to localStorage
-    console.log(
-      "Skipping server requests due to persistent errors, using localStorage"
-    );
+    // Add authentication headers
+    const adminToken =
+      localStorage.getItem("adminToken") ||
+      sessionStorage.getItem("adminToken");
+    const token = localStorage.getItem("token");
+    const authToken = adminToken || token;
 
-    // Delete from localStorage
-    const locallyDeleted = deleteProductFromLocalStorage(productId);
+    const headers = authToken
+      ? {
+          Authorization: `Bearer ${authToken}`,
+          "Content-Type": "application/json",
+        }
+      : { "Content-Type": "application/json" };
 
-    if (locallyDeleted) {
-      console.log(`Deleted product with ID: ${productId} from localStorage`);
+    let deleted = false;
+    let error = null;
+
+    // Try each endpoint until one works
+    for (const endpoint of endpoints) {
+      try {
+        // Try to delete product at this endpoint
+        const response = await axios.delete(endpoint, {
+          headers,
+          timeout: 15000, // Increased timeout for better reliability
+        });
+
+        // Check if deletion was successful
+        if (
+          response.data &&
+          (response.data.success || response.status === 200)
+        ) {
+          // Product deleted successfully
+          deleted = true;
+          break;
+        }
+      } catch (endpointError) {
+        // Endpoint failed, try next one
+        error = endpointError;
+        // Continue to next endpoint
+      }
+    }
+
+    // If we successfully deleted the product, return true
+    if (deleted) {
       return true;
     }
 
-    throw new Error(
-      `Failed to delete product with ID ${productId} from localStorage`
+    // If all endpoints failed, throw an error
+    throw (
+      error ||
+      new Error(`Failed to delete product with ID ${productId} from database`)
     );
   } catch (error) {
-    console.error("Error deleting product:", error);
-
-    // Try one more time with a different approach
-    try {
-      // Get all products
-      const products = getProductsFromLocalStorage();
-
-      // Filter out the product to delete
-      const filteredProducts = products.filter((p) => p._id !== productId);
-
-      // Save the filtered products
-      saveProductsToLocalStorage(filteredProducts);
-
-      console.log(
-        `Deleted product with ID: ${productId} from localStorage (alternative method)`
-      );
-      return true;
-    } catch (fallbackError) {
-      console.error("Error in fallback delete:", fallbackError);
-    }
-
-    // If all else fails, pretend it worked
-    console.log(
-      `Simulating successful deletion of product with ID: ${productId}`
-    );
-    return true;
+    // Error deleting product from database
+    throw error;
   }
 };

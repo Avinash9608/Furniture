@@ -9,7 +9,7 @@ import Button from "../components/Button";
 import { productsAPI, categoriesAPI } from "../utils/api";
 import { formatPrice } from "../utils/format";
 import { validateCategories } from "../utils/safeDataHandler";
-import { defaultCategories } from "../utils/defaultData";
+import { defaultCategories, getLocalCategories } from "../utils/defaultData";
 
 const Products = () => {
   const location = useLocation();
@@ -54,22 +54,49 @@ const Products = () => {
           fetchedCategories = categoriesResponse.data.data;
         }
 
-        // If no categories exist, use default categories
-        if (fetchedCategories.length === 0) {
-          fetchedCategories = defaultCategories.map(category => ({
+        console.log("Fetched categories:", fetchedCategories);
+
+        // Get categories from local storage (includes defaults)
+        const localCats = getLocalCategories();
+        console.log("Local categories:", localCats);
+
+        // Merge fetched categories with local categories
+        // Use a Map to ensure no duplicates by ID
+        const categoriesMap = new Map();
+
+        // Add local categories first (which include defaults)
+        localCats.forEach((category) => {
+          categoriesMap.set(category._id, {
             ...category,
-            _id: `default_${category.name.toLowerCase().replace(/\s+/g, '_')}`,
-            displayName: category.name
-          }));
-        }
+            displayName: category.name,
+          });
+        });
+
+        // Add fetched categories, potentially overriding defaults if same ID
+        fetchedCategories.forEach((category) => {
+          if (category && category._id) {
+            categoriesMap.set(category._id, {
+              ...category,
+              displayName:
+                category.displayName || category.name || "Unnamed Category",
+            });
+          }
+        });
+
+        // Convert Map back to array
+        const mergedCategories = Array.from(categoriesMap.values());
+        console.log("Merged categories:", mergedCategories);
 
         // Process categories to ensure they have all required fields
-        const processedCategories = fetchedCategories.map(category => ({
+        const processedCategories = mergedCategories.map((category) => ({
           ...category,
-          _id: category._id || `temp_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+          _id:
+            category._id ||
+            `temp_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
           name: category.name || "Unnamed Category",
-          displayName: category.displayName || category.name || "Unnamed Category",
-          description: category.description || ""
+          displayName:
+            category.displayName || category.name || "Unnamed Category",
+          description: category.description || "",
         }));
 
         setCategories(processedCategories);
@@ -184,8 +211,16 @@ const Products = () => {
         limit: 12,
       };
 
-      // Add category filter if selected
-      if (filters.category) {
+      // Special handling for "All Categories" selection
+      if (filters.category === "") {
+        console.log("All Categories selected - fetching all products");
+        // Don't add category parameter to fetch all products
+
+        // Try to use a special endpoint for all products if needed
+        params.allCategories = true;
+      }
+      // Add category filter if a specific category is selected
+      else if (filters.category) {
         // Always use the category ID for filtering if it's a MongoDB ObjectId
         if (
           filters.category.length === 24 &&
@@ -238,8 +273,52 @@ const Products = () => {
       }
 
       console.log("Sending API request with params:", params);
-      const response = await productsAPI.getAll(params);
-      console.log("Products API response:", response.data);
+
+      // Special handling for "All Categories" selection
+      let response;
+      if (filters.category === "") {
+        // Try multiple endpoints to ensure we get products
+        try {
+          console.log("Using primary endpoint for all products");
+          response = await productsAPI.getAll(params);
+          console.log("Primary endpoint response:", response.data);
+
+          // If we got an empty array, try the fallback endpoint
+          if (Array.isArray(response.data) && response.data.length === 0) {
+            console.log(
+              "Primary endpoint returned empty array, trying fallback"
+            );
+
+            // Try the test endpoint as fallback
+            const baseUrl = window.location.origin;
+            const isDevelopment = !baseUrl.includes("onrender.com");
+            const localServerUrl = "http://localhost:5000";
+
+            const testUrl = isDevelopment
+              ? `${localServerUrl}/api/test/products-page`
+              : `${baseUrl}/api/test/products-page`;
+
+            console.log("Using fallback test endpoint:", testUrl);
+            const fallbackResponse = await axios.get(testUrl, {
+              timeout: 30000,
+            });
+
+            if (fallbackResponse && fallbackResponse.data) {
+              console.log("Fallback endpoint success:", fallbackResponse.data);
+              response = { data: fallbackResponse.data };
+            }
+          }
+        } catch (error) {
+          console.error("Error fetching all products:", error);
+          // Continue with regular error handling
+          throw error;
+        }
+      } else {
+        // Regular category filtering
+        response = await productsAPI.getAll(params);
+      }
+
+      console.log("Final API response:", response.data);
 
       // Extract the products data based on the response structure
       let productsData = [];
@@ -289,7 +368,19 @@ const Products = () => {
         console.log("Converting direct non-array data to array");
       }
 
-      if (Array.isArray(productsData) && productsData.length > 0) {
+      // Check if we have a valid array (even if empty)
+      if (Array.isArray(productsData)) {
+        // If the array is empty, it's a valid response but with no products
+        if (productsData.length === 0) {
+          console.log(
+            "API returned an empty array - no products match the filters"
+          );
+          setProducts([]);
+          setTotalPages(0);
+          setError(null); // Clear any previous errors
+          return; // Exit early
+        }
+
         console.log(
           `Successfully fetched ${productsData.length} products from ${dataSource}`
         );
@@ -309,6 +400,7 @@ const Products = () => {
 
         setProducts(validProducts);
         setTotalPages(Math.ceil(totalCount / 12));
+        setError(null); // Clear any previous errors
 
         // Find the highest price for the price range filter
         if (validProducts.length > 0) {
@@ -321,13 +413,12 @@ const Products = () => {
           setPriceRange([0, highestPrice]);
         }
       } else {
+        // This is a truly unexpected format (not an array at all)
         console.error(
-          "Unexpected API response format or empty data:",
+          "Unexpected API response format (not an array):",
           response.data
         );
-        setError(
-          "No products found or received invalid data format from server"
-        );
+        setError("Received invalid data format from server");
         setProducts([]);
       }
     } catch (error) {
@@ -553,6 +644,7 @@ const Products = () => {
                 Categories
               </h3>
               <div className="space-y-2">
+                {/* All Categories option */}
                 <div className="flex items-center">
                   <input
                     type="radio"
@@ -570,52 +662,33 @@ const Products = () => {
                   </label>
                 </div>
 
-                {categories && categories.length > 0 ? (
-                  categories
-                    .map((category) => {
-                      // Skip invalid categories
-                      if (!category || !category._id) {
-                        console.warn(
-                          "Invalid category in Products.jsx:",
-                          category
-                        );
-                        return null;
-                      }
-
-                      return (
-                        <div key={category._id} className="flex items-center">
-                          <input
-                            type="radio"
-                            id={category._id}
-                            name="category"
-                            checked={
-                              filters.category === category.slug ||
-                              filters.category === category._id ||
-                              // Check if the current filter is a MongoDB ID that matches this category
-                              (filters.category.length === 24 &&
-                                /^[0-9a-f]+$/.test(filters.category) &&
-                                category._id === filters.category)
-                            }
-                            onChange={() =>
-                              handleFilterChange("category", category._id)
-                            }
-                            className="w-4 h-4 text-primary focus:ring-primary"
-                          />
-                          <label
-                            htmlFor={category._id}
-                            className="ml-2 theme-text-primary"
-                          >
-                            {category.name}
-                          </label>
-                        </div>
-                      );
-                    })
-                    .filter(Boolean) // Remove null values
-                ) : (
-                  <div className="text-sm theme-text-secondary">
-                    No categories available
-                  </div>
-                )}
+                {/* Default furniture categories */}
+                {defaultCategories &&
+                  defaultCategories.map((category) => (
+                    <div key={category._id} className="flex items-center">
+                      <input
+                        type="radio"
+                        id={category._id}
+                        name="category"
+                        checked={
+                          filters.category === category._id ||
+                          (filters.category.length === 24 &&
+                            /^[0-9a-f]+$/.test(filters.category) &&
+                            category._id === filters.category)
+                        }
+                        onChange={() =>
+                          handleFilterChange("category", category._id)
+                        }
+                        className="w-4 h-4 text-primary focus:ring-primary"
+                      />
+                      <label
+                        htmlFor={category._id}
+                        className="ml-2 theme-text-primary"
+                      >
+                        {category.name}
+                      </label>
+                    </div>
+                  ))}
               </div>
             </div>
 
@@ -738,7 +811,13 @@ const Products = () => {
                 </svg>
                 <h3 className="text-xl font-bold mb-2">No Products Found</h3>
                 <p className="theme-text-secondary mb-4">
-                  We couldn't find any products matching your criteria.
+                  {filters.category
+                    ? `We couldn't find any products in the selected category.`
+                    : `We couldn't find any products matching your criteria.`}
+                </p>
+                <p className="theme-text-secondary mb-4">
+                  Try adjusting your filters or search terms to find what you're
+                  looking for.
                 </p>
                 <button
                   onClick={() => {

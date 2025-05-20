@@ -6,6 +6,8 @@ import {
   getPlaceholderByType,
   getProductType,
 } from "../../utils/reliableImageHelper";
+import { fixImageUrl } from "../../utils/robustApiHelper";
+import { getCategoryNameById } from "../../utils/localStorageHelper";
 
 /**
  * A hybrid product table component that uses database data with reliable image display.
@@ -142,12 +144,32 @@ const HybridProductTable = ({
               >
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="flex-shrink-0 w-16 h-16 rounded-md overflow-hidden">
-                    {/* Always use placeholder images for reliability */}
-                    <img
-                      src={getPlaceholderImage(product)}
-                      alt={`${product.name || "Product"}`}
-                      className="w-full h-full object-cover hover:opacity-75 transition-opacity duration-150"
-                    />
+                    {/* Try to use the actual product image first, then fall back to placeholder */}
+                    {product.images && product.images.length > 0 ? (
+                      <img
+                        src={
+                          product.images[0].startsWith("data:image")
+                            ? product.images[0] // Use data URL directly
+                            : fixImageUrl(product.images[0])
+                        } // Fix server URL
+                        alt={`${product.name || "Product"}`}
+                        className="w-full h-full object-cover hover:opacity-75 transition-opacity duration-150"
+                        onError={(e) => {
+                          console.log(
+                            "Image load error, using placeholder:",
+                            e.target.src
+                          );
+                          e.target.onerror = null; // Prevent infinite error loop
+                          e.target.src = getPlaceholderImage(product);
+                        }}
+                      />
+                    ) : (
+                      <img
+                        src={getPlaceholderImage(product)}
+                        alt={`${product.name || "Product"}`}
+                        className="w-full h-full object-cover hover:opacity-75 transition-opacity duration-150"
+                      />
+                    )}
                   </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
@@ -163,17 +185,36 @@ const HybridProductTable = ({
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   {(() => {
-                    // Get category name with fallback
+                    // Get category name with fallback - SIMPLIFIED APPROACH
                     let categoryName = "Uncategorized";
+                    let categoryId = null;
 
-                    // Try to get the category name
+                    // Extract the category ID regardless of format
                     if (product.category) {
                       if (typeof product.category === "string") {
-                        categoryName = product.category;
-                      } else if (product.category.name) {
-                        categoryName = product.category.name;
+                        // If category is just a string ID
+                        categoryId = product.category;
+                      } else if (
+                        typeof product.category === "object" &&
+                        product.category !== null
+                      ) {
+                        // If category is an object, get the ID
+                        categoryId = product.category._id;
+
+                        // If it has a name property, use it directly
+                        if (product.category.name) {
+                          categoryName = product.category.name;
+                        }
                       }
                     }
+
+                    // If we have an ID but no name yet, use our hardcoded lookup
+                    if (categoryId && categoryName === "Uncategorized") {
+                      // This uses our hardcoded map for reliable category names
+                      categoryName = getCategoryNameById(categoryId);
+                    }
+
+                    // Removed debugging log to clean up console
 
                     // Get color based on category name
                     const categoryColor = getCategoryColor(categoryName);
@@ -192,9 +233,18 @@ const HybridProductTable = ({
                   <div className="text-sm text-gray-900 dark:text-white">
                     {formatPrice(product.price || 0)}
                   </div>
-                  {product.discountPrice && (
-                    <div className="text-xs text-gray-500 dark:text-gray-400 line-through">
+                  {product.discountPrice > 0 && (
+                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                      <span className="line-through">
+                        {formatPrice(product.price || 0)}
+                      </span>
+                      {" → "}
                       {formatPrice(product.discountPrice)}
+                      {product.discountPercentage > 0 && (
+                        <span className="ml-1 text-green-600 dark:text-green-400">
+                          (-{product.discountPercentage}%)
+                        </span>
+                      )}
                     </div>
                   )}
                 </td>

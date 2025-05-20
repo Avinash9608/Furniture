@@ -5,7 +5,7 @@ import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
 // We don't need to import useTheme directly as it's used in the ThemeToggle component
 import ThemeToggle from "./ThemeToggle";
-import logo from "../../public/images/shyan furniture logo.jpg";
+import logo from "../assets/images/shyam-furniture-logo.jpg";
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);

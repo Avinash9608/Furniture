@@ -6,7 +6,12 @@ import Button from "../../components/Button";
 import Loading from "../../components/Loading";
 import Alert from "../../components/Alert";
 import HybridProductTable from "../../components/admin/HybridProductTable";
-import { getAllProducts, deleteProduct } from "../../utils/robustApiHelper";
+import {
+  getAllProducts,
+  deleteProduct,
+  checkOfflineMode,
+  setOfflineMode,
+} from "../../utils/robustApiHelper";
 import {
   getPlaceholderByType,
   getProductType,
@@ -55,20 +60,34 @@ const HybridProducts = () => {
     try {
       setLoading(true);
       setError(null);
-      setIsOfflineMode(false);
+
+      // Check if we're already in offline mode
+      const startingOfflineMode = checkOfflineMode();
+      setIsOfflineMode(startingOfflineMode);
+
+      if (startingOfflineMode) {
+        console.log("Starting in offline mode");
+      }
 
       // Get products from database with fallbacks
       const productsData = await getAllProducts();
 
       // Check if we're in offline mode by examining the source of the data
       const isOffline =
-        productsData &&
-        productsData.length > 0 &&
-        productsData[0]._id &&
-        (productsData[0]._id.startsWith("local_") ||
-          productsData[0].source === "localStorage");
+        checkOfflineMode() || // Check global offline mode flag
+        (productsData &&
+          productsData.length > 0 &&
+          productsData[0]._id &&
+          (productsData[0]._id.startsWith("local_") ||
+            productsData[0].source === "localStorage"));
 
+      // Update offline mode state
       setIsOfflineMode(isOffline);
+
+      // Also update the global offline mode flag
+      if (isOffline) {
+        setOfflineMode(true);
+      }
 
       if (productsData && productsData.length > 0) {
         setProducts(productsData);
@@ -86,11 +105,18 @@ const HybridProducts = () => {
         }
       } else {
         setError("No products found. Please add some products.");
+
+        // If we have no products, we're probably offline
+        setIsOfflineMode(true);
+        setOfflineMode(true);
       }
     } catch (error) {
       console.error("Error loading products:", error);
       setError("Failed to load products. Please try again later.");
-      setIsOfflineMode(true); // Assume offline mode if there's an error
+
+      // Set offline mode if there's an error
+      setIsOfflineMode(true);
+      setOfflineMode(true);
     } finally {
       setLoading(false);
     }

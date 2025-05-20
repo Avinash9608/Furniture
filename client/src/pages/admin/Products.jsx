@@ -70,206 +70,66 @@ const AdminProducts = () => {
     }
   }, [location, navigate]);
 
-  // Function to load products directly without testing MongoDB connection
+  // Function to load products directly from the database
   const loadProductsDirectly = async () => {
     try {
       setLoading(true);
       setError(null);
       setSuccessMessage("");
 
-      console.log("Loading products directly from endpoint...");
+      console.log("Loading all products directly from database...");
 
-      // Determine if we're in development or production
-      const baseUrl = window.location.origin;
-      const isDevelopment = !baseUrl.includes("onrender.com");
-      const localServerUrl = "http://localhost:5000";
+      // Import the getAllProducts function from robustApiHelper
+      const { getAllProducts } = await import("../../utils/robustApiHelper");
 
-      // Use the appropriate URL based on environment - use different approaches for development vs production
-      const directUrl = isDevelopment
-        ? `${localServerUrl}/api/admin/simple/products` // Use simple endpoint in development
-        : `${baseUrl}/api/direct/products`; // Use direct products endpoint in production
+      // Get all products directly from the database
+      const productsData = await getAllProducts();
 
-      console.log("Direct products URL:", directUrl);
+      console.log(
+        `Successfully loaded ${productsData.length} products from database`
+      );
 
-      // Increase timeout for production environment
-      const timeout = isDevelopment ? 30000 : 60000;
-
-      // Make the request with increased timeout
-      const directResponse = await axios.get(directUrl, { timeout });
-
-      console.log("Direct products response:", directResponse.data);
-
-      console.log("Direct response received:", directResponse.data);
-
-      // Check if response is HTML instead of JSON
-      const isHtmlResponse = (data) => {
-        if (
-          typeof data === "string" &&
-          data.trim().startsWith("<!DOCTYPE html>")
-        ) {
-          return true;
-        }
-        if (typeof data === "string" && data.trim().startsWith("<html")) {
-          return true;
-        }
-        return false;
-      };
-
-      // If response is HTML, throw an error to trigger fallback
-      if (isHtmlResponse(directResponse.data)) {
-        console.error("Received HTML response instead of JSON");
-        throw new Error("Received HTML response instead of JSON data");
-      }
-
-      // Extract products data from response, handling different response formats
-      let productsData = [];
-
-      // Case 1: Standard format with data array inside data property
-      if (
-        directResponse.data &&
-        directResponse.data.data &&
-        Array.isArray(directResponse.data.data)
-      ) {
-        console.log("Using standard response format (data.data)");
-        productsData = directResponse.data.data;
-      }
-      // Case 2: Data array directly in data property
-      else if (directResponse.data && Array.isArray(directResponse.data)) {
-        console.log("Using direct array response format (data)");
-        productsData = directResponse.data;
-      }
-      // Case 3: Products array in products property
-      else if (
-        directResponse.data &&
-        directResponse.data.products &&
-        Array.isArray(directResponse.data.products)
-      ) {
-        console.log("Using products property format (data.products)");
-        productsData = directResponse.data.products;
-      }
-      // Case 4: Response is itself an array
-      else if (Array.isArray(directResponse.data)) {
-        console.log("Response is directly an array");
-        productsData = directResponse.data;
-      }
-      // Case 5: Check for nested properties that might contain products
-      else if (directResponse.data && typeof directResponse.data === "object") {
-        // Look for any array property that might contain products
-        for (const key in directResponse.data) {
-          if (
-            Array.isArray(directResponse.data[key]) &&
-            directResponse.data[key].length > 0 &&
-            directResponse.data[key][0] &&
-            typeof directResponse.data[key][0] === "object"
-          ) {
-            console.log(`Found potential products array in property: ${key}`);
-            productsData = directResponse.data[key];
-            break;
-          }
-        }
-      }
-
-      if (productsData.length > 0) {
-        // Make sure we have valid products
-        const validProducts = productsData.filter(
-          (product) => product && typeof product === "object" && product._id
-        );
-
-        if (validProducts.length > 0) {
-          console.log(`Found ${validProducts.length} valid products`);
-
-          // Process products to ensure they have all required fields
-          const processedProducts = validProducts.map((product) => {
-            // Ensure product has a category object
-            if (!product.category) {
-              product.category = { _id: "unknown", name: "Unknown" };
-            } else if (typeof product.category === "string") {
-              // Try to map known category IDs to names
-              const categoryMap = {
-                "680c9481ab11e96a288ef6d9": "Sofa Beds",
-                "680c9484ab11e96a288ef6da": "Tables",
-                "680c9486ab11e96a288ef6db": "Chairs",
-                "680c9489ab11e96a288ef6dc": "Wardrobes",
-                "680c948eab11e96a288ef6dd": "Beds",
-              };
-
-              const categoryName =
-                categoryMap[product.category] ||
-                `Category ${product.category.substring(
-                  product.category.length - 6
-                )}`;
-
-              product.category = {
-                _id: product.category,
-                name: categoryName,
-              };
-            } else if (
-              typeof product.category === "object" &&
-              !product.category.name
-            ) {
-              // If category is an object but missing name
-              product.category.name = "Unknown";
-            }
-
-            // Ensure product has images array but don't modify the URLs yet
-            // We'll handle URL processing directly in the render function
-            if (
-              !product.images ||
-              !Array.isArray(product.images) ||
-              product.images.length === 0
-            ) {
-              product.images = [
-                "https://placehold.co/300x300/gray/white?text=Product",
-              ];
-            }
-
+      // If we have products data, process it
+      if (productsData && productsData.length > 0) {
+        // Process products to ensure they have all required fields
+        const processedProducts = productsData.map((product) => {
+          // Ensure product has all required fields
+          return {
+            ...product,
+            // Ensure product has images array
+            images:
+              product.images &&
+              Array.isArray(product.images) &&
+              product.images.length > 0
+                ? product.images
+                : ["https://placehold.co/300x300/gray/white?text=Product"],
             // Ensure product has stock value
-            if (product.stock === undefined || product.stock === null) {
-              product.stock = 0;
-            }
+            stock: product.stock ?? 0,
+          };
+        });
 
-            return product;
-          });
+        // Set the products
+        setProducts(processedProducts);
+        setFilteredProducts(processedProducts);
 
-          // Set the products
-          setProducts(processedProducts);
-          setFilteredProducts(processedProducts);
-
-          // Show success message
-          setSuccessMessage(
-            `Successfully loaded ${processedProducts.length} products from database`
-          );
-
-          // Clear any error
-          setError(null);
-
-          return true;
-        } else {
-          console.warn("Direct endpoint returned no valid products");
-          throw new Error("No valid products found in response");
-        }
-      } else {
-        console.warn("No products found in response:", directResponse.data);
-
-        // Try to extract any useful information from the response
-        let responseInfo = "";
-        if (directResponse.data) {
-          if (typeof directResponse.data === "object") {
-            responseInfo = JSON.stringify(directResponse.data);
-          } else {
-            responseInfo = String(directResponse.data);
-          }
-        }
-
-        throw new Error(
-          `No products found in response: ${responseInfo.substring(0, 100)}...`
+        // Show success message
+        setSuccessMessage(
+          `Successfully loaded ${processedProducts.length} products from database`
         );
+
+        // Clear any error
+        setError(null);
+
+        return true;
+      } else {
+        // If no products found, throw an error
+        throw new Error("No products found in database");
       }
     } catch (error) {
       console.error("Failed to load products directly:", error);
 
-      // Provide more detailed error information
-      let errorMessage = "Failed to load products";
+      // Provide detailed error information
+      let errorMessage = "Failed to load products from database";
 
       if (error.response) {
         // The request was made and the server responded with a status code
@@ -291,356 +151,20 @@ const AdminProducts = () => {
       }
 
       setError(errorMessage);
-
-      // Try fallback endpoint
-      console.log("Trying fallback endpoint...");
-      try {
-        const fallbackUrl = isDevelopment
-          ? `${localServerUrl}/api/direct/products`
-          : `${baseUrl}/api/products`; // Use regular products endpoint as fallback
-
-        console.log("Fallback URL:", fallbackUrl);
-
-        const fallbackResponse = await axios.get(fallbackUrl, { timeout });
-
-        console.log("Fallback response received:", fallbackResponse.data);
-
-        // Check if response is HTML instead of JSON
-        if (isHtmlResponse && isHtmlResponse(fallbackResponse.data)) {
-          console.error("Received HTML response from fallback endpoint");
-          throw new Error("Received HTML response from fallback endpoint");
-        }
-
-        if (
-          fallbackResponse.data &&
-          ((fallbackResponse.data.data &&
-            Array.isArray(fallbackResponse.data.data)) ||
-            Array.isArray(fallbackResponse.data))
-        ) {
-          const fallbackProducts = Array.isArray(fallbackResponse.data)
-            ? fallbackResponse.data
-            : fallbackResponse.data.data;
-
-          if (fallbackProducts && fallbackProducts.length > 0) {
-            console.log(
-              `Found ${fallbackProducts.length} products from fallback endpoint`
-            );
-
-            // Process and set products
-            const processedProducts = fallbackProducts.map((product) => ({
-              ...product,
-              category:
-                typeof product.category === "string"
-                  ? {
-                      _id: product.category,
-                      name: `Category ${product.category.substring(
-                        product.category.length - 6
-                      )}`,
-                    }
-                  : product.category || { _id: "unknown", name: "Unknown" },
-              images:
-                product.images &&
-                Array.isArray(product.images) &&
-                product.images.length > 0
-                  ? product.images
-                  : ["https://placehold.co/300x300/gray/white?text=Product"],
-              stock: product.stock ?? 0,
-            }));
-
-            setProducts(processedProducts);
-            setFilteredProducts(processedProducts);
-            setSuccessMessage(
-              `Loaded ${processedProducts.length} products from fallback endpoint`
-            );
-            setError(null);
-            return true;
-          }
-        }
-      } catch (fallbackError) {
-        console.error("Fallback endpoint also failed:", fallbackError);
-
-        // Last resort: Try mock endpoint
-        console.log("Trying mock endpoint as last resort");
-        try {
-          const mockUrl = isDevelopment
-            ? `${localServerUrl}/api/mock/products`
-            : `${baseUrl}/api/mock/products`;
-
-          console.log("Mock URL:", mockUrl);
-
-          const mockResponse = await axios.get(mockUrl, { timeout });
-
-          if (
-            mockResponse.data &&
-            Array.isArray(mockResponse.data) &&
-            mockResponse.data.length > 0
-          ) {
-            console.log("Mock endpoint success:", mockResponse.data);
-
-            setProducts(mockResponse.data);
-            setFilteredProducts(mockResponse.data);
-            setSuccessMessage("Using sample data from server");
-            setError("Could not load real data. Using sample data instead.");
-          }
-        } catch (mockError) {
-          console.error("Mock endpoint failed:", mockError);
-
-          // If all else fails, use hardcoded mock data
-          console.log("Using hardcoded mock data as absolute last resort");
-          const mockProducts = getMockProducts();
-          setProducts(mockProducts);
-          setFilteredProducts(mockProducts);
-          setSuccessMessage("Using sample data as fallback");
-          setError("Could not connect to server. Using sample data instead.");
-        }
-
-        return true; // Return true to prevent further fallbacks
-      }
-
       return false;
     } finally {
       setLoading(false);
     }
   };
 
-  // Function to test MongoDB connection (now just calls loadProductsDirectly)
+  // Function to load products (just calls loadProductsDirectly)
   const testMongoDBConnection = async () => {
-    const success = await loadProductsDirectly();
-
-    if (!success) {
-      // If direct loading failed, try the fallback endpoint
-      try {
-        setLoading(true);
-
-        // Determine if we're in development or production
-        const baseUrl = window.location.origin;
-        const isDevelopment = !baseUrl.includes("onrender.com");
-        const localServerUrl = "http://localhost:5000";
-
-        // Use the regular products endpoint as fallback
-        const fallbackUrl = isDevelopment
-          ? `${localServerUrl}/api/direct/products`
-          : `${baseUrl}/api/products`; // Use regular products endpoint as fallback
-
-        console.log("Trying fallback products endpoint:", fallbackUrl);
-
-        const fallbackResponse = await axios.get(fallbackUrl, {
-          timeout: 60000,
-        });
-
-        if (
-          fallbackResponse.data &&
-          fallbackResponse.data.data &&
-          Array.isArray(fallbackResponse.data.data)
-        ) {
-          const productsData = fallbackResponse.data.data;
-
-          if (productsData.length > 0) {
-            // Process and set products
-            const processedProducts = productsData.map((product) => {
-              // Process product (similar to above)
-              return {
-                ...product,
-                category:
-                  typeof product.category === "string"
-                    ? {
-                        _id: product.category,
-                        name: `Category ${product.category.substring(
-                          product.category.length - 6
-                        )}`,
-                      }
-                    : product.category || { _id: "unknown", name: "Unknown" },
-                images:
-                  product.images &&
-                  Array.isArray(product.images) &&
-                  product.images.length > 0
-                    ? product.images
-                    : ["https://placehold.co/300x300/gray/white?text=Product"],
-                stock: product.stock ?? 0,
-              };
-            });
-
-            setProducts(processedProducts);
-            setFilteredProducts(processedProducts);
-            setSuccessMessage(
-              `Loaded ${processedProducts.length} products from fallback endpoint`
-            );
-            setError(null);
-          }
-        }
-      } catch (fallbackError) {
-        console.error("Fallback endpoint failed:", fallbackError);
-
-        // Last resort: Try mock endpoint
-        console.log("Trying mock endpoint as last resort");
-        try {
-          const mockUrl = isDevelopment
-            ? `${localServerUrl}/api/mock/products`
-            : `${baseUrl}/api/mock/products`;
-
-          console.log("Mock URL:", mockUrl);
-
-          const mockResponse = await axios.get(mockUrl, { timeout: 30000 });
-
-          if (
-            mockResponse.data &&
-            Array.isArray(mockResponse.data) &&
-            mockResponse.data.length > 0
-          ) {
-            console.log("Mock endpoint success:", mockResponse.data);
-
-            setProducts(mockResponse.data);
-            setFilteredProducts(mockResponse.data);
-            setSuccessMessage("Using sample data from server");
-            setError("Could not load real data. Using sample data instead.");
-          }
-        } catch (mockError) {
-          console.error("Mock endpoint failed:", mockError);
-
-          // If all else fails, use hardcoded mock data
-          console.log("Using hardcoded mock data as absolute last resort");
-          const mockProducts = getMockProducts();
-          setProducts(mockProducts);
-          setFilteredProducts(mockProducts);
-          setSuccessMessage("Using sample data as fallback");
-          setError("Could not connect to server. Using sample data instead.");
-        }
-      } finally {
-        setLoading(false);
-      }
-    }
+    await loadProductsDirectly();
   };
 
-  // Function to try direct endpoint as a last resort
+  // Function to try direct endpoint as a last resort (now just calls loadProductsDirectly)
   const tryDirectEndpoint = async () => {
-    try {
-      setLoading(true);
-
-      // Determine if we're in development or production
-      const baseUrl = window.location.origin;
-      const isDevelopment = !baseUrl.includes("onrender.com");
-      const localServerUrl = "http://localhost:5000";
-
-      // Use the appropriate URL based on environment
-      const directUrl = isDevelopment
-        ? `${localServerUrl}/api/admin/direct/products`
-        : `${baseUrl}/api/admin/direct/products`;
-
-      console.log(
-        "Last resort: trying direct admin products endpoint:",
-        directUrl
-      );
-
-      // Increase timeout for production environment
-      const timeout = isDevelopment ? 30000 : 60000;
-      const directResponse = await axios.get(directUrl, { timeout });
-
-      if (
-        directResponse.data &&
-        directResponse.data.data &&
-        Array.isArray(directResponse.data.data)
-      ) {
-        console.log(
-          "Direct admin products endpoint success:",
-          directResponse.data
-        );
-
-        // Process the products data
-        const productsData = directResponse.data.data;
-
-        // Make sure we have valid products
-        const validProducts = productsData.filter(
-          (product) => product && typeof product === "object" && product._id
-        );
-
-        if (validProducts.length > 0) {
-          console.log(
-            `Found ${validProducts.length} valid products from direct endpoint`
-          );
-
-          // Process products to ensure they have all required fields
-          const processedProducts = validProducts.map((product) => {
-            // Ensure product has a category object
-            if (!product.category) {
-              product.category = { _id: "unknown", name: "Unknown" };
-            } else if (typeof product.category === "string") {
-              // Try to map known category IDs to names
-              const categoryMap = {
-                "680c9481ab11e96a288ef6d9": "Sofa Beds",
-                "680c9484ab11e96a288ef6da": "Tables",
-                "680c9486ab11e96a288ef6db": "Chairs",
-                "680c9489ab11e96a288ef6dc": "Wardrobes",
-                "680c948eab11e96a288ef6dd": "Beds",
-              };
-
-              const categoryName =
-                categoryMap[product.category] ||
-                `Category ${product.category.substring(
-                  product.category.length - 6
-                )}`;
-
-              product.category = {
-                _id: product.category,
-                name: categoryName,
-              };
-            } else if (
-              typeof product.category === "object" &&
-              !product.category.name
-            ) {
-              // If category is an object but missing name
-              product.category.name = "Unknown";
-            }
-
-            // Ensure product has images array and fix image URLs
-            if (
-              !product.images ||
-              !Array.isArray(product.images) ||
-              product.images.length === 0
-            ) {
-              product.images = [
-                "https://placehold.co/300x300/gray/white?text=Product",
-              ];
-            } else {
-              // Fix image URLs to use the correct domain
-              product.images = product.images.map((img) => getImageUrl(img));
-            }
-
-            // Ensure product has stock value
-            if (product.stock === undefined || product.stock === null) {
-              product.stock = 0;
-            }
-
-            return product;
-          });
-
-          // Set the products
-          setProducts(processedProducts);
-          setFilteredProducts(processedProducts);
-
-          // Show success message
-          setSuccessMessage(
-            `Successfully loaded ${processedProducts.length} products from direct database connection`
-          );
-
-          // Clear any error
-          setError(null);
-        } else {
-          console.warn("Direct endpoint returned no valid products");
-          throw new Error("No valid products found in response");
-        }
-      } else {
-        console.warn(
-          "Unexpected response format from direct endpoint:",
-          directResponse.data
-        );
-        throw new Error("Invalid response format from direct endpoint");
-      }
-    } catch (directError) {
-      console.error("Last resort direct endpoint failed:", directError);
-      // We've tried everything, just show the error
-    } finally {
-      setLoading(false);
-    }
+    await loadProductsDirectly();
   };
 
   // Fetch products and categories
@@ -705,273 +229,11 @@ const AdminProducts = () => {
         setCategories(processedCategories);
         console.log("Processed categories:", processedCategories);
 
-        // Try to load products directly (this is the most reliable method)
-        const directSuccess = await loadProductsDirectly();
-
-        if (directSuccess) {
-          console.log("Successfully loaded products directly");
-          return; // Exit early if direct loading succeeded
-        }
-
-        console.log("Direct loading failed, falling back to regular flow");
-
-        // If no categories exist, create default ones
-        if (fetchedCategories.length === 0) {
-          console.log("No categories found, using mock categories...");
-          fetchedCategories = getMockCategories();
-        }
-
-        // Process categories to ensure they have all required fields
-        fetchedCategories = fetchedCategories.map((category) => {
-          // Ensure category has an _id
-          if (!category._id) {
-            category._id = `temp_${Date.now()}_${Math.random()
-              .toString(36)
-              .substring(2, 9)}`;
-          }
-
-          // Ensure category has a name
-          if (!category.name) {
-            category.name = `Category ${category._id.substring(
-              category._id.length - 6
-            )}`;
-          }
-
-          return category;
-        });
-
-        console.log("Processed categories:", fetchedCategories);
-
-        // Set categories immediately so they're available for product processing
-        setCategories(fetchedCategories);
-
-        // STEP 1: Try direct endpoint first - this is the most reliable method
-        let productsData = [];
-        let directApiSuccess = false;
-
-        try {
-          // Determine if we're in development or production
-          const baseUrl = window.location.origin;
-          const isDevelopment = !baseUrl.includes("onrender.com");
-          const localServerUrl = "http://localhost:5000";
-
-          // Use the appropriate URL based on environment
-          const directUrl = isDevelopment
-            ? `${localServerUrl}/api/admin/direct/products`
-            : `${baseUrl}/api/admin/direct/products`;
-
-          console.log(
-            "STEP 1: Trying direct admin products endpoint:",
-            directUrl
-          );
-
-          // Increase timeout for production environment
-          const timeout = isDevelopment ? 30000 : 60000;
-          const directResponse = await axios.get(directUrl, { timeout });
-
-          if (
-            directResponse.data &&
-            directResponse.data.data &&
-            Array.isArray(directResponse.data.data)
-          ) {
-            console.log(
-              "Direct admin products endpoint success:",
-              directResponse.data
-            );
-
-            // Make sure we have valid products
-            const validProducts = directResponse.data.data.filter(
-              (product) => product && typeof product === "object" && product._id
-            );
-
-            if (validProducts.length > 0) {
-              productsData = validProducts;
-              directApiSuccess = true;
-
-              // Clear any error
-              setError(null);
-
-              // Set success message
-              setSuccessMessage(
-                `Successfully loaded ${validProducts.length} products from direct database connection`
-              );
-
-              console.log(
-                `Found ${validProducts.length} valid products from direct endpoint`
-              );
-            } else {
-              console.warn("Direct endpoint returned no valid products");
-            }
-          }
-        } catch (directError) {
-          console.error(
-            "Direct admin products endpoint failed on initial load:",
-            directError
-          );
-          // Continue with normal flow
-        }
-
-        // Only try regular API if direct endpoint failed
-        if (!directApiSuccess) {
-          console.log("Now fetching products via regular API...");
-          productsData = [];
-
-          // Use regular API to fetch products
-          try {
-            const productsResponse = await productsAPI.getAll();
-            console.log("Products API response:", productsResponse);
-
-            // Handle different response structures
-            if (
-              productsResponse &&
-              productsResponse.data &&
-              productsResponse.data.data &&
-              Array.isArray(productsResponse.data.data)
-            ) {
-              productsData = productsResponse.data.data;
-            } else if (
-              productsResponse &&
-              productsResponse.data &&
-              Array.isArray(productsResponse.data)
-            ) {
-              productsData = productsResponse.data;
-            } else if (productsResponse && Array.isArray(productsResponse)) {
-              productsData = productsResponse;
-            }
-
-            // Log the processed data
-            console.log(
-              "Processed products data after API call:",
-              productsData
-            );
-
-            // If we have data but it's empty, log a warning
-            if (productsData && productsData.length === 0) {
-              console.warn("API returned empty products array");
-            }
-          } catch (productError) {
-            console.error("Error fetching products:", productError);
-            productsData = [];
-          }
-        }
-
-        console.log("Processed products data:", productsData);
-
-        // Always clear any previous error
-        setError(null);
-
-        // Clear any error if we have products
-        if (productsData && productsData.length > 0) {
-          // Clear any error message
-          setError(null);
-
-          // Process products to ensure they have all required fields
-          const processedProducts = productsData.map((product) => {
-            // Ensure product has a category object
-            if (!product.category) {
-              product.category = { _id: "unknown", name: "Unknown" };
-            } else if (typeof product.category === "string") {
-              // If category is a string (ID), try to find the corresponding category object
-              const categoryObj = fetchedCategories.find(
-                (c) =>
-                  c._id === product.category ||
-                  c._id.toString() === product.category
-              );
-
-              if (categoryObj) {
-                product.category = categoryObj;
-              } else {
-                // If we can't find the category, create a placeholder with the ID
-                // Check if it's a MongoDB ObjectId (24 hex chars)
-                if (
-                  product.category.length === 24 &&
-                  /^[0-9a-f]+$/.test(product.category)
-                ) {
-                  // Try to map known category IDs to names
-                  const categoryMap = {
-                    "680c9481ab11e96a288ef6d9": "Sofa Beds",
-                    "680c9484ab11e96a288ef6da": "Tables",
-                    "680c9486ab11e96a288ef6db": "Chairs",
-                    "680c9489ab11e96a288ef6dc": "Wardrobes",
-                    "680c948eab11e96a288ef6dd": "Beds",
-                  };
-
-                  const categoryName =
-                    categoryMap[product.category] ||
-                    `Category ${product.category.substring(
-                      product.category.length - 6
-                    )}`;
-
-                  product.category = {
-                    _id: product.category,
-                    name: categoryName,
-                  };
-                } else {
-                  // Otherwise try to make a readable name from the ID
-                  product.category = {
-                    _id: product.category,
-                    name: `Category ${product.category
-                      .replace(/[^a-zA-Z0-9]/g, " ")
-                      .trim()}`,
-                  };
-                }
-              }
-            } else if (
-              typeof product.category === "object" &&
-              !product.category.name
-            ) {
-              // If category is an object but missing name
-              product.category.name = "Unknown";
-            }
-
-            // Ensure product has images array
-            if (
-              !product.images ||
-              !Array.isArray(product.images) ||
-              product.images.length === 0
-            ) {
-              product.images = [
-                "https://placehold.co/300x300/gray/white?text=Product",
-              ];
-            }
-
-            // Ensure product has stock value
-            if (product.stock === undefined || product.stock === null) {
-              product.stock = 0;
-            }
-
-            return product;
-          });
-
-          setProducts(processedProducts);
-          setFilteredProducts(processedProducts);
-        } else {
-          console.log(
-            "No products found or invalid data format, using mock data"
-          );
-          const mockProducts = getMockProducts();
-          setProducts(mockProducts);
-          setFilteredProducts(mockProducts);
-        }
+        // Load products directly from the database
+        await loadProductsDirectly();
       } catch (error) {
         console.error("Error in fetchData effect:", error);
-
-        // Check if we already have products data before setting error
-        if (!products.length) {
-          console.log(
-            "No products data available, using mock data as fallback"
-          );
-          setError("Failed to load data. Using sample data instead.");
-
-          // Use mock data as fallback
-          const mockProducts = getMockProducts();
-          setProducts(mockProducts);
-          setFilteredProducts(mockProducts);
-          setCategories(getMockCategories());
-        } else {
-          console.log("Products data already available, not using mock data");
-          // Don't set error if we already have products data
-        }
+        setError("Failed to load data: " + error.message);
       } finally {
         setLoading(false);
       }

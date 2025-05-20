@@ -5,8 +5,15 @@ import AdminLayout from "../../components/admin/AdminLayout";
 import Button from "../../components/Button";
 import Loading from "../../components/Loading";
 import Alert from "../../components/Alert";
-import { getProductById, updateProduct } from "../../utils/robustApiHelper";
-import { getCategoriesFromLocalStorage } from "../../utils/localStorageHelper";
+import {
+  getProductById,
+  updateProduct,
+  fixImageUrl,
+} from "../../utils/robustApiHelper";
+import {
+  getCategoriesFromLocalStorage,
+  getCategoryNameById,
+} from "../../utils/localStorageHelper";
 import {
   getPlaceholderByType,
   getProductType,
@@ -26,6 +33,7 @@ const HybridEditProduct = () => {
     description: "",
     price: 0,
     discountPrice: 0,
+    discountPercentage: 0,
     stock: 0,
     category: "",
     material: "",
@@ -49,41 +57,107 @@ const HybridEditProduct = () => {
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
 
-  // State for offline mode
-  const [isOfflineMode, setIsOfflineMode] = useState(false);
-
   // Load product and categories on component mount
   useEffect(() => {
-    loadProduct();
-    loadCategories();
+    const initializeData = async () => {
+      try {
+        // First load categories to ensure they're available when the product loads
+        await loadCategories();
+
+        // Then fetch the product
+        await loadProduct();
+
+        // After loading the product, check if we need to reload categories
+        // This ensures that the category of the product is in the categories list
+        const productCategory = product.category;
+        if (productCategory) {
+          console.log(
+            "Checking if product category exists in categories list:",
+            productCategory
+          );
+
+          // Check if the category exists in our categories list
+          const categoryExists = categories.some(
+            (cat) => cat._id === productCategory
+          );
+          console.log("Category exists in list:", categoryExists);
+
+          // If the category doesn't exist in our list, reload categories
+          if (!categoryExists) {
+            console.log(
+              "Product category not found in list, reloading categories..."
+            );
+            await loadCategories();
+          }
+        }
+      } catch (error) {
+        console.error("Error initializing data:", error);
+        setError("Failed to load product data");
+      }
+    };
+
+    initializeData();
   }, [id]);
 
-  // Function to load product from database with fallbacks
+  // Function to load product directly from database
   const loadProduct = async () => {
     try {
       setLoading(true);
       setError(null);
-      setIsOfflineMode(false);
 
-      // Get product from database with fallbacks
+      console.log("Loading product with ID:", id);
+
+      // Get product directly from database
       const productData = await getProductById(id);
 
-      // Check if we're in offline mode by examining the source of the data
-      const isOffline =
-        productData &&
-        ((productData._id && productData._id.startsWith("local_")) ||
-          productData.source === "localStorage");
-
-      setIsOfflineMode(isOffline);
-
       if (productData) {
-        // Format the product data for the form
+        console.log("Product loaded successfully:", productData.name);
+
+        // IMPROVED APPROACH: Extract the category ID regardless of format
+        let categoryId;
+
+        // If category is an object with ID
+        if (
+          typeof productData.category === "object" &&
+          productData.category !== null &&
+          productData.category._id
+        ) {
+          categoryId = productData.category._id;
+          console.log("Category is an object, extracted ID:", categoryId);
+        }
+        // If category is just a string (ID)
+        else if (typeof productData.category === "string") {
+          categoryId = productData.category;
+          console.log("Category is a string ID:", categoryId);
+        }
+        // If category is missing or invalid
+        else {
+          categoryId = "";
+          console.log("Category is missing or invalid, using empty string");
+        }
+
+        // Calculate discount percentage if not provided
+        let discountPercentage = productData.discountPercentage || 0;
+
+        // If we have price and discount price but no discount percentage, calculate it
+        if (
+          productData.price > 0 &&
+          productData.discountPrice > 0 &&
+          !productData.discountPercentage
+        ) {
+          discountPercentage = Math.round(
+            ((productData.price - productData.discountPrice) /
+              productData.price) *
+              100
+          );
+          console.log("Calculated discount percentage:", discountPercentage);
+        }
+
+        // Format the product data for the form - use the ID directly
         setProduct({
           ...productData,
-          category:
-            typeof productData.category === "object"
-              ? productData.category._id
-              : productData.category,
+          category: categoryId, // Use the ID directly
+          discountPercentage: discountPercentage,
           dimensions: productData.dimensions || {
             length: 0,
             width: 0,
@@ -91,14 +165,24 @@ const HybridEditProduct = () => {
           },
         });
 
-        if (isOffline) {
-          setSuccessMessage("Product loaded from local storage (offline mode)");
-        } else {
-          setSuccessMessage("Product loaded successfully");
+        // For debugging, show what the category name would be
+        if (categoryId) {
+          const categoryName = getCategoryNameById(categoryId);
+          console.log("Category name from ID:", categoryName);
+
+          // Log all categories to help with debugging
+          console.log("Available categories:", categories);
+
+          // Check if the category exists in our categories list
+          const categoryExists = categories.some(
+            (cat) => cat._id === categoryId
+          );
+          console.log("Category exists in list:", categoryExists);
         }
+
+        setSuccessMessage("Product loaded successfully");
       } else {
         setError(`Product with ID ${id} not found`);
-        setIsOfflineMode(true); // Assume offline mode if product not found
 
         // Navigate back to products page after 3 seconds
         setTimeout(() => {
@@ -107,29 +191,99 @@ const HybridEditProduct = () => {
       }
     } catch (error) {
       console.error("Error loading product:", error);
-      setError("Failed to load product");
-      setIsOfflineMode(true); // Assume offline mode if there's an error
+      setError("Failed to load product: " + (error.message || "Unknown error"));
     } finally {
       setLoading(false);
     }
   };
 
-  // Function to load categories
-  const loadCategories = () => {
+  // Function to load all categories from the database
+  const loadCategories = async () => {
     try {
-      // Get categories from localStorage (will return default categories if none found)
-      const localCategories = getCategoriesFromLocalStorage();
-      setCategories(localCategories);
+      console.log("Loading all categories from database...");
+
+      // Determine if we're in development or production
+      const baseUrl = window.location.origin;
+      const isDevelopment = !baseUrl.includes("onrender.com");
+      const localServerUrl = "http://localhost:5000";
+
+      // Use the appropriate URL based on environment with high limit to get all categories
+      const categoriesUrl = isDevelopment
+        ? `${localServerUrl}/api/categories?limit=100`
+        : `${baseUrl}/api/categories?limit=100`;
+
+      console.log("Fetching categories from:", categoriesUrl);
+
+      // Add authentication headers
+      const adminToken =
+        localStorage.getItem("adminToken") ||
+        sessionStorage.getItem("adminToken");
+      const token = localStorage.getItem("token");
+      const authToken = adminToken || token;
+
+      const headers = authToken ? { Authorization: `Bearer ${authToken}` } : {};
+
+      // Fetch categories from server with increased timeout
+      const response = await fetch(categoriesUrl, {
+        headers,
+        signal: AbortSignal.timeout(15000), // 15 second timeout
+      });
+      const data = await response.json();
+
+      console.log("Server categories response:", data);
+
+      // Extract categories from response
+      let serverCategories = [];
+      if (data && Array.isArray(data)) {
+        serverCategories = data;
+      } else if (data && data.data && Array.isArray(data.data)) {
+        serverCategories = data.data;
+      }
+
+      // Process categories to ensure they have all required fields
+      const processedCategories = serverCategories.map((category) => ({
+        ...category,
+        name: category.name || category.displayName || "Unknown Category",
+      }));
+
+      // Add default categories if none found or if we need to ensure they exist
+      const defaultCategories = [
+        { _id: "680c9481ab11e96a288ef6d9", name: "Sofa Beds" },
+        { _id: "680c9484ab11e96a288ef6da", name: "Tables" },
+        { _id: "680c9486ab11e96a288ef6db", name: "Chairs" },
+        { _id: "680c9489ab11e96a288ef6dc", name: "Wardrobes" },
+        { _id: "680c948eab11e96a288ef6dd", name: "Beds" },
+      ];
+
+      // Merge server categories with default categories to ensure we have all
+      const mergedCategories = [...processedCategories];
+
+      // Add default categories that don't exist in server categories
+      defaultCategories.forEach((defaultCat) => {
+        const exists = mergedCategories.some(
+          (cat) => cat._id === defaultCat._id
+        );
+        if (!exists) {
+          mergedCategories.push(defaultCat);
+        }
+      });
+
+      console.log(
+        `Setting ${mergedCategories.length} categories:`,
+        mergedCategories
+      );
+      setCategories(mergedCategories);
     } catch (error) {
       console.error("Error loading categories:", error);
 
       // Use default categories as fallback
+      console.log("Error loading categories, using default categories");
       setCategories([
-        { _id: "cat1", name: "Sofa Beds" },
-        { _id: "cat2", name: "Tables" },
-        { _id: "cat3", name: "Chairs" },
-        { _id: "cat4", name: "Wardrobes" },
-        { _id: "cat5", name: "Beds" },
+        { _id: "680c9481ab11e96a288ef6d9", name: "Sofa Beds" },
+        { _id: "680c9484ab11e96a288ef6da", name: "Tables" },
+        { _id: "680c9486ab11e96a288ef6db", name: "Chairs" },
+        { _id: "680c9489ab11e96a288ef6dc", name: "Wardrobes" },
+        { _id: "680c948eab11e96a288ef6dd", name: "Beds" },
       ]);
     }
   };
@@ -147,6 +301,83 @@ const HybridEditProduct = () => {
           ...product[parent],
           [child]: type === "number" ? Number(value) : value,
         },
+      });
+    }
+    // Special handling for category selection - SIMPLIFIED APPROACH
+    else if (name === "category") {
+      console.log("Category selected:", value);
+
+      // SIMPLIFIED: Just store the category ID directly
+      // This ensures consistent handling throughout the application
+      setProduct({
+        ...product,
+        category: value, // Store the ID directly
+      });
+
+      console.log("Set category as ID:", value);
+
+      // For debugging, show what the category name would be
+      const categoryName = getCategoryNameById(value);
+      console.log("Category name from ID:", categoryName);
+    }
+    // Special handling for price changes - update discount percentage
+    else if (name === "price") {
+      const newPrice = Number(value);
+      let newDiscountPercentage = product.discountPercentage;
+
+      // If we have a discount price, recalculate the percentage
+      if (product.discountPrice > 0 && newPrice > 0) {
+        newDiscountPercentage = Math.round(
+          ((newPrice - product.discountPrice) / newPrice) * 100
+        );
+      }
+
+      setProduct({
+        ...product,
+        price: newPrice,
+        discountPercentage:
+          newDiscountPercentage >= 0 ? newDiscountPercentage : 0,
+      });
+    }
+    // Special handling for discount price changes - update discount percentage
+    else if (name === "discountPrice") {
+      const newDiscountPrice = Number(value);
+      let newDiscountPercentage = 0;
+
+      // Calculate discount percentage if price is greater than 0
+      if (product.price > 0 && newDiscountPrice >= 0) {
+        newDiscountPercentage = Math.round(
+          ((product.price - newDiscountPrice) / product.price) * 100
+        );
+      }
+
+      setProduct({
+        ...product,
+        discountPrice: newDiscountPrice,
+        discountPercentage:
+          newDiscountPercentage >= 0 ? newDiscountPercentage : 0,
+      });
+    }
+    // Special handling for discount percentage changes - update discount price
+    else if (name === "discountPercentage") {
+      const newDiscountPercentage = Number(value);
+      let newDiscountPrice = product.discountPrice;
+
+      // Calculate discount price if price is greater than 0
+      if (
+        product.price > 0 &&
+        newDiscountPercentage >= 0 &&
+        newDiscountPercentage <= 100
+      ) {
+        newDiscountPrice =
+          product.price - (product.price * newDiscountPercentage) / 100;
+        newDiscountPrice = Math.round(newDiscountPrice * 100) / 100; // Round to 2 decimal places
+      }
+
+      setProduct({
+        ...product,
+        discountPercentage: newDiscountPercentage,
+        discountPrice: newDiscountPrice >= 0 ? newDiscountPrice : 0,
       });
     } else {
       // Handle regular properties
@@ -171,11 +402,21 @@ const HybridEditProduct = () => {
     const previewUrl = URL.createObjectURL(file);
     setImagePreview(previewUrl);
 
-    // Store the file in the product state
-    setProduct({
-      ...product,
-      imageFile: file,
-    });
+    // Convert the file to a data URL
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target.result;
+
+      // Store both the file and the data URL in the product state
+      setProduct({
+        ...product,
+        imageFile: file,
+        // Add the data URL to the images array
+        images: [dataUrl, ...(product.images || [])],
+      });
+    };
+
+    reader.readAsDataURL(file);
   };
 
   // Function to get a placeholder image based on product type
@@ -185,9 +426,14 @@ const HybridEditProduct = () => {
       return imagePreview;
     }
 
-    // If the product has images, use the first one
+    // If the product has images, use the first one with proper URL fixing
     if (product.images && product.images.length > 0) {
-      return product.images[0];
+      // Handle data URLs directly
+      if (product.images[0].startsWith("data:image")) {
+        return product.images[0];
+      }
+      // Fix server URLs
+      return fixImageUrl(product.images[0]);
     }
 
     // Otherwise, use a placeholder based on product type
@@ -241,40 +487,26 @@ const HybridEditProduct = () => {
         ...product,
         // Keep the original images if no new image is uploaded
         images: product.images || [],
-        // Keep the original category if it's an object
-        category:
-          typeof product.category === "object"
-            ? product.category
-            : product.category,
       };
 
-      // If a new image file was uploaded, create a FormData object
-      if (product.imageFile) {
-        const formData = new FormData();
+      // Get the selected category from the form
+      const selectedCategoryId = product.category;
 
-        // Add all product data to FormData
-        Object.keys(productToSave).forEach((key) => {
-          if (key !== "imageFile" && key !== "images" && key !== "dimensions") {
-            formData.append(key, productToSave[key]);
-          }
-        });
+      // Always use the category ID directly
+      // This ensures consistent handling throughout the application
+      productToSave.category = selectedCategoryId;
 
-        // Add dimensions as JSON string
-        if (productToSave.dimensions) {
-          formData.append(
-            "dimensions",
-            JSON.stringify(productToSave.dimensions)
-          );
-        }
-
-        // Add the image file
-        formData.append("images", product.imageFile);
-
-        // Use FormData instead of JSON
-        productToSave = formData;
+      // Remove the imageFile property as we're using data URLs
+      if (productToSave.imageFile) {
+        // We already converted the file to a data URL and added it to the images array
+        // So we can remove the imageFile property
+        const { imageFile, ...productWithoutImageFile } = productToSave;
+        productToSave = productWithoutImageFile;
       }
 
-      // Update product in database with fallbacks
+      // Prepare product data for saving
+
+      // Update product directly in database
       const updatedProduct = await updateProduct(id, productToSave);
 
       if (updatedProduct) {
@@ -294,7 +526,7 @@ const HybridEditProduct = () => {
                   </svg>
                 </div>
               </div>
-              <p class="text-sm text-gray-600">All changes have been saved successfully.</p>
+              <p class="text-sm text-gray-600">All changes have been saved to the database successfully.</p>
               <p class="text-xs text-gray-500 mt-2">Updated: ${new Date().toLocaleString()}</p>
             </div>
           `,
@@ -310,38 +542,33 @@ const HybridEditProduct = () => {
         // Close loading dialog
         Swal.close();
 
-        // Show error message with fallback option
+        // Show error message
         Swal.fire({
-          title: "Server Error",
+          title: "Update Error",
           html: `
             <div class="text-center">
               <p class="mb-2">The server encountered an error while updating the product.</p>
               <div class="flex justify-center my-3">
-                <div class="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center">
-                  <svg class="w-8 h-8 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center">
+                  <svg class="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
                   </svg>
                 </div>
               </div>
-              <p class="text-sm text-gray-600">However, your changes have been saved locally.</p>
-              <p class="text-xs text-gray-500 mt-2">You can continue working with the product.</p>
+              <p class="text-sm text-gray-600">Please try again or contact support if the problem persists.</p>
             </div>
           `,
-          icon: "warning",
+          icon: "error",
           showCancelButton: true,
           confirmButtonText: "Go to Products",
-          cancelButtonText: "Stay Here",
+          cancelButtonText: "Try Again",
         }).then((result) => {
           if (result.isConfirmed) {
             // Navigate back to products page
-            navigate("/admin/products", {
-              state: { successMessage: "Product updated locally" },
-            });
+            navigate("/admin/products");
           } else {
-            // Stay on the page, but show success message
-            setSuccessMessage(
-              "Product updated locally. Server update failed but your changes are saved."
-            );
+            // Stay on the page and allow retry
+            setError("Update failed. Please try again.");
             setLoading(false);
           }
         });
@@ -352,39 +579,39 @@ const HybridEditProduct = () => {
       // Close loading dialog
       Swal.close();
 
-      // Show error message with fallback option
+      // Show error message
       Swal.fire({
         title: "Update Error",
         html: `
           <div class="text-center">
             <p class="mb-2">An error occurred while updating the product.</p>
             <div class="flex justify-center my-3">
-              <div class="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center">
-                <svg class="w-8 h-8 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center">
+                <svg class="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
                 </svg>
               </div>
             </div>
-            <p class="text-sm text-gray-600">We've attempted to save your changes locally.</p>
+            <p class="text-sm text-gray-600">Please try again or contact support if the problem persists.</p>
             <p class="text-xs text-gray-500 mt-2">Error: ${
               error.message || "Unknown error"
             }</p>
           </div>
         `,
-        icon: "warning",
+        icon: "error",
         showCancelButton: true,
         confirmButtonText: "Go to Products",
         cancelButtonText: "Try Again",
       }).then((result) => {
         if (result.isConfirmed) {
           // Navigate back to products page
-          navigate("/admin/products", {
-            state: { successMessage: "Product may have been updated locally" },
-          });
+          navigate("/admin/products");
         } else {
           // Stay on the page and allow retry
           setError(
-            "Update failed. You can try again or make changes to your input."
+            "Update failed: " +
+              (error.message || "Unknown error") +
+              ". Please try again."
           );
           setLoading(false);
         }
@@ -400,25 +627,6 @@ const HybridEditProduct = () => {
             <h1 className="text-2xl font-bold text-gray-800 dark:text-white">
               Edit Product
             </h1>
-            {isOfflineMode && (
-              <div className="ml-4 px-3 py-1 bg-yellow-100 text-yellow-800 dark:bg-yellow-800 dark:text-yellow-100 rounded-full flex items-center text-sm">
-                <svg
-                  className="w-4 h-4 mr-1"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
-                    d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                  ></path>
-                </svg>
-                Offline Mode
-              </div>
-            )}
           </div>
           <Button color="blue" onClick={() => navigate("/admin/products")}>
             Back to Products
@@ -464,18 +672,32 @@ const HybridEditProduct = () => {
                 </label>
                 <select
                   name="category"
-                  value={product.category}
+                  value={product.category || ""}
                   onChange={handleChange}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white"
                   required
                 >
                   <option value="">Select Category</option>
-                  {categories.map((category) => (
-                    <option key={category._id} value={category._id}>
-                      {category.name}
-                    </option>
-                  ))}
+                  {categories.map((category) => {
+                    // Check if this category is selected
+                    const isSelected = category._id === product.category;
+
+                    return (
+                      <option
+                        key={category._id}
+                        value={category._id}
+                        selected={isSelected}
+                      >
+                        {category.name}
+                      </option>
+                    );
+                  })}
                 </select>
+                {product.category && (
+                  <div className="mt-1 text-xs text-gray-500">
+                    Selected category: {getCategoryNameById(product.category)}
+                  </div>
+                )}
               </div>
 
               {/* Price */}
@@ -509,6 +731,34 @@ const HybridEditProduct = () => {
                   min="0"
                   step="0.01"
                 />
+              </div>
+
+              {/* Discount Percentage */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Discount Percentage (%)
+                </label>
+                <input
+                  type="number"
+                  name="discountPercentage"
+                  value={product.discountPercentage || 0}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white"
+                  min="0"
+                  max="100"
+                  step="1"
+                />
+                <div className="mt-1 text-xs text-gray-500">
+                  {product.price > 0 && product.discountPercentage > 0 && (
+                    <span>
+                      Calculated discount price: ₹
+                      {(
+                        product.price -
+                        (product.price * product.discountPercentage) / 100
+                      ).toFixed(2)}
+                    </span>
+                  )}
+                </div>
               </div>
 
               {/* Stock */}
