@@ -18,66 +18,13 @@ const HybridProductTable = ({
   onDeleteClick,
   isLoading = false,
 }) => {
-  // Function to get a direct placeholder image based on product type
-  const getProductImage = (product) => {
+  // Function to get a placeholder image based on product type
+  const getPlaceholderImage = (product) => {
     if (!product || !product.name) {
       return "https://placehold.co/300x300/gray/white?text=No+Product";
     }
 
-    // Check if we're in production environment
-    const hostname = window.location.hostname;
-    const isProduction =
-      hostname.includes("render.com") ||
-      hostname === "furniture-q3nb.onrender.com";
-
-    // In production, always use direct placeholders
-    if (isProduction) {
-      // Create a direct placeholder based on product name
-      const productName = encodeURIComponent(product.name || "Product");
-
-      // Determine product type from name
-      const productNameLower = product.name.toLowerCase();
-      let bgColor, textColor;
-
-      if (productNameLower.includes("sofa")) {
-        bgColor = "8B4513"; // Brown
-        textColor = "FFFFFF"; // White
-      } else if (productNameLower.includes("bed")) {
-        bgColor = "4169E1"; // Royal Blue
-        textColor = "FFFFFF"; // White
-      } else if (productNameLower.includes("table")) {
-        bgColor = "CD853F"; // Peru (wood color)
-        textColor = "FFFFFF"; // White
-      } else if (productNameLower.includes("chair")) {
-        bgColor = "2E8B57"; // Sea Green
-        textColor = "FFFFFF"; // White
-      } else if (productNameLower.includes("wardrobe")) {
-        bgColor = "800080"; // Purple
-        textColor = "FFFFFF"; // White
-      } else if (productNameLower.includes("dinner")) {
-        bgColor = "B22222"; // Firebrick
-        textColor = "FFFFFF"; // White
-      } else {
-        bgColor = "708090"; // Slate Gray
-        textColor = "FFFFFF"; // White
-      }
-
-      // Return a direct placeholder URL
-      return `https://placehold.co/300x300/${bgColor}/${textColor}?text=${productName}`;
-    }
-
-    // In development, try to use the actual image if available
-    if (product.images && product.images.length > 0) {
-      // If it's a data URL, use it directly
-      if (product.images[0].startsWith("data:image")) {
-        return product.images[0];
-      }
-
-      // Try to use the actual image with fixed URL
-      return fixImageUrl(product.images[0]);
-    }
-
-    // Fallback to placeholder
+    // Use the reliable image helper functions
     const productType = getProductType(product.name);
     return getPlaceholderByType(productType, product.name);
   };
@@ -197,23 +144,32 @@ const HybridProductTable = ({
               >
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="flex-shrink-0 w-16 h-16 rounded-md overflow-hidden">
-                    {/* Use direct placeholder images that always work */}
-                    <img
-                      src={getProductImage(product)}
-                      alt={`${product.name || "Product"}`}
-                      className="w-full h-full object-cover hover:opacity-75 transition-opacity duration-150"
-                      onError={(e) => {
-                        console.log(
-                          "Image load error, using super simple fallback:",
-                          e.target.src
-                        );
-                        e.target.onerror = null; // Prevent infinite error loop
-
-                        // Use the simplest possible fallback
-                        e.target.src =
-                          "https://placehold.co/300x300/gray/white?text=Product";
-                      }}
-                    />
+                    {/* Try to use the actual product image first, then fall back to placeholder */}
+                    {product.images && product.images.length > 0 ? (
+                      <img
+                        src={
+                          product.images[0].startsWith("data:image")
+                            ? product.images[0] // Use data URL directly
+                            : fixImageUrl(product.images[0])
+                        } // Fix server URL
+                        alt={`${product.name || "Product"}`}
+                        className="w-full h-full object-cover hover:opacity-75 transition-opacity duration-150"
+                        onError={(e) => {
+                          console.log(
+                            "Image load error, using placeholder:",
+                            e.target.src
+                          );
+                          e.target.onerror = null; // Prevent infinite error loop
+                          e.target.src = getPlaceholderImage(product);
+                        }}
+                      />
+                    ) : (
+                      <img
+                        src={getPlaceholderImage(product)}
+                        alt={`${product.name || "Product"}`}
+                        className="w-full h-full object-cover hover:opacity-75 transition-opacity duration-150"
+                      />
+                    )}
                   </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">

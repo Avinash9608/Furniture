@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import axios from "axios";
 import Swal from "sweetalert2";
 import AdminLayout from "../../components/admin/AdminLayout";
@@ -14,6 +14,7 @@ import { processProductsWithReliableImages } from "../../utils/reliableImageHelp
  */
 const ReliableProducts = () => {
   const navigate = useNavigate();
+  const location = useLocation();
 
   // State for products and categories
   const [products, setProducts] = useState([]);
@@ -24,29 +25,76 @@ const ReliableProducts = () => {
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
 
-  // Load products on component mount
+  // Check for success message in location state
   useEffect(() => {
-    loadProducts();
-    loadCategories();
-  }, []);
+    if (location.state?.successMessage) {
+      setSuccessMessage(location.state.successMessage);
+
+      // Clear the location state after reading it
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location, navigate]);
+
+  // Load products on component mount or when forceRefresh is true
+  useEffect(() => {
+    // Check if we need to force refresh the products
+    if (location.state?.forceRefresh) {
+      console.log("Force refreshing products due to forceRefresh flag");
+
+      // CRITICAL FIX: Clear any cached product data in localStorage
+      try {
+        // Get all keys in localStorage
+        const keys = Object.keys(localStorage);
+
+        // Find and remove any product cache entries
+        keys.forEach((key) => {
+          if (key.startsWith("product_") || key.includes("_product_")) {
+            localStorage.removeItem(key);
+            console.log("Cleared cached product data:", key);
+          }
+        });
+      } catch (clearError) {
+        console.warn("Error clearing cached product data:", clearError);
+      }
+
+      // Force reload products with cache busting
+      loadProducts(true);
+
+      // Clear the location state after reading it
+      navigate(location.pathname, { replace: true, state: {} });
+    } else {
+      // Normal initial load
+      loadProducts();
+      loadCategories();
+    }
+  }, [
+    location.state?.forceRefresh,
+    location.state?.timestamp,
+    location.state?.cacheBuster,
+  ]);
 
   // Function to load products with multiple fallbacks
-  const loadProducts = async () => {
+  const loadProducts = async (forceRefresh = false) => {
     try {
       setLoading(true);
       setError(null);
+
+      console.log("Loading products with forceRefresh:", forceRefresh);
 
       // Determine if we're in development or production
       const baseUrl = window.location.origin;
       const isDevelopment = !baseUrl.includes("onrender.com");
       const apiUrl = isDevelopment ? "http://localhost:5000" : baseUrl;
 
+      // CRITICAL FIX: Add cache busting parameter to API URLs if forceRefresh is true
+      const cacheBuster = forceRefresh ? `&_cb=${Date.now()}` : "";
+
       // Try multiple endpoints with fallbacks
       const endpoints = [
-        `${apiUrl}/api/products`,
-        `${apiUrl}/api/direct/products`,
-        `${apiUrl}/api/admin/products`,
-        `${apiUrl}/api/fallback/products`
+        `${apiUrl}/api/products?_t=${Date.now()}${cacheBuster}`,
+        `${apiUrl}/api/direct/products?_t=${Date.now()}${cacheBuster}`,
+        `${apiUrl}/api/admin/products?_t=${Date.now()}${cacheBuster}`,
+        `${apiUrl}/api/fallback/products?_t=${Date.now()}${cacheBuster}`,
       ];
 
       let productsData = null;
@@ -56,21 +104,35 @@ const ReliableProducts = () => {
       for (const endpoint of endpoints) {
         try {
           console.log(`Trying endpoint: ${endpoint}`);
-          const response = await axios.get(endpoint, { timeout: 10000 });
-          
+          // CRITICAL FIX: Add cache control headers to force fresh data
+          const response = await axios.get(endpoint, {
+            timeout: 10000,
+            headers: {
+              "Cache-Control": "no-cache, no-store, must-revalidate",
+              Pragma: "no-cache",
+              Expires: "0",
+            },
+          });
+
           // Check if we got valid data
           if (response.data) {
             // Extract products array from various response formats
             let extractedProducts = null;
-            
+
             if (Array.isArray(response.data)) {
               extractedProducts = response.data;
-            } else if (response.data.data && Array.isArray(response.data.data)) {
+            } else if (
+              response.data.data &&
+              Array.isArray(response.data.data)
+            ) {
               extractedProducts = response.data.data;
-            } else if (response.data.products && Array.isArray(response.data.products)) {
+            } else if (
+              response.data.products &&
+              Array.isArray(response.data.products)
+            ) {
               extractedProducts = response.data.products;
             }
-            
+
             // If we found products, use them
             if (extractedProducts && extractedProducts.length > 0) {
               productsData = extractedProducts;
@@ -86,17 +148,22 @@ const ReliableProducts = () => {
 
       // If we found products, process them
       if (productsData && productsData.length > 0) {
-        console.log(`Found ${productsData.length} products from ${successEndpoint}`);
-        
+        console.log(
+          `Found ${productsData.length} products from ${successEndpoint}`
+        );
+
         // Process products with reliable images
-        const processedProducts = processProductsWithReliableImages(productsData);
-        
+        const processedProducts =
+          processProductsWithReliableImages(productsData);
+
         setProducts(processedProducts);
-        setSuccessMessage(`Loaded ${processedProducts.length} products successfully`);
+        setSuccessMessage(
+          `Loaded ${processedProducts.length} products successfully`
+        );
       } else {
         // If all endpoints failed, use mock data
         console.log("All endpoints failed, using mock data");
-        
+
         // Create mock products
         const mockProducts = [
           {
@@ -104,27 +171,28 @@ const ReliableProducts = () => {
             name: "Sample Sofa",
             price: 12999,
             stock: 5,
-            category: { name: "Sofa Beds" }
+            category: { name: "Sofa Beds" },
           },
           {
             _id: "mock2",
             name: "Sample Table",
             price: 8999,
             stock: 3,
-            category: { name: "Tables" }
+            category: { name: "Tables" },
           },
           {
             _id: "mock3",
             name: "Sample Chair",
             price: 4999,
             stock: 10,
-            category: { name: "Chairs" }
-          }
+            category: { name: "Chairs" },
+          },
         ];
-        
+
         // Process mock products with reliable images
-        const processedMockProducts = processProductsWithReliableImages(mockProducts);
-        
+        const processedMockProducts =
+          processProductsWithReliableImages(mockProducts);
+
         setProducts(processedMockProducts);
         setError("Could not connect to server. Using sample data instead.");
       }
@@ -145,9 +213,15 @@ const ReliableProducts = () => {
       const apiUrl = isDevelopment ? "http://localhost:5000" : baseUrl;
 
       // Try to load categories from API
-      const response = await axios.get(`${apiUrl}/api/categories`, { timeout: 5000 });
-      
-      if (response.data && response.data.data && Array.isArray(response.data.data)) {
+      const response = await axios.get(`${apiUrl}/api/categories`, {
+        timeout: 5000,
+      });
+
+      if (
+        response.data &&
+        response.data.data &&
+        Array.isArray(response.data.data)
+      ) {
         setCategories(response.data.data);
       } else {
         // Use default categories if API fails
@@ -156,19 +230,19 @@ const ReliableProducts = () => {
           { _id: "cat2", name: "Tables" },
           { _id: "cat3", name: "Chairs" },
           { _id: "cat4", name: "Wardrobes" },
-          { _id: "cat5", name: "Beds" }
+          { _id: "cat5", name: "Beds" },
         ]);
       }
     } catch (error) {
       console.error("Failed to load categories:", error);
-      
+
       // Use default categories if API fails
       setCategories([
         { _id: "cat1", name: "Sofa Beds" },
         { _id: "cat2", name: "Tables" },
         { _id: "cat3", name: "Chairs" },
         { _id: "cat4", name: "Wardrobes" },
-        { _id: "cat5", name: "Beds" }
+        { _id: "cat5", name: "Beds" },
       ]);
     }
   };
@@ -184,7 +258,7 @@ const ReliableProducts = () => {
         showCancelButton: true,
         confirmButtonColor: "#3085d6",
         cancelButtonColor: "#d33",
-        confirmButtonText: "Yes, delete it!"
+        confirmButtonText: "Yes, delete it!",
       });
 
       // If user confirms deletion
@@ -196,20 +270,16 @@ const ReliableProducts = () => {
 
         // Delete product
         await axios.delete(`${apiUrl}/api/products/${productId}`);
-        
+
         // Remove product from state
-        setProducts(products.filter(product => product._id !== productId));
-        
+        setProducts(products.filter((product) => product._id !== productId));
+
         // Show success message
-        Swal.fire(
-          "Deleted!",
-          "Your product has been deleted.",
-          "success"
-        );
+        Swal.fire("Deleted!", "Your product has been deleted.", "success");
       }
     } catch (error) {
       console.error("Failed to delete product:", error);
-      
+
       // Show error message
       Swal.fire(
         "Error!",
@@ -235,16 +305,14 @@ const ReliableProducts = () => {
         )}
 
         {/* Error message */}
-        {error && (
-          <Alert type="error" message={error} className="mb-4" />
-        )}
+        {error && <Alert type="error" message={error} className="mb-4" />}
 
         {/* Loading indicator */}
         {loading ? (
           <Loading />
         ) : (
-          <ReliableProductTable 
-            products={products} 
+          <ReliableProductTable
+            products={products}
             onDeleteClick={handleDeleteProduct}
           />
         )}

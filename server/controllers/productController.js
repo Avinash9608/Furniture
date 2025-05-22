@@ -45,10 +45,16 @@ const createProduct = async (req, res) => {
   try {
     console.log("Creating new product");
     console.log("Request body:", req.body);
-  console.log("Files:", req.files);
+    console.log("Files:", req.files);
 
     // Validate required fields
-    const requiredFields = ["name", "description", "price", "category", "stock"];
+    const requiredFields = [
+      "name",
+      "description",
+      "price",
+      "category",
+      "stock",
+    ];
     const missingFields = requiredFields.filter((field) => {
       const value = req.body[field];
       return value === undefined || value === null || value === "";
@@ -69,7 +75,9 @@ const createProduct = async (req, res) => {
       price: parseFloat(req.body.price),
       category: req.body.category,
       stock: parseInt(req.body.stock),
-      images: req.files ? req.files.map((file) => `/uploads/${file.filename}`) : [],
+      images: req.files
+        ? req.files.map((file) => `/uploads/${file.filename}`)
+        : [],
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -79,7 +87,10 @@ const createProduct = async (req, res) => {
       console.log("Attempting to save using Mongoose model");
       const product = new Product(productData);
       const savedProduct = await product.save();
-      console.log("Product saved successfully with Mongoose:", savedProduct._id);
+      console.log(
+        "Product saved successfully with Mongoose:",
+        savedProduct._id
+      );
 
       return res.status(201).json({
         success: true,
@@ -115,9 +126,9 @@ const createProduct = async (req, res) => {
 
         console.log("Product saved successfully with MongoDB driver");
 
-    return res.status(201).json({
-      success: true,
-      message: "Product created successfully",
+        return res.status(201).json({
+          success: true,
+          message: "Product created successfully",
           data: insertedProduct,
           source: "mongodb_driver",
         });
@@ -130,7 +141,7 @@ const createProduct = async (req, res) => {
     console.error("Error in createProduct:", error);
 
     return res.status(500).json({
-        success: false,
+      success: false,
       message: "Error creating product",
       error: error.message,
     });
@@ -373,657 +384,880 @@ const getAllProducts = async (req, res) => {
 /**
  * Get product by ID with guaranteed retrieval
  */
+// const getProductById = async (req, res) => {
+//   const { id } = req.params;
+//   console.log(`Fetching product with ID: ${id}`);
+
+//   // Set proper headers to ensure JSON response
+//   res.setHeader("Content-Type", "application/json");
+
+//   try {
+//     // Create a new direct MongoDB connection specifically for this operation
+//     let client = null;
+//     let product = null;
+
+//     try {
+//       console.log("Attempting to fetch product using direct MongoDB driver");
+
+//       // Get the MongoDB URI
+//       const uri = getMongoURI();
+
+//       // Direct connection options with increased timeouts for Render deployment
+//       const options = {
+//         useNewUrlParser: true,
+//         useUnifiedTopology: true,
+//         connectTimeoutMS: 600000, // 10 minutes
+//         socketTimeoutMS: 600000, // 10 minutes
+//         serverSelectionTimeoutMS: 600000, // 10 minutes
+//         maxPoolSize: 20, // Increased pool size
+//         minPoolSize: 5, // Ensure minimum connections
+//         maxIdleTimeMS: 120000, // 2 minutes max idle time
+//         // Removed unsupported options: keepAlive, keepAliveInitialDelay, poolSize, bufferCommands
+//       };
+
+//       // Create a new MongoClient
+//       client = new MongoClient(uri, options);
+//       await client.connect();
+
+//       // Get database name from connection string
+//       const dbName = uri.split("/").pop().split("?")[0];
+//       const db = client.db(dbName);
+
+//       console.log(`MongoDB connection established to database: ${dbName}`);
+
+//       // Fetch product from the products collection
+//       console.log("Fetching product from database");
+//       const productsCollection = db.collection("products");
+
+//       try {
+//         // Try to find by ObjectId first
+//         try {
+//           product = await productsCollection.findOne({ _id: new ObjectId(id) });
+//         } catch (idError) {
+//           console.error("Error with ObjectId:", idError);
+//           product = await productsCollection.findOne({ _id: id });
+//         }
+
+//         // If not found, try to find by slug
+//         if (!product) {
+//           console.log("Product not found by ID, trying to find by slug");
+//           product = await productsCollection.findOne({ slug: id });
+//         }
+
+//         // If still not found, try a more flexible approach
+//         if (!product) {
+//           console.log(
+//             "Product not found by ID or slug, trying more flexible approach"
+//           );
+
+//           // Try to find by partial ID match (for cases where ID might be truncated)
+//           const allProducts = await productsCollection.find({}).toArray();
+//           console.log(
+//             `Fetched ${allProducts.length} products to search for ID: ${id}`
+//           );
+
+//           product = allProducts.find((p) => {
+//             if (!p._id) return false;
+//             const productId = p._id.toString();
+//             return productId.includes(id) || (p.slug && p.slug.includes(id));
+//           });
+
+//           if (product) {
+//             console.log(`Found product by flexible matching: ${product._id}`);
+//           }
+//         }
+//       } catch (findError) {
+//         console.error("Error finding product:", findError);
+//         // Continue to fallback
+//       }
+
+//       if (!product) {
+//         console.log("Product not found in database, creating mock product");
+
+//         // Create a mock product as fallback
+//         product = {
+//           _id: id,
+//           name: "Product Not Found",
+//           description: "This product could not be found in the database.",
+//           price: 0,
+//           images: [
+//             "https://placehold.co/800x600/red/white?text=Product+Not+Found",
+//           ],
+//           category: "unknown",
+//           stock: 0,
+//           createdAt: new Date(),
+//           updatedAt: new Date(),
+//           isMock: true,
+//         };
+
+//         return res.status(200).json({
+//           success: true,
+//           data: product,
+//           method: "mock-fallback",
+//           message: "Product not found in database, showing mock data",
+//         });
+//       }
+
+//       console.log("Fetched product from database:", product._id);
+
+//       // Process image URLs to ensure they're proper
+//       product.images = (product.images || []).map((image) =>
+//         getProperImageUrl(image)
+//       );
+
+//       // Try to get category information
+//       try {
+//         if (product.category) {
+//           const categoriesCollection = db.collection("categories");
+//           let categoryId;
+
+//           try {
+//             categoryId = new ObjectId(product.category);
+//           } catch (idError) {
+//             categoryId = product.category;
+//           }
+
+//           const category = await categoriesCollection.findOne({
+//             _id: categoryId,
+//           });
+
+//           if (category) {
+//             product.categoryInfo = category;
+//           }
+//         }
+//       } catch (categoryError) {
+//         console.error("Error fetching category info:", categoryError);
+//       }
+//     } catch (error) {
+//       console.error("Error fetching product:", error);
+//       throw error;
+//     } finally {
+//       // Close the MongoDB client
+//       if (client) {
+//         await client.close();
+//         console.log("MongoDB connection closed");
+//       }
+//     }
+
+//     // Return success response
+//     return res.status(200).json({
+//       success: true,
+//       data: product,
+//       method: "direct-mongodb",
+//     });
+//   } catch (error) {
+//     console.error("Error fetching product:", error);
+
+//     // Return error response with proper status code
+//     return res.status(500).json({
+//       success: false,
+//       message: error.message || "Error fetching product",
+//       error: error.stack,
+//     });
+//   }
+// };
+
 const getProductById = async (req, res) => {
-  const { id } = req.params;
-  console.log(`Fetching product with ID: ${id}`);
-
-  // Set proper headers to ensure JSON response
-  res.setHeader("Content-Type", "application/json");
-
   try {
-    // Create a new direct MongoDB connection specifically for this operation
-    let client = null;
-    let product = null;
+    const product = await Product.findById(req.params.id).exec();
 
-    try {
-      console.log("Attempting to fetch product using direct MongoDB driver");
-
-      // Get the MongoDB URI
-      const uri = getMongoURI();
-
-      // Direct connection options with increased timeouts for Render deployment
-      const options = {
-        useNewUrlParser: true,
-        useUnifiedTopology: true,
-        connectTimeoutMS: 600000, // 10 minutes
-        socketTimeoutMS: 600000, // 10 minutes
-        serverSelectionTimeoutMS: 600000, // 10 minutes
-        maxPoolSize: 20, // Increased pool size
-        minPoolSize: 5, // Ensure minimum connections
-        maxIdleTimeMS: 120000, // 2 minutes max idle time
-        // Removed unsupported options: keepAlive, keepAliveInitialDelay, poolSize, bufferCommands
-      };
-
-      // Create a new MongoClient
-      client = new MongoClient(uri, options);
-      await client.connect();
-
-      // Get database name from connection string
-      const dbName = uri.split("/").pop().split("?")[0];
-      const db = client.db(dbName);
-
-      console.log(`MongoDB connection established to database: ${dbName}`);
-
-      // Fetch product from the products collection
-      console.log("Fetching product from database");
-      const productsCollection = db.collection("products");
-
-      try {
-        // Try to find by ObjectId first
-        try {
-          product = await productsCollection.findOne({ _id: new ObjectId(id) });
-        } catch (idError) {
-          console.error("Error with ObjectId:", idError);
-          product = await productsCollection.findOne({ _id: id });
-        }
-
-        // If not found, try to find by slug
-        if (!product) {
-          console.log("Product not found by ID, trying to find by slug");
-          product = await productsCollection.findOne({ slug: id });
-        }
-
-        // If still not found, try a more flexible approach
-        if (!product) {
-          console.log(
-            "Product not found by ID or slug, trying more flexible approach"
-          );
-
-          // Try to find by partial ID match (for cases where ID might be truncated)
-          const allProducts = await productsCollection.find({}).toArray();
-          console.log(
-            `Fetched ${allProducts.length} products to search for ID: ${id}`
-          );
-
-          product = allProducts.find((p) => {
-            if (!p._id) return false;
-            const productId = p._id.toString();
-            return productId.includes(id) || (p.slug && p.slug.includes(id));
-          });
-
-          if (product) {
-            console.log(`Found product by flexible matching: ${product._id}`);
-          }
-        }
-      } catch (findError) {
-        console.error("Error finding product:", findError);
-        // Continue to fallback
-      }
-
-      if (!product) {
-        console.log("Product not found in database, creating mock product");
-
-        // Create a mock product as fallback
-        product = {
-          _id: id,
-          name: "Product Not Found",
-          description: "This product could not be found in the database.",
-          price: 0,
-          images: [
-            "https://placehold.co/800x600/red/white?text=Product+Not+Found",
-          ],
-          category: "unknown",
-          stock: 0,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          isMock: true,
-        };
-
-        return res.status(200).json({
-          success: true,
-          data: product,
-          method: "mock-fallback",
-          message: "Product not found in database, showing mock data",
-        });
-      }
-
-      console.log("Fetched product from database:", product._id);
-
-      // Process image URLs to ensure they're proper
-      product.images = (product.images || []).map((image) =>
-        getProperImageUrl(image)
-      );
-
-      // Try to get category information
-      try {
-        if (product.category) {
-          const categoriesCollection = db.collection("categories");
-          let categoryId;
-
-          try {
-            categoryId = new ObjectId(product.category);
-          } catch (idError) {
-            categoryId = product.category;
-          }
-
-          const category = await categoriesCollection.findOne({
-            _id: categoryId,
-          });
-
-          if (category) {
-            product.categoryInfo = category;
-          }
-        }
-      } catch (categoryError) {
-        console.error("Error fetching category info:", categoryError);
-      }
-    } catch (error) {
-      console.error("Error fetching product:", error);
-      throw error;
-    } finally {
-      // Close the MongoDB client
-      if (client) {
-        await client.close();
-        console.log("MongoDB connection closed");
-      }
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: "Product not found",
+      });
     }
 
-    // Return success response
-    return res.status(200).json({
+    res.status(200).json({
       success: true,
       data: product,
-      method: "direct-mongodb",
     });
   } catch (error) {
-    console.error("Error fetching product:", error);
-
-    // Return error response with proper status code
-    return res.status(500).json({
+    console.error("Error finding product:", error);
+    res.status(500).json({
       success: false,
-      message: error.message || "Error fetching product",
-      error: error.stack,
+      message: error.message,
     });
   }
 };
-
 /**
  * Update product by ID with guaranteed persistence
  */
+// const updateProduct = async (req, res) => {
+//   const { id } = req.params;
+//   console.log(`Updating product with ID: ${id}`);
+//   console.log("Update data:", req.body);
+//   console.log("Files:", req.files);
+
+//   // Set proper headers to ensure JSON response
+//   res.setHeader("Content-Type", "application/json");
+
+//   try {
+//     // Create a new direct MongoDB connection specifically for this operation
+//     let client = null;
+//     let updatedProduct = null;
+
+//     try {
+//       console.log("Attempting to update product using direct MongoDB driver");
+
+//       // Get the MongoDB URI
+//       const uri = getMongoURI();
+
+//       // Direct connection options with increased timeouts for Render deployment
+//       const options = {
+//         useNewUrlParser: true,
+//         useUnifiedTopology: true,
+//         connectTimeoutMS: 600000, // 10 minutes
+//         socketTimeoutMS: 600000, // 10 minutes
+//         serverSelectionTimeoutMS: 600000, // 10 minutes
+//         maxPoolSize: 20, // Increased pool size
+//         minPoolSize: 5, // Ensure minimum connections
+//         maxIdleTimeMS: 120000, // 2 minutes max idle time
+//         // Removed unsupported options: keepAlive, keepAliveInitialDelay, poolSize, bufferCommands
+//       };
+
+//       // Create a new MongoClient
+//       client = new MongoClient(uri, options);
+//       await client.connect();
+
+//       // Get database name from connection string
+//       const dbName = uri.split("/").pop().split("?")[0];
+//       const db = client.db(dbName);
+
+//       console.log(`MongoDB connection established to database: ${dbName}`);
+
+//       // Fetch the existing product
+//       const productsCollection = db.collection("products");
+
+//       let existingProduct;
+//       try {
+//         existingProduct = await productsCollection.findOne({
+//           _id: new ObjectId(id),
+//         });
+//       } catch (idError) {
+//         existingProduct = await productsCollection.findOne({ _id: id });
+//       }
+
+//       if (!existingProduct) {
+//         return res.status(404).json({
+//           success: false,
+//           message: "Product not found",
+//         });
+//       }
+
+//       // Process uploaded files if any
+//       let imageUrls = existingProduct.images || [];
+
+//       // CRITICAL FIX: Log all request headers for debugging
+//       console.log("Request headers:", req.headers);
+
+//       // CRITICAL FIX: Check for admin authentication
+//       const adminToken =
+//         req.headers["x-admin-token"] ||
+//         req.headers.authorization?.split(" ")[1];
+//       const adminEmail = req.headers["x-admin-email"];
+
+//       console.log("Admin token present:", !!adminToken);
+//       console.log("Admin email:", adminEmail);
+
+//       // CRITICAL FIX: Log the entire request body for debugging
+//       console.log("Request body keys:", Object.keys(req.body));
+//       console.log(
+//         "Request body images:",
+//         req.body.images
+//           ? Array.isArray(req.body.images)
+//             ? `Array with ${req.body.images.length} items`
+//             : typeof req.body.images
+//           : "No images in request body"
+//       );
+
+//       // If we have files from multer
+//       if (req.files && req.files.length > 0) {
+//         console.log(`Processing ${req.files.length} uploaded files`);
+
+//         // Try to upload to Cloudinary first
+//         try {
+//           const newImageUrls = [];
+
+//           for (const file of req.files) {
+//             const result = await cloudinary.uploader.upload(file.path, {
+//               folder: "furniture_products",
+//               resource_type: "image",
+//             });
+
+//             console.log("Cloudinary upload result:", result);
+//             newImageUrls.push(result.secure_url);
+
+//             // Remove the local file after successful Cloudinary upload
+//             fs.unlinkSync(file.path);
+//           }
+
+//           console.log("All new images uploaded to Cloudinary successfully");
+
+//           // Replace or append images based on request
+//           if (req.body.replaceImages === "true") {
+//             imageUrls = newImageUrls;
+//           } else {
+//             imageUrls = [...imageUrls, ...newImageUrls];
+//           }
+//         } catch (cloudinaryError) {
+//           console.error("Error uploading to Cloudinary:", cloudinaryError);
+
+//           // Fallback to local file paths with proper URLs
+//           const newImageUrls = req.files.map((file) =>
+//             getProperImageUrl(
+//               file.path.replace(/\\/g, "/").replace("uploads/", "/uploads/")
+//             )
+//           );
+
+//           console.log("Using local file paths with proper URLs:", newImageUrls);
+
+//           // Replace or append images based on request
+//           if (req.body.replaceImages === "true") {
+//             imageUrls = newImageUrls;
+//           } else {
+//             imageUrls = [...imageUrls, ...newImageUrls];
+//           }
+//         }
+//       } else if (req.uploadedFiles && req.uploadedFiles.length > 0) {
+//         // If we have files from cloudinaryUpload middleware
+//         console.log(
+//           "Using pre-processed files from cloudinaryUpload middleware"
+//         );
+
+//         const newImageUrls = req.uploadedFiles.map((file) => file.path);
+
+//         // Replace or append images based on request
+//         if (req.body.replaceImages === "true") {
+//           imageUrls = newImageUrls;
+//         } else {
+//           imageUrls = [...imageUrls, ...newImageUrls];
+//         }
+//       } else if (req.body.images) {
+//         // If images are provided directly in the request body
+//         console.log("Using images from request body");
+
+//         let newImageUrls = [];
+
+//         // CRITICAL FIX: Handle different formats of images in the request body
+//         if (Array.isArray(req.body.images)) {
+//           console.log(
+//             "Images is an array with",
+//             req.body.images.length,
+//             "items"
+//           );
+
+//           // Check if any of the images are base64 data URLs
+//           const hasBase64 = req.body.images.some(
+//             (img) => typeof img === "string" && img.startsWith("data:image")
+//           );
+
+//           if (hasBase64) {
+//             console.log("Found base64 image data in the array");
+
+//             // Process base64 images if needed (e.g., save to Cloudinary)
+//             // For now, we'll just use them directly
+//             newImageUrls = req.body.images;
+//           } else {
+//             newImageUrls = req.body.images;
+//           }
+//         } else if (typeof req.body.images === "string") {
+//           console.log("Images is a string, attempting to parse");
+
+//           // Check if it's a base64 data URL
+//           if (req.body.images.startsWith("data:image")) {
+//             console.log("Found base64 image data");
+//             newImageUrls = [req.body.images];
+//           } else {
+//             // Try to parse as JSON if it's a string
+//             try {
+//               const parsedImages = JSON.parse(req.body.images);
+//               console.log(
+//                 "Successfully parsed images JSON:",
+//                 Array.isArray(parsedImages)
+//                   ? `Array with ${parsedImages.length} items`
+//                   : typeof parsedImages
+//               );
+//               newImageUrls = Array.isArray(parsedImages)
+//                 ? parsedImages
+//                 : [req.body.images];
+//             } catch (e) {
+//               console.log("Failed to parse images JSON, treating as string");
+//               // If not valid JSON, treat as a single URL or comma-separated list
+//               newImageUrls = req.body.images.includes(",")
+//                 ? req.body.images.split(",").map((url) => url.trim())
+//                 : [req.body.images];
+//             }
+//           }
+//         } else {
+//           console.log("Images is of type", typeof req.body.images);
+//         }
+
+//         // CRITICAL FIX: Ensure we have valid image URLs
+//         newImageUrls = newImageUrls.filter(
+//           (url) => url && typeof url === "string"
+//         );
+//         console.log("Filtered image URLs:", newImageUrls.length);
+
+//         // Replace or append images based on request
+//         if (req.body.replaceImages === "true" || req.body.imageUpdated) {
+//           console.log("Replacing all images with new ones");
+//           imageUrls = newImageUrls;
+//         } else {
+//           console.log("Appending new images to existing ones");
+//           imageUrls = [...imageUrls, ...newImageUrls];
+//         }
+
+//         // CRITICAL FIX: If we still have no images, keep the existing ones
+//         if (
+//           imageUrls.length === 0 &&
+//           existingProduct.images &&
+//           existingProduct.images.length > 0
+//         ) {
+//           console.log("No valid images found, keeping existing ones");
+//           imageUrls = existingProduct.images;
+//         }
+//       } else if (req.body.image) {
+//         // If image is provided directly in the request body
+//         console.log("Using image from request body");
+
+//         let newImageUrls = [];
+
+//         // Handle different formats of image in the request body
+//         if (Array.isArray(req.body.image)) {
+//           newImageUrls = req.body.image;
+//         } else if (typeof req.body.image === "string") {
+//           // Try to parse as JSON if it's a string
+//           try {
+//             const parsedImage = JSON.parse(req.body.image);
+//             newImageUrls = Array.isArray(parsedImage)
+//               ? parsedImage
+//               : [req.body.image];
+//           } catch (e) {
+//             // If not valid JSON, treat as a single URL or comma-separated list
+//             newImageUrls = req.body.image.includes(",")
+//               ? req.body.image.split(",").map((url) => url.trim())
+//               : [req.body.image];
+//           }
+//         }
+
+//         // Replace or append images based on request
+//         if (req.body.replaceImages === "true" || req.body.imageUpdated) {
+//           imageUrls = newImageUrls;
+//         } else {
+//           imageUrls = [...imageUrls, ...newImageUrls];
+//         }
+//       }
+
+//       // CRITICAL FIX: If we still have no images after all attempts, use a placeholder
+//       if (!imageUrls || imageUrls.length === 0) {
+//         console.log("No images found after processing, using placeholder");
+//         imageUrls = ["https://placehold.co/300x300/gray/white?text=Furniture"];
+//       }
+
+//       console.log("Final image URLs:", imageUrls);
+
+//       // Create the update data
+//       const updateData = {
+//         $set: {
+//           updatedAt: new Date(),
+//         },
+//       };
+
+//       // Generate a new slug if the name is being updated
+//       if (req.body.name) {
+//         // Try to import slugify, but provide a fallback if it's not available
+//         let slugify;
+//         try {
+//           slugify = require("slugify");
+//         } catch (error) {
+//           console.warn(
+//             "Slugify package not found in update method, using fallback implementation"
+//           );
+//           // Simple fallback implementation of slugify
+//           slugify = (text, options = {}) => {
+//             if (!text) return "";
+
+//             // Convert to lowercase if specified in options
+//             let result = options.lower ? text.toLowerCase() : text;
+
+//             // Replace spaces with hyphens
+//             result = result.replace(/\s+/g, "-");
+
+//             // Remove special characters if strict mode is enabled
+//             if (options.strict) {
+//               result = result.replace(/[^a-zA-Z0-9-]/g, "");
+//             }
+
+//             // Remove specific characters if provided in options
+//             if (options.remove && options.remove instanceof RegExp) {
+//               result = result.replace(options.remove, "");
+//             }
+
+//             return result;
+//           };
+//         }
+
+//         // Get the new name
+//         const newName = req.body.name.trim();
+
+//         // Generate a new slug
+//         let newSlug = slugify(newName, {
+//           lower: true,
+//           strict: true,
+//           remove: /[*+~.()'"!:@]/g,
+//         });
+
+//         // If slug is empty after processing, use a fallback
+//         if (!newSlug || newSlug.trim() === "") {
+//           newSlug = `product-${Date.now()}`;
+//         }
+
+//         // Check if the new slug is different from the existing one
+//         if (newSlug !== existingProduct.slug) {
+//           console.log(
+//             `Updating slug from ${existingProduct.slug} to ${newSlug}`
+//           );
+
+//           // Check if the new slug already exists
+//           let slugCounter = 1;
+//           let finalSlug = newSlug;
+//           let slugExists = true;
+
+//           while (slugExists) {
+//             try {
+//               // Check if another product has this slug
+//               const productWithSlug = await productsCollection.findOne({
+//                 slug: finalSlug,
+//                 _id: { $ne: existingProduct._id },
+//               });
+
+//               if (!productWithSlug) {
+//                 // Slug is unique
+//                 slugExists = false;
+//               } else {
+//                 // Slug exists, try with counter
+//                 finalSlug = `${newSlug}-${slugCounter}`;
+//                 slugCounter++;
+//               }
+//             } catch (err) {
+//               console.error("Error checking slug uniqueness:", err);
+//               // In case of error, use timestamp to ensure uniqueness
+//               finalSlug = `${newSlug}-${Date.now()}`;
+//               slugExists = false;
+//             }
+//           }
+
+//           // Set the new slug
+//           updateData.$set.slug = finalSlug;
+//         }
+
+//         // Set the new name
+//         updateData.$set.name = newName;
+//       }
+
+//       // Add other fields to update if they exist in the request
+//       if (req.body.price) updateData.$set.price = parseFloat(req.body.price);
+//       if (req.body.description)
+//         updateData.$set.description = req.body.description;
+//       if (req.body.category) updateData.$set.category = req.body.category;
+//       if (req.body.stock) updateData.$set.stock = parseInt(req.body.stock);
+//       if (req.body.material) updateData.$set.material = req.body.material;
+//       if (req.body.color) updateData.$set.color = req.body.color;
+//       if (req.body.featured !== undefined)
+//         updateData.$set.featured =
+//           req.body.featured === "true" || req.body.featured === true;
+
+//       // CRITICAL FIX: Always include images in the update data
+//       updateData.$set.images = imageUrls;
+
+//       // CRITICAL FIX: Log the final update data
+//       console.log("Final update data:", {
+//         ...updateData.$set,
+//         images: updateData.$set.images
+//           ? `Array with ${updateData.$set.images.length} items`
+//           : "No images",
+//       });
+
+//       // Process dimensions if provided
+//       if (req.body.dimensions) {
+//         try {
+//           // Check if dimensions is a string that needs parsing
+//           let dimensionsData = {};
+
+//           if (typeof req.body.dimensions === "string") {
+//             try {
+//               dimensionsData = JSON.parse(req.body.dimensions);
+//               console.log(
+//                 "Successfully parsed dimensions JSON for update:",
+//                 dimensionsData
+//               );
+//             } catch (parseError) {
+//               console.error(
+//                 "Error parsing dimensions JSON for update:",
+//                 parseError,
+//                 "Original value:",
+//                 req.body.dimensions
+//               );
+
+//               // Try to handle the case where dimensions might be a stringified object with quotes
+//               try {
+//                 // Remove any extra quotes that might be causing parsing issues
+//                 const cleanedDimensions = req.body.dimensions
+//                   .replace(/['"]+/g, '"')
+//                   .trim();
+//                 dimensionsData = JSON.parse(cleanedDimensions);
+//                 console.log(
+//                   "Successfully parsed cleaned dimensions JSON for update:",
+//                   dimensionsData
+//                 );
+//               } catch (secondParseError) {
+//                 console.error(
+//                   "Second attempt to parse dimensions for update failed:",
+//                   secondParseError
+//                 );
+//               }
+//             }
+//           } else if (typeof req.body.dimensions === "object") {
+//             dimensionsData = req.body.dimensions;
+//           }
+
+//           // Create dimensions object with numeric values
+//           const dimensionsObj = {
+//             length: parseFloat(dimensionsData.length) || 0,
+//             width: parseFloat(dimensionsData.width) || 0,
+//             height: parseFloat(dimensionsData.height) || 0,
+//           };
+
+//           // Always add dimensions to ensure they're updated properly
+//           updateData.$set.dimensions = dimensionsObj;
+//           console.log("Processed dimensions for update:", dimensionsObj);
+//         } catch (dimError) {
+//           console.error("Error processing dimensions for update:", dimError);
+//         }
+//       }
+
+//       console.log("Update data:", updateData);
+
+//       // Update the product
+//       const result = await productsCollection.updateOne(
+//         { _id: existingProduct._id },
+//         updateData
+//       );
+
+//       if (result.modifiedCount === 1) {
+//         console.log("Product updated successfully");
+
+//         // Fetch the updated product
+//         updatedProduct = await productsCollection.findOne({
+//           _id: existingProduct._id,
+//         });
+
+//         // Process image URLs to ensure they're proper
+//         updatedProduct.images = (updatedProduct.images || []).map((image) =>
+//           getProperImageUrl(image)
+//         );
+
+//         // Try to get category information
+//         try {
+//           if (updatedProduct.category) {
+//             const categoriesCollection = db.collection("categories");
+//             let categoryId;
+
+//             try {
+//               categoryId = new ObjectId(updatedProduct.category);
+//             } catch (idError) {
+//               categoryId = updatedProduct.category;
+//             }
+
+//             const category = await categoriesCollection.findOne({
+//               _id: categoryId,
+//             });
+
+//             if (category) {
+//               updatedProduct.categoryInfo = category;
+//             }
+//           }
+//         } catch (categoryError) {
+//           console.error("Error fetching category info:", categoryError);
+//         }
+//       } else {
+//         throw new Error("Product update failed");
+//       }
+//     } catch (error) {
+//       console.error("Error updating product:", error);
+//       throw error;
+//     } finally {
+//       // Close the MongoDB client
+//       if (client) {
+//         await client.close();
+//         console.log("MongoDB connection closed");
+//       }
+//     }
+
+//     // Return success response
+//     return res.status(200).json({
+//       success: true,
+//       data: updatedProduct,
+//       method: "direct-mongodb",
+//       message: "Product updated successfully",
+//     });
+//   } catch (error) {
+//     console.error("Error updating product:", error);
+
+//     // Handle duplicate key errors specifically
+//     if (error.code === 11000) {
+//       console.log("Duplicate key error during update:", error.keyValue);
+
+//       // Check if it's a duplicate slug
+//       if (error.keyValue && error.keyValue.slug) {
+//         return res.status(200).json({
+//           success: false,
+//           message:
+//             "A product with a similar name already exists. Please try a different name.",
+//           error: "Duplicate slug error",
+//           code: "DUPLICATE_SLUG",
+//         });
+//       }
+
+//       // Check if it's a duplicate name
+//       if (error.keyValue && error.keyValue.name) {
+//         return res.status(200).json({
+//           success: false,
+//           message:
+//             "A product with this exact name already exists. Please use a different name.",
+//           error: "Duplicate name error",
+//           code: "DUPLICATE_NAME",
+//         });
+//       }
+
+//       // Generic duplicate key error
+//       return res.status(200).json({
+//         success: false,
+//         message:
+//           "This update conflicts with an existing product. Please check your input.",
+//         error: "Duplicate key error",
+//         code: "DUPLICATE_KEY",
+//         duplicateField: Object.keys(error.keyValue)[0],
+//       });
+//     }
+
+//     // Return error response for other errors
+//     return res.status(200).json({
+//       success: false,
+//       message: error.message || "Error updating product",
+//       error: error.stack,
+//     });
+//   }
+// };
+
+// const updateProduct = async (req, res) => {
+//   try {
+//     const product = await Product.findById(req.params.id);
+
+//     if (!product) {
+//       return res.status(404).json({ message: "Product not found" });
+//     }
+
+//     // Handle file upload if exists
+//     if (req.file) {
+//       product.image = req.file.path;
+//     }
+
+//     // Update other fields
+//     Object.keys(req.body).forEach(key => {
+//       product[key] = req.body[key];
+//     });
+
+//     const updatedProduct = await product.save();
+
+//     res.status(200).json({
+//       success: true,
+//       data: updatedProduct
+//     });
+//   } catch (error) {
+//     console.error("Error updating product:", error);
+//     res.status(500).json({
+//       success: false,
+//       message: error.message
+//     });
+//   }
+// };
 const updateProduct = async (req, res) => {
-  const { id } = req.params;
-  console.log(`Updating product with ID: ${id}`);
-  console.log("Update data:", req.body);
-  console.log("Files:", req.files);
-
-  // Set proper headers to ensure JSON response
-  res.setHeader("Content-Type", "application/json");
-
   try {
-    // Create a new direct MongoDB connection specifically for this operation
-    let client = null;
-    let updatedProduct = null;
+    const { id } = req.params;
 
-    try {
-      console.log("Attempting to update product using direct MongoDB driver");
+    // Validate product ID
+    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid product ID",
+      });
+    }
 
-      // Get the MongoDB URI
-      const uri = getMongoURI();
+    // Find the existing product
+    const existingProduct = await Product.findById(id);
+    if (!existingProduct) {
+      return res.status(404).json({
+        success: false,
+        message: "Product not found",
+      });
+    }
 
-      // Direct connection options with increased timeouts for Render deployment
-      const options = {
-        useNewUrlParser: true,
-        useUnifiedTopology: true,
-        connectTimeoutMS: 600000, // 10 minutes
-        socketTimeoutMS: 600000, // 10 minutes
-        serverSelectionTimeoutMS: 600000, // 10 minutes
-        maxPoolSize: 20, // Increased pool size
-        minPoolSize: 5, // Ensure minimum connections
-        maxIdleTimeMS: 120000, // 2 minutes max idle time
-        // Removed unsupported options: keepAlive, keepAliveInitialDelay, poolSize, bufferCommands
-      };
+    // Prepare update data
+    const updateData = { ...req.body };
 
-      // Create a new MongoClient
-      client = new MongoClient(uri, options);
-      await client.connect();
+    // Handle file upload
+    if (req.file) {
+      updateData.images = [`/uploads/${req.file.filename}`];
+    }
 
-      // Get database name from connection string
-      const dbName = uri.split("/").pop().split("?")[0];
-      const db = client.db(dbName);
+    // Convert string values to proper types
+    if (updateData.price) updateData.price = parseFloat(updateData.price);
+    if (updateData.discountPrice)
+      updateData.discountPrice = parseFloat(updateData.discountPrice);
+    if (updateData.stock) updateData.stock = parseInt(updateData.stock);
+    if (updateData.featured) {
+      updateData.featured = updateData.featured === "true";
+    }
 
-      console.log(`MongoDB connection established to database: ${dbName}`);
-
-      // Fetch the existing product
-      const productsCollection = db.collection("products");
-
-      let existingProduct;
+    // Handle dimensions if provided
+    if (updateData.dimensions && typeof updateData.dimensions === "string") {
       try {
-        existingProduct = await productsCollection.findOne({
-          _id: new ObjectId(id),
-        });
-      } catch (idError) {
-        existingProduct = await productsCollection.findOne({ _id: id });
-      }
-
-      if (!existingProduct) {
-        return res.status(404).json({
-          success: false,
-          message: "Product not found",
-        });
-      }
-
-      // Process uploaded files if any
-      let imageUrls = existingProduct.images || [];
-
-      // If we have files from multer
-      if (req.files && req.files.length > 0) {
-        console.log(`Processing ${req.files.length} uploaded files`);
-
-        // Try to upload to Cloudinary first
-        try {
-          const newImageUrls = [];
-
-          for (const file of req.files) {
-            const result = await cloudinary.uploader.upload(file.path, {
-              folder: "furniture_products",
-              resource_type: "image",
-            });
-
-            console.log("Cloudinary upload result:", result);
-            newImageUrls.push(result.secure_url);
-
-            // Remove the local file after successful Cloudinary upload
-            fs.unlinkSync(file.path);
-          }
-
-          console.log("All new images uploaded to Cloudinary successfully");
-
-          // Replace or append images based on request
-          if (req.body.replaceImages === "true") {
-            imageUrls = newImageUrls;
-          } else {
-            imageUrls = [...imageUrls, ...newImageUrls];
-          }
-        } catch (cloudinaryError) {
-          console.error("Error uploading to Cloudinary:", cloudinaryError);
-
-          // Fallback to local file paths with proper URLs
-          const newImageUrls = req.files.map((file) =>
-            getProperImageUrl(
-              file.path.replace(/\\/g, "/").replace("uploads/", "/uploads/")
-            )
-          );
-
-          console.log("Using local file paths with proper URLs:", newImageUrls);
-
-          // Replace or append images based on request
-          if (req.body.replaceImages === "true") {
-            imageUrls = newImageUrls;
-          } else {
-            imageUrls = [...imageUrls, ...newImageUrls];
-          }
-        }
-      } else if (req.uploadedFiles && req.uploadedFiles.length > 0) {
-        // If we have files from cloudinaryUpload middleware
-        console.log(
-          "Using pre-processed files from cloudinaryUpload middleware"
-        );
-
-        const newImageUrls = req.uploadedFiles.map((file) => file.path);
-
-        // Replace or append images based on request
-        if (req.body.replaceImages === "true") {
-          imageUrls = newImageUrls;
-        } else {
-          imageUrls = [...imageUrls, ...newImageUrls];
-        }
-      } else if (req.body.images) {
-        // If images are provided directly in the request body
-        console.log("Using images from request body:", req.body.images);
-
-        let newImageUrls = [];
-
-        // Handle different formats of images in the request body
-        if (Array.isArray(req.body.images)) {
-          newImageUrls = req.body.images;
-        } else if (typeof req.body.images === "string") {
-          // Try to parse as JSON if it's a string
-          try {
-            const parsedImages = JSON.parse(req.body.images);
-            newImageUrls = Array.isArray(parsedImages)
-              ? parsedImages
-              : [req.body.images];
-          } catch (e) {
-            // If not valid JSON, treat as a single URL or comma-separated list
-            newImageUrls = req.body.images.includes(",")
-              ? req.body.images.split(",").map((url) => url.trim())
-              : [req.body.images];
-          }
-        }
-
-        // Replace or append images based on request
-        if (req.body.replaceImages === "true") {
-          imageUrls = newImageUrls;
-        } else {
-          imageUrls = [...imageUrls, ...newImageUrls];
-        }
-      } else if (req.body.image) {
-        // If image is provided directly in the request body
-        console.log("Using image from request body:", req.body.image);
-
-        let newImageUrls = [];
-
-        // Handle different formats of image in the request body
-        if (Array.isArray(req.body.image)) {
-          newImageUrls = req.body.image;
-        } else if (typeof req.body.image === "string") {
-          // Try to parse as JSON if it's a string
-          try {
-            const parsedImage = JSON.parse(req.body.image);
-            newImageUrls = Array.isArray(parsedImage)
-              ? parsedImage
-              : [req.body.image];
-          } catch (e) {
-            // If not valid JSON, treat as a single URL or comma-separated list
-            newImageUrls = req.body.image.includes(",")
-              ? req.body.image.split(",").map((url) => url.trim())
-              : [req.body.image];
-          }
-        }
-
-        // Replace or append images based on request
-        if (req.body.replaceImages === "true") {
-          imageUrls = newImageUrls;
-        } else {
-          imageUrls = [...imageUrls, ...newImageUrls];
-        }
-      }
-
-      console.log("Final image URLs:", imageUrls);
-
-      // Create the update data
-      const updateData = {
-        $set: {
-          updatedAt: new Date(),
-        },
-      };
-
-      // Generate a new slug if the name is being updated
-      if (req.body.name) {
-        // Try to import slugify, but provide a fallback if it's not available
-        let slugify;
-        try {
-          slugify = require("slugify");
-        } catch (error) {
-          console.warn(
-            "Slugify package not found in update method, using fallback implementation"
-          );
-          // Simple fallback implementation of slugify
-          slugify = (text, options = {}) => {
-            if (!text) return "";
-
-            // Convert to lowercase if specified in options
-            let result = options.lower ? text.toLowerCase() : text;
-
-            // Replace spaces with hyphens
-            result = result.replace(/\s+/g, "-");
-
-            // Remove special characters if strict mode is enabled
-            if (options.strict) {
-              result = result.replace(/[^a-zA-Z0-9-]/g, "");
-            }
-
-            // Remove specific characters if provided in options
-            if (options.remove && options.remove instanceof RegExp) {
-              result = result.replace(options.remove, "");
-            }
-
-            return result;
-          };
-        }
-
-        // Get the new name
-        const newName = req.body.name.trim();
-
-        // Generate a new slug
-        let newSlug = slugify(newName, {
-          lower: true,
-          strict: true,
-          remove: /[*+~.()'"!:@]/g,
-        });
-
-        // If slug is empty after processing, use a fallback
-        if (!newSlug || newSlug.trim() === "") {
-          newSlug = `product-${Date.now()}`;
-        }
-
-        // Check if the new slug is different from the existing one
-        if (newSlug !== existingProduct.slug) {
-          console.log(
-            `Updating slug from ${existingProduct.slug} to ${newSlug}`
-          );
-
-          // Check if the new slug already exists
-          let slugCounter = 1;
-          let finalSlug = newSlug;
-          let slugExists = true;
-
-          while (slugExists) {
-            try {
-              // Check if another product has this slug
-              const productWithSlug = await productsCollection.findOne({
-                slug: finalSlug,
-                _id: { $ne: existingProduct._id },
-              });
-
-              if (!productWithSlug) {
-                // Slug is unique
-                slugExists = false;
-              } else {
-                // Slug exists, try with counter
-                finalSlug = `${newSlug}-${slugCounter}`;
-                slugCounter++;
-              }
-            } catch (err) {
-              console.error("Error checking slug uniqueness:", err);
-              // In case of error, use timestamp to ensure uniqueness
-              finalSlug = `${newSlug}-${Date.now()}`;
-              slugExists = false;
-            }
-          }
-
-          // Set the new slug
-          updateData.$set.slug = finalSlug;
-        }
-
-        // Set the new name
-        updateData.$set.name = newName;
-      }
-
-      // Add other fields to update if they exist in the request
-      if (req.body.price) updateData.$set.price = parseFloat(req.body.price);
-      if (req.body.description)
-        updateData.$set.description = req.body.description;
-      if (req.body.category) updateData.$set.category = req.body.category;
-      if (req.body.stock) updateData.$set.stock = parseInt(req.body.stock);
-      if (req.body.material) updateData.$set.material = req.body.material;
-      if (req.body.color) updateData.$set.color = req.body.color;
-      if (req.body.featured !== undefined)
-        updateData.$set.featured =
-          req.body.featured === "true" || req.body.featured === true;
-      if (imageUrls.length > 0) updateData.$set.images = imageUrls;
-
-      // Process dimensions if provided
-      if (req.body.dimensions) {
-        try {
-          // Check if dimensions is a string that needs parsing
-          let dimensionsData = {};
-
-          if (typeof req.body.dimensions === "string") {
-            try {
-              dimensionsData = JSON.parse(req.body.dimensions);
-              console.log(
-                "Successfully parsed dimensions JSON for update:",
-                dimensionsData
-              );
-            } catch (parseError) {
-              console.error(
-                "Error parsing dimensions JSON for update:",
-                parseError,
-                "Original value:",
-                req.body.dimensions
-              );
-
-              // Try to handle the case where dimensions might be a stringified object with quotes
-              try {
-                // Remove any extra quotes that might be causing parsing issues
-                const cleanedDimensions = req.body.dimensions
-                  .replace(/['"]+/g, '"')
-                  .trim();
-                dimensionsData = JSON.parse(cleanedDimensions);
-                console.log(
-                  "Successfully parsed cleaned dimensions JSON for update:",
-                  dimensionsData
-                );
-              } catch (secondParseError) {
-                console.error(
-                  "Second attempt to parse dimensions for update failed:",
-                  secondParseError
-                );
-              }
-            }
-          } else if (typeof req.body.dimensions === "object") {
-            dimensionsData = req.body.dimensions;
-          }
-
-          // Create dimensions object with numeric values
-          const dimensionsObj = {
-            length: parseFloat(dimensionsData.length) || 0,
-            width: parseFloat(dimensionsData.width) || 0,
-            height: parseFloat(dimensionsData.height) || 0,
-          };
-
-          // Always add dimensions to ensure they're updated properly
-          updateData.$set.dimensions = dimensionsObj;
-          console.log("Processed dimensions for update:", dimensionsObj);
-        } catch (dimError) {
-          console.error("Error processing dimensions for update:", dimError);
-        }
-      }
-
-      console.log("Update data:", updateData);
-
-      // Update the product
-      const result = await productsCollection.updateOne(
-        { _id: existingProduct._id },
-        updateData
-      );
-
-      if (result.modifiedCount === 1) {
-        console.log("Product updated successfully");
-
-        // Fetch the updated product
-        updatedProduct = await productsCollection.findOne({
-          _id: existingProduct._id,
-        });
-
-        // Process image URLs to ensure they're proper
-        updatedProduct.images = (updatedProduct.images || []).map((image) =>
-          getProperImageUrl(image)
-        );
-
-        // Try to get category information
-        try {
-          if (updatedProduct.category) {
-            const categoriesCollection = db.collection("categories");
-            let categoryId;
-
-            try {
-              categoryId = new ObjectId(updatedProduct.category);
-            } catch (idError) {
-              categoryId = updatedProduct.category;
-            }
-
-            const category = await categoriesCollection.findOne({
-              _id: categoryId,
-            });
-
-            if (category) {
-              updatedProduct.categoryInfo = category;
-            }
-          }
-        } catch (categoryError) {
-          console.error("Error fetching category info:", categoryError);
-        }
-      } else {
-        throw new Error("Product update failed");
-      }
-    } catch (error) {
-      console.error("Error updating product:", error);
-      throw error;
-    } finally {
-      // Close the MongoDB client
-      if (client) {
-        await client.close();
-        console.log("MongoDB connection closed");
+        updateData.dimensions = JSON.parse(updateData.dimensions);
+      } catch (e) {
+        console.error("Error parsing dimensions:", e);
+        // Keep original if parsing fails
       }
     }
 
+    // Update the product
+    const updatedProduct = await Product.findByIdAndUpdate(id, updateData, {
+      new: true,
+      runValidators: true,
+    });
+
+    if (!updatedProduct) {
+      return res.status(404).json({
+        success: false,
+        message: "Product not found after update",
+      });
+    }
+
     // Return success response
-    return res.status(200).json({
+    res.status(200).json({
       success: true,
       data: updatedProduct,
-      method: "direct-mongodb",
       message: "Product updated successfully",
     });
   } catch (error) {
     console.error("Error updating product:", error);
-
-    // Handle duplicate key errors specifically
-    if (error.code === 11000) {
-      console.log("Duplicate key error during update:", error.keyValue);
-
-      // Check if it's a duplicate slug
-      if (error.keyValue && error.keyValue.slug) {
-        return res.status(200).json({
-          success: false,
-          message:
-            "A product with a similar name already exists. Please try a different name.",
-          error: "Duplicate slug error",
-          code: "DUPLICATE_SLUG",
-        });
-      }
-
-      // Check if it's a duplicate name
-      if (error.keyValue && error.keyValue.name) {
-        return res.status(200).json({
-          success: false,
-          message:
-            "A product with this exact name already exists. Please use a different name.",
-          error: "Duplicate name error",
-          code: "DUPLICATE_NAME",
-        });
-      }
-
-      // Generic duplicate key error
-      return res.status(200).json({
-        success: false,
-        message:
-          "This update conflicts with an existing product. Please check your input.",
-        error: "Duplicate key error",
-        code: "DUPLICATE_KEY",
-        duplicateField: Object.keys(error.keyValue)[0],
-      });
-    }
-
-    // Return error response for other errors
-    return res.status(200).json({
+    res.status(500).json({
       success: false,
-      message: error.message || "Error updating product",
-      error: error.stack,
+      message: error.message || "Failed to update product",
     });
   }
 };
-
 /**
  * Delete product by ID with guaranteed deletion
  */
