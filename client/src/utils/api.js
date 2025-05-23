@@ -6,24 +6,18 @@ const getBaseURL = () => {
   const hostname = window.location.hostname;
   const origin = window.location.origin;
 
-  // Check if we're on Render's domain
+  // Check if we're on Render's domain (production)
   if (
     hostname.includes("render.com") ||
     hostname === "furniture-q3nb.onrender.com"
   ) {
-    console.log("Using Render production API URL");
-    return origin; // Use the same origin for API calls in production
+    console.log("Using Render production API URL (same origin)");
+    return origin;
   }
 
-  // In development, use localhost:5000
-  if (hostname === "localhost" || hostname === "127.0.0.1") {
-    console.log("Using development API URL");
-    return "http://localhost:5000";
-  }
-
-  // In other production environments, use relative path
-  console.log("Using relative API URL");
-  return "";
+  // Otherwise, assume development and use localhost:5000
+  console.log("Using development API URL (http://localhost:5000)");
+  return "http://localhost:5000";
 };
 
 // Log the base URL for debugging
