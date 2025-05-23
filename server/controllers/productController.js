@@ -237,6 +237,11 @@ const getAllProducts = async (req, res) => {
         query.featured = true;
       }
 
+      // Filter out-of-stock products unless explicitly requested
+      if (req.query.includeOutOfStock !== "true") {
+        query.stock = { $gt: 0 };
+      }
+
       console.log("Final query:", JSON.stringify(query));
 
       // Execute the query
