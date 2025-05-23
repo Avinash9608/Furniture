@@ -238,9 +238,9 @@ const getAllProducts = async (req, res) => {
       }
 
       // Filter out-of-stock products unless explicitly requested
-      if (req.query.includeOutOfStock !== "true") {
-        query.stock = { $gt: 0 };
-      }
+      // Always filter out-of-stock products for the main product listing
+      query.stock = { $gt: 0 };
+      console.log("Applied unconditional out-of-stock filter to main query.");
 
       console.log("Final query:", JSON.stringify(query));
 
@@ -309,12 +309,11 @@ const getAllProducts = async (req, res) => {
             );
           }
           // Filter out-of-stock products unless explicitly requested (in-memory fallback)
-          if (req.query.includeOutOfStock !== "true") {
-            products = products.filter((product) => product.stock > 0);
-            console.log(
-              `Found ${products.length} products after filtering out of stock (in-memory)`
-            );
-          }
+          // Always filter out-of-stock products for the in-memory fallback
+          products = products.filter((product) => product.stock > 0);
+          console.log(
+            `Found ${products.length} products after unconditional out-of-stock filter (in-memory)`
+          );
 
           // Apply limit if provided
           if (req.query.limit) {
