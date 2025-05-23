@@ -3,12 +3,10 @@ const mongoose = require("mongoose");
 const connectDB = async () => {
   try {
     // Configure Mongoose globally
-    mongoose.set('bufferCommands', true); // Enable buffering
-    mongoose.set('maxTimeMS', 30000); // Set default operation timeout to 30 seconds
+    mongoose.set("bufferCommands", true); // Enable buffering
+    mongoose.set("maxTimeMS", 30000); // Set default operation timeout to 30 seconds
 
     const conn = await mongoose.connect(process.env.MONGO_URI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
       serverSelectionTimeoutMS: 30000, // Timeout after 30 seconds
       socketTimeoutMS: 45000, // Close sockets after 45 seconds
       connectTimeoutMS: 30000, // Retry initial connection after 30 seconds
@@ -18,17 +16,12 @@ const connectDB = async () => {
       family: 4, // Use IPv4, skip trying IPv6
       autoIndex: true, // Build indexes
       heartbeatFrequencyMS: 10000, // Check connection every 10 seconds
-      writeConcern: {
-        w: 'majority',
-        j: true,
-        wtimeout: 30000
-      }
     });
 
     console.log(`MongoDB Connected: ${conn.connection.host}`);
 
     // Add global timeout plugin
-    const timeoutPlugin = require('../utils/mongooseTimeoutPlugin');
+    const timeoutPlugin = require("../utils/mongooseTimeoutPlugin");
     mongoose.plugin(timeoutPlugin, { timeout: 30000 }); // 30 second timeout
 
     // Handle connection errors after initial connection
@@ -62,7 +55,6 @@ const connectDB = async () => {
       console.log("MongoDB connection closed through app termination");
       process.exit(0);
     });
-
   } catch (error) {
     console.error("Error connecting to MongoDB:", error);
     // Don't exit process, try to reconnect
@@ -72,4 +64,4 @@ const connectDB = async () => {
   }
 };
 
-module.exports = connectDB; 
+module.exports = connectDB;

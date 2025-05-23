@@ -117,20 +117,76 @@ const ProductDetail = () => {
   };
 
   // Handle add to cart
-  const handleAddToCart = (product) => {
+  const handleAddToCart = async (product) => {
     if (product) {
-      addToCart(product, quantity);
-      // Show success message
-      alert(`${product.name} added to cart!`);
+      try {
+        // Persist to backend first
+        const response = await fetch(`/api/cart/${product._id}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+          body: JSON.stringify({
+            quantity,
+            price: product.discountPrice || product.price,
+            lastModified: new Date().toISOString(),
+          }),
+        });
+
+        if (!response.ok) throw new Error("Failed to update cart");
+
+        // Update local state only after successful API call
+        const updatedProduct = await response.json();
+        addToCart(updatedProduct.data, quantity);
+
+        alert(`${product.name} added to cart!`);
+        // Force UI update
+        setCurrentProduct((prev) => ({
+          ...prev,
+          stock: prev.stock - quantity,
+        }));
+      } catch (error) {
+        console.error("Cart update error:", error);
+        alert("Failed to update cart. Please try again.");
+      }
     }
   };
 
   // Handle buy now
-  const handleBuyNow = (product) => {
+  const handleBuyNow = async (product) => {
     if (product) {
-      addToCart(product, quantity);
-      // Redirect to checkout
-      window.location.href = "/cart";
+      try {
+        // Persist to backend first
+        const response = await fetch(`/api/cart/${product._id}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+          body: JSON.stringify({
+            quantity,
+            price: product.discountPrice || product.price,
+            lastModified: new Date().toISOString(),
+          }),
+        });
+
+        if (!response.ok) throw new Error("Failed to update cart");
+
+        // Update local state only after successful API call
+        const updatedProduct = await response.json();
+        addToCart(updatedProduct.data, quantity);
+
+        // Force UI update before redirect
+        setCurrentProduct((prev) => ({
+          ...prev,
+          stock: prev.stock - quantity,
+        }));
+        window.location.href = "/cart";
+      } catch (error) {
+        console.error("Cart update error:", error);
+        alert("Failed to process order. Please try again.");
+      }
     }
   };
 

@@ -1,31 +1,23 @@
 const express = require("express");
 const router = express.Router();
 
-// Simple test route
-router.get("/test", (req, res) => {
-  res.json({ message: "API is working!" });
-});
+// Import all routes
+const authRoutes = require("./routes/auth");
+const productRoutes = require("./routes/products");
+const categoryRoutes = require("./routes/categories");
+const contactRoutes = require("./routes/contact");
+const orderRoutes = require("./routes/orders");
+const paymentSettingsRoutes = require("./routes/paymentSettings");
+const paymentRequestsRoutes = require("./routes/paymentRequests");
+const productFixRoute = require("./routes/productFixRoute"); // Add our fix route
 
-// Import other routes
-try {
-  const productRoutes = require("./routes/productRoutes");
-  const userRoutes = require("./routes/userRoutes");
-  const categoryRoutes = require("./routes/categoryRoutes");
-  const orderRoutes = require("./routes/orderRoutes");
-  const messageRoutes = require("./routes/messageRoutes");
-  const paymentRoutes = require("./routes/paymentRoutes");
-  const uploadRoutes = require("./routes/uploads");
-
-  // Use routes
-  router.use("/products", productRoutes);
-  router.use("/users", userRoutes);
-  router.use("/categories", categoryRoutes);
-  router.use("/orders", orderRoutes);
-  router.use("/messages", messageRoutes);
-  router.use("/payments", paymentRoutes);
-  router.use("/uploads", uploadRoutes);
-} catch (error) {
-  console.error("Error loading routes:", error.message);
-}
-
+// Mount routes
+router.use("/auth", authRoutes);
+router.use("/products", productRoutes);
+router.use("/categories", categoryRoutes);
+router.use("/contact", contactRoutes);
+router.use("/orders", orderRoutes);
+router.use("/payment-settings", paymentSettingsRoutes);
+router.use("/payment-requests", paymentRequestsRoutes);
+router.use("/fix/products", productFixRoute); // Mount our fix route
 module.exports = router;

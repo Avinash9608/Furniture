@@ -496,7 +496,7 @@ const productsAPI = {
 
             console.log("Attempting update with fallback endpoint...");
             const fallbackResponse = await api.put(
-              `/api/fallback/products/${id}`,
+              `/api/fix/products/${id}`,
               fallbackFormData,
               fallbackConfig
             );
