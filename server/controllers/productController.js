@@ -308,6 +308,13 @@ const getAllProducts = async (req, res) => {
               `Found ${products.length} products after filtering by featured`
             );
           }
+          // Filter out-of-stock products unless explicitly requested (in-memory fallback)
+          if (req.query.includeOutOfStock !== "true") {
+            products = products.filter((product) => product.stock > 0);
+            console.log(
+              `Found ${products.length} products after filtering out of stock (in-memory)`
+            );
+          }
 
           // Apply limit if provided
           if (req.query.limit) {
