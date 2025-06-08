@@ -195,7 +195,7 @@ export const getAllProducts = async () => {
     const endpoints = [
       `${baseUrl}/api/products?limit=1000`, // Use high limit to get all products
       `${baseUrl}/api/direct/products?limit=1000`,
-      `${baseUrl}/api/admin/products?limit=1000`,
+      // `${baseUrl}/api/admin/products?limit=1000`, // Removed: backend does not support this
     ];
 
     let productsData = null;
@@ -319,7 +319,7 @@ export const getProductById = async (productId) => {
     const endpoints = [
       `${baseUrl}/api/products/${productId}`,
       `${baseUrl}/api/direct/products/${productId}`,
-      `${baseUrl}/api/admin/products/${productId}`,
+      // `${baseUrl}/api/admin/products/${productId}`,
     ];
 
     // Add authentication headers
