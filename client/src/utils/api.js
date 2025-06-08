@@ -197,7 +197,19 @@ const productsAPI = {
 
   getAll: async (params = {}) => {
     try {
-      const response = await api.get("/products", { params });
+      const hostname = window.location.hostname;
+      const isProduction =
+        hostname.includes("render.com") ||
+        hostname === "furniture-q3nb.onrender.com";
+      const config = { params };
+      if (isProduction) {
+        config.headers = {
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          Pragma: "no-cache",
+          Expires: "0",
+        };
+      }
+      const response = await api.get("/products", config);
       return response.data;
     } catch (error) {
       console.error("Error fetching products:", error);

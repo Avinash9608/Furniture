@@ -114,6 +114,7 @@ const HybridEditProduct = () => {
       : "http://localhost:5000";
   };
 
+
   const loadProduct = async () => {
     try {
       setLoading(true);
@@ -138,7 +139,7 @@ const HybridEditProduct = () => {
       setLoading(false);
     }
   };
-
+  
   const loadCategories = async () => {
     try {
       // Default categories as fallback
@@ -286,6 +287,9 @@ const HybridEditProduct = () => {
     }
   };
 
+  
+  
+
   // Simplified upload handler
   const handleImageUpload = async (e) => {
     const file = e.target.files[0];
@@ -339,24 +343,13 @@ const HybridEditProduct = () => {
       formData.append("stock", product.stock);
       formData.append("category", product.category);
       formData.append("featured", product.featured);
-      // Append numeric fields with type conversion
-      formData.append("price", Number(product.price));
-      formData.append("discountPrice", Number(product.discountPrice));
-      formData.append("stock", Number(product.stock));
+      formData.append("dimensions", JSON.stringify(product.dimensions));
 
-      // Append individual dimension fields
-      formData.append("length", Number(product.dimensions.length));
-      formData.append("width", Number(product.dimensions.width));
-      formData.append("height", Number(product.dimensions.height));
-
-      // Handle image upload with validation
-      if (imageFile) {
-        formData.append("images", imageFile);
+      // Append image file if exists
+      if (selectedImageFile) {
+        formData.append("image", selectedImageFile);
       } else if (product.images?.length > 0) {
-        formData.append(
-          "existingImages",
-          JSON.stringify(product.images.map((img) => fixImageUrl(img)))
-        );
+        formData.append("existingImages", JSON.stringify(product.images));
       }
 
       // Get auth token

@@ -131,8 +131,8 @@ const Products = () => {
 
       // Use the appropriate URL based on environment
       const testUrl = isDevelopment
-        ? `${localServerUrl}/api/test/products-page`
-        : `${baseUrl}/api/test/products-page`;
+        ? `${localServerUrl}/api/test/products`
+        : `${baseUrl}/api/test/products`;
 
       console.log("Testing products connection at:", testUrl);
 
@@ -295,8 +295,8 @@ const Products = () => {
             const localServerUrl = "http://localhost:5000";
 
             const testUrl = isDevelopment
-              ? `${localServerUrl}/api/test/products-page`
-              : `${baseUrl}/api/test/products-page`;
+              ? `${localServerUrl}/api/test/products`
+              : `${baseUrl}/api/test/products`;
 
             console.log("Using fallback test endpoint:", testUrl);
             const fallbackResponse = await axios.get(testUrl, {

@@ -299,7 +299,6 @@ if (process.env.NODE_ENV === "production") {
 }
 
 // API Routes
-const productFixRoute = require('./routes/productFixRoute');
 const authRoutes = require("./routes/auth");
 const productRoutes = require("./routes/products");
 const categoryRoutes = require("./routes/categories");
@@ -312,7 +311,6 @@ const paymentRequestsRoutes = require("./routes/paymentRequests");
 const contactController = require("./controllers/simplifiedContactController");
 
 app.use("/api/auth", authRoutes);
-app.use("/api/fix/products", productFixRoute);
 app.use("/api/products", productRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/contact", contactRoutes);
